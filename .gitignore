@@ -64,7 +64,18 @@ screenshots/*
 docs/screenshots/*
 logs.txt
 test-ck
-__pycache__
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+*.so
+.venv/
+venv/
+data/loinc/
 
 # CK meta commands
 prompt.md
