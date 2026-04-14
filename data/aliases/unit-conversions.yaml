@@ -1,0 +1,178 @@
+# Unit conversion factors keyed by LOINC code (Finding #10)
+# IMPORTANT: Keys are LOINC codes, NOT test names, to avoid mismatch on non-English reports
+
+conversions:
+  "2345-7":  # Glucose
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 18.0182
+        reversible: true
+        confidence: "high"
+      - from: "g/L"
+        to: "mg/dL"
+        factor: 100.0
+        reversible: true
+        confidence: "high"
+
+  "2160-0":  # Creatinine
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "µmol/L"
+        to: "mg/dL"
+        factor: 0.0113
+        reversible: true
+        confidence: "high"
+      - from: "umol/L"
+        to: "mg/dL"
+        factor: 0.0113
+        reversible: true
+        confidence: "high"
+
+  "718-7":  # Hemoglobin
+    canonical_unit: "g/dL"
+    conversions:
+      - from: "g/L"
+        to: "g/dL"
+        factor: 0.1
+        reversible: true
+        confidence: "high"
+      - from: "mmol/L"
+        to: "g/dL"
+        factor: 1.6114
+        reversible: true
+        confidence: "high"
+
+  "2093-3":  # Total Cholesterol
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 38.67
+        reversible: true
+        confidence: "high"
+
+  "2571-8":  # Triglycerides
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 88.57
+        reversible: true
+        confidence: "high"
+
+  "2085-9":  # HDL
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 38.67
+        reversible: true
+        confidence: "high"
+
+  "13457-7":  # LDL
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 38.67
+        reversible: true
+        confidence: "high"
+
+  "3094-0":  # BUN
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 2.8011
+        reversible: true
+        confidence: "high"
+
+  "3084-1":  # Uric Acid
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "µmol/L"
+        to: "mg/dL"
+        factor: 0.01681
+        reversible: true
+        confidence: "high"
+      - from: "umol/L"
+        to: "mg/dL"
+        factor: 0.01681
+        reversible: true
+        confidence: "high"
+
+  "17861-6":  # Calcium
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 4.0078
+        reversible: true
+        confidence: "high"
+
+  "19123-9":  # Magnesium
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 2.4305
+        reversible: true
+        confidence: "high"
+
+  "2777-1":  # Phosphate
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 3.0974
+        reversible: true
+        confidence: "high"
+
+# Unit aliases (no value conversion, just name normalization)
+unit_aliases:
+  "U/L": "U/L"
+  "IU/L": "U/L"
+  "u/l": "U/L"
+  "UI/L": "U/L"
+  "K/uL": "K/uL"
+  "10^3/uL": "K/uL"
+  "x10^9/L": "K/uL"
+  "10*3/uL": "K/uL"
+  "G/L": "K/uL"
+  "M/uL": "M/uL"
+  "10^6/uL": "M/uL"
+  "x10^12/L": "M/uL"
+  "T/L": "M/uL"
+  "g/dL": "g/dL"
+  "gm/dL": "g/dL"
+  "mg/dL": "mg/dL"
+  "mg/dl": "mg/dL"
+  "mmol/L": "mmol/L"
+  "mmol/l": "mmol/L"
+  "mEq/L": "mmol/L"
+  "meq/L": "mmol/L"
+  "µmol/L": "µmol/L"
+  "umol/L": "µmol/L"
+  "mIU/L": "mIU/L"
+  "mU/L": "mIU/L"
+  "uIU/mL": "mIU/L"
+  "fL": "fL"
+  "fl": "fL"
+  "pg": "pg"
+  "ng/dL": "ng/dL"
+  "ng/dl": "ng/dL"
+  "pg/mL": "pg/mL"
+  "pg/ml": "pg/mL"
+  "ug/dL": "ug/dL"
+  "µg/dL": "ug/dL"
+  "%": "%"
+  "mm/hr": "mm/hr"
+  "mm/h": "mm/hr"
+  "mg/L": "mg/L"
+  "mg/l": "mg/L"
+  "ng/mL": "ng/mL"
+  "ng/ml": "ng/mL"
+  "mL/min/1.73m2": "mL/min/1.73m2"
+  "mL/min/1.73 m2": "mL/min/1.73m2"

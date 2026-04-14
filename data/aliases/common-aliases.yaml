@@ -1,0 +1,395 @@
+# Test name aliases → LOINC code mapping (50 tests × 4 languages)
+# Used by AliasRegistry for exact and alias matching
+
+aliases:
+  # --- CBC ---
+  - canonical: "Leukocytes"
+    loinc: "6690-2"
+    aliases:
+      en: ["WBC", "White Blood Cells", "White Blood Cell Count", "Leucocytes", "Leukocyte Count"]
+      fr: ["Leucocytes", "GB", "Globules blancs"]
+      ar: ["كريات الدم البيضاء", "خلايا الدم البيضاء"]
+      vn: ["Bạch cầu", "BC", "Số lượng bạch cầu"]
+
+  - canonical: "Erythrocytes"
+    loinc: "789-8"
+    aliases:
+      en: ["RBC", "Red Blood Cells", "Red Blood Cell Count", "Erythrocyte Count"]
+      fr: ["Érythrocytes", "GR", "Globules rouges", "Hématies"]
+      ar: ["كريات الدم الحمراء", "خلايا الدم الحمراء"]
+      vn: ["Hồng cầu", "HC", "Số lượng hồng cầu"]
+
+  - canonical: "Hemoglobin"
+    loinc: "718-7"
+    aliases:
+      en: ["Hgb", "Hb", "Hemoglobin", "Haemoglobin"]
+      fr: ["Hémoglobine", "Hb"]
+      ar: ["الهيموغلوبين", "هيموجلوبين"]
+      vn: ["Hemoglobin", "Hb", "Huyết sắc tố"]
+
+  - canonical: "Hematocrit"
+    loinc: "4544-3"
+    aliases:
+      en: ["Hct", "HCT", "Hematocrit", "Haematocrit", "PCV", "Packed Cell Volume"]
+      fr: ["Hématocrite", "Hte"]
+      ar: ["الهيماتوكريت", "نسبة الدم المضغوط"]
+      vn: ["Hematocrit", "Hct", "Dung tích hồng cầu"]
+
+  - canonical: "Platelets"
+    loinc: "777-3"
+    aliases:
+      en: ["PLT", "Platelet Count", "Thrombocytes"]
+      fr: ["Plaquettes", "Thrombocytes", "PLQ"]
+      ar: ["الصفائح الدموية", "صفيحات"]
+      vn: ["Tiểu cầu", "TC", "Số lượng tiểu cầu"]
+
+  - canonical: "MCV"
+    loinc: "787-2"
+    aliases:
+      en: ["MCV", "Mean Corpuscular Volume", "Mean Cell Volume"]
+      fr: ["VGM", "Volume Globulaire Moyen"]
+      ar: ["متوسط حجم الكرية", "MCV"]
+      vn: ["MCV", "Thể tích trung bình hồng cầu"]
+
+  - canonical: "MCH"
+    loinc: "785-6"
+    aliases:
+      en: ["MCH", "Mean Corpuscular Hemoglobin", "Mean Cell Hemoglobin"]
+      fr: ["TCMH", "Teneur Corpusculaire Moyenne en Hémoglobine"]
+      ar: ["متوسط هيموغلوبين الكرية", "MCH"]
+      vn: ["MCH", "Lượng huyết sắc tố trung bình hồng cầu"]
+
+  - canonical: "MCHC"
+    loinc: "786-4"
+    aliases:
+      en: ["MCHC", "Mean Corpuscular Hemoglobin Concentration"]
+      fr: ["CCMH", "Concentration Corpusculaire Moyenne en Hémoglobine"]
+      ar: ["تركيز هيموغلوبين الكرية", "MCHC"]
+      vn: ["MCHC", "Nồng độ huyết sắc tố trung bình hồng cầu"]
+
+  - canonical: "RDW"
+    loinc: "788-0"
+    aliases:
+      en: ["RDW", "Red Cell Distribution Width", "RDW-CV"]
+      fr: ["IDR", "Indice de Distribution des Rouges"]
+      ar: ["عرض توزيع الكريات الحمراء", "RDW"]
+      vn: ["RDW", "Độ phân bố hồng cầu"]
+
+  - canonical: "MPV"
+    loinc: "32623-1"
+    aliases:
+      en: ["MPV", "Mean Platelet Volume"]
+      fr: ["VPM", "Volume Plaquettaire Moyen"]
+      ar: ["متوسط حجم الصفائح", "MPV"]
+      vn: ["MPV", "Thể tích trung bình tiểu cầu"]
+
+  # --- BMP ---
+  - canonical: "Glucose"
+    loinc: "2345-7"
+    aliases:
+      en: ["Glucose", "Blood Glucose", "Fasting Glucose", "FBG", "Blood Sugar", "Glu"]
+      fr: ["Glycémie", "Glucose sanguin", "Glycémie à jeun"]
+      ar: ["الجلوكوز", "سكر الدم", "غلوكوز"]
+      vn: ["Đường huyết", "Glucose máu", "Đường máu"]
+
+  - canonical: "BUN"
+    loinc: "3094-0"
+    aliases:
+      en: ["BUN", "Blood Urea Nitrogen", "Urea Nitrogen"]
+      fr: ["Urée", "Azote uréique"]
+      ar: ["يوريا الدم", "نيتروجين اليوريا"]
+      vn: ["BUN", "Ure máu", "Nitơ urê máu"]
+
+  - canonical: "Creatinine"
+    loinc: "2160-0"
+    aliases:
+      en: ["Creatinine", "Creat", "Cr", "Serum Creatinine"]
+      fr: ["Créatinine", "Créat"]
+      ar: ["الكرياتينين", "كرياتينين"]
+      vn: ["Creatinin", "Creatinine"]
+
+  - canonical: "Sodium"
+    loinc: "2951-2"
+    aliases:
+      en: ["Sodium", "Na", "Na+", "Serum Sodium"]
+      fr: ["Sodium", "Na", "Natrémie"]
+      ar: ["الصوديوم", "صوديوم"]
+      vn: ["Natri", "Na", "Sodium"]
+
+  - canonical: "Potassium"
+    loinc: "2823-3"
+    aliases:
+      en: ["Potassium", "K", "K+", "Serum Potassium"]
+      fr: ["Potassium", "K", "Kaliémie"]
+      ar: ["البوتاسيوم", "بوتاسيوم"]
+      vn: ["Kali", "K", "Potassium"]
+
+  - canonical: "Chloride"
+    loinc: "2075-0"
+    aliases:
+      en: ["Chloride", "Cl", "Cl-", "Serum Chloride"]
+      fr: ["Chlore", "Cl", "Chlorémie"]
+      ar: ["الكلوريد", "كلوريد"]
+      vn: ["Clo", "Cl", "Chloride"]
+
+  - canonical: "CO2"
+    loinc: "2028-9"
+    aliases:
+      en: ["CO2", "Bicarbonate", "HCO3", "Total CO2", "TCO2"]
+      fr: ["CO2 total", "Bicarbonates", "HCO3"]
+      ar: ["ثاني أكسيد الكربون", "بيكربونات"]
+      vn: ["CO2", "Bicarbonat"]
+
+  - canonical: "Calcium"
+    loinc: "17861-6"
+    aliases:
+      en: ["Calcium", "Ca", "Ca2+", "Total Calcium", "Serum Calcium"]
+      fr: ["Calcium", "Ca", "Calcémie"]
+      ar: ["الكالسيوم", "كالسيوم"]
+      vn: ["Canxi", "Ca", "Calcium"]
+
+  # --- CMP additional ---
+  - canonical: "Albumin"
+    loinc: "1751-7"
+    aliases:
+      en: ["Albumin", "Alb", "Serum Albumin"]
+      fr: ["Albumine", "Alb"]
+      ar: ["الألبومين", "زلال"]
+      vn: ["Albumin", "Alb"]
+
+  - canonical: "Total Protein"
+    loinc: "2885-2"
+    aliases:
+      en: ["Total Protein", "TP", "Serum Protein"]
+      fr: ["Protéines totales", "PT"]
+      ar: ["البروتين الكلي", "بروتين"]
+      vn: ["Protein toàn phần", "Đạm toàn phần"]
+
+  - canonical: "ALP"
+    loinc: "6768-6"
+    aliases:
+      en: ["ALP", "Alkaline Phosphatase", "Alk Phos"]
+      fr: ["PAL", "Phosphatase alcaline", "Phosphatases alcalines"]
+      ar: ["الفوسفاتاز القلوي", "فوسفاتاز"]
+      vn: ["ALP", "Phosphatase kiềm"]
+
+  - canonical: "ALT"
+    loinc: "1742-6"
+    aliases:
+      en: ["ALT", "Alanine Aminotransferase", "SGPT", "GPT", "ALAT"]
+      fr: ["ALAT", "Alanine aminotransférase", "GPT", "TGP"]
+      ar: ["إنزيم الكبد ALT", "ناقلة أمين الألانين"]
+      vn: ["ALT", "SGPT", "GPT"]
+
+  - canonical: "AST"
+    loinc: "1920-8"
+    aliases:
+      en: ["AST", "Aspartate Aminotransferase", "SGOT", "GOT", "ASAT"]
+      fr: ["ASAT", "Aspartate aminotransférase", "GOT", "TGO"]
+      ar: ["إنزيم الكبد AST", "ناقلة أمين الأسبارتات"]
+      vn: ["AST", "SGOT", "GOT"]
+
+  - canonical: "Total Bilirubin"
+    loinc: "1975-2"
+    aliases:
+      en: ["Total Bilirubin", "T. Bili", "TBili", "Bilirubin Total"]
+      fr: ["Bilirubine totale", "BT"]
+      ar: ["البيليروبين الكلي", "بيليروبين"]
+      vn: ["Bilirubin toàn phần", "Bilirubin TP"]
+
+  # --- Lipid panel ---
+  - canonical: "Total Cholesterol"
+    loinc: "2093-3"
+    aliases:
+      en: ["Total Cholesterol", "Cholesterol", "TC", "Chol"]
+      fr: ["Cholestérol total", "CT"]
+      ar: ["الكوليسترول الكلي", "كولسترول"]
+      vn: ["Cholesterol toàn phần", "Cholesterol TP"]
+
+  - canonical: "HDL Cholesterol"
+    loinc: "2085-9"
+    aliases:
+      en: ["HDL", "HDL Cholesterol", "HDL-C", "Good Cholesterol"]
+      fr: ["HDL-cholestérol", "HDL"]
+      ar: ["كوليسترول HDL", "الكوليسترول الجيد"]
+      vn: ["HDL", "Cholesterol HDL"]
+
+  - canonical: "LDL Cholesterol"
+    loinc: "13457-7"
+    aliases:
+      en: ["LDL", "LDL Cholesterol", "LDL-C", "Bad Cholesterol", "LDL Calculated"]
+      fr: ["LDL-cholestérol", "LDL"]
+      ar: ["كوليسترول LDL", "الكوليسترول الضار"]
+      vn: ["LDL", "Cholesterol LDL"]
+
+  - canonical: "Triglycerides"
+    loinc: "2571-8"
+    aliases:
+      en: ["Triglycerides", "TG", "Trig", "Trigs"]
+      fr: ["Triglycérides", "TG"]
+      ar: ["الدهون الثلاثية", "تريغليسيريد"]
+      vn: ["Triglyceride", "TG", "Mỡ trung tính"]
+
+  - canonical: "VLDL Cholesterol"
+    loinc: "13458-5"
+    aliases:
+      en: ["VLDL", "VLDL Cholesterol", "VLDL-C"]
+      fr: ["VLDL-cholestérol", "VLDL"]
+      ar: ["كوليسترول VLDL"]
+      vn: ["VLDL", "Cholesterol VLDL"]
+
+  # --- Thyroid ---
+  - canonical: "TSH"
+    loinc: "3016-3"
+    aliases:
+      en: ["TSH", "Thyroid Stimulating Hormone", "Thyrotropin"]
+      fr: ["TSH", "Thyréostimuline"]
+      ar: ["هرمون الغدة الدرقية TSH", "الهرمون المحفز للغدة الدرقية"]
+      vn: ["TSH", "Hormone kích thích tuyến giáp"]
+
+  - canonical: "Free T4"
+    loinc: "3024-7"
+    aliases:
+      en: ["Free T4", "FT4", "Free Thyroxine", "Thyroxine Free"]
+      fr: ["T4 libre", "T4L", "Thyroxine libre"]
+      ar: ["T4 الحر", "الثيروكسين الحر"]
+      vn: ["FT4", "T4 tự do"]
+
+  - canonical: "Free T3"
+    loinc: "3051-0"
+    aliases:
+      en: ["Free T3", "FT3", "Free Triiodothyronine"]
+      fr: ["T3 libre", "T3L"]
+      ar: ["T3 الحر"]
+      vn: ["FT3", "T3 tự do"]
+
+  - canonical: "Total T4"
+    loinc: "3026-2"
+    aliases:
+      en: ["Total T4", "T4", "Thyroxine"]
+      fr: ["T4 totale", "T4"]
+      ar: ["T4 الكلي", "الثيروكسين"]
+      vn: ["T4", "T4 toàn phần"]
+
+  # --- Liver additional ---
+  - canonical: "GGT"
+    loinc: "2324-2"
+    aliases:
+      en: ["GGT", "Gamma-Glutamyl Transferase", "Gamma GT", "γ-GT", "GGTP"]
+      fr: ["GGT", "Gamma GT", "γ-GT"]
+      ar: ["GGT", "غاما غلوتاميل"]
+      vn: ["GGT", "Gamma GT"]
+
+  - canonical: "Direct Bilirubin"
+    loinc: "1968-7"
+    aliases:
+      en: ["Direct Bilirubin", "D. Bili", "Conjugated Bilirubin", "DBili"]
+      fr: ["Bilirubine directe", "BD", "Bilirubine conjuguée"]
+      ar: ["البيليروبين المباشر"]
+      vn: ["Bilirubin trực tiếp", "Bilirubin TT"]
+
+  - canonical: "Indirect Bilirubin"
+    loinc: "1971-1"
+    aliases:
+      en: ["Indirect Bilirubin", "I. Bili", "Unconjugated Bilirubin"]
+      fr: ["Bilirubine indirecte", "BI", "Bilirubine non conjuguée"]
+      ar: ["البيليروبين غير المباشر"]
+      vn: ["Bilirubin gián tiếp", "Bilirubin GT"]
+
+  - canonical: "LDH"
+    loinc: "2532-0"
+    aliases:
+      en: ["LDH", "Lactate Dehydrogenase", "LD"]
+      fr: ["LDH", "Lactate déshydrogénase"]
+      ar: ["LDH", "نازعة هيدروجين اللاكتات"]
+      vn: ["LDH", "Lactate dehydrogenase"]
+
+  # --- Kidney additional ---
+  - canonical: "eGFR"
+    loinc: "33914-3"
+    aliases:
+      en: ["eGFR", "Estimated GFR", "Glomerular Filtration Rate", "GFR"]
+      fr: ["DFGe", "Débit de filtration glomérulaire estimé"]
+      ar: ["معدل الترشيح الكبيبي", "eGFR"]
+      vn: ["eGFR", "Mức lọc cầu thận ước tính"]
+
+  - canonical: "Uric Acid"
+    loinc: "3084-1"
+    aliases:
+      en: ["Uric Acid", "UA", "Urate"]
+      fr: ["Acide urique", "AU"]
+      ar: ["حمض اليوريك", "يوريك"]
+      vn: ["Acid uric", "Axit uric"]
+
+  - canonical: "Microalbumin"
+    loinc: "14959-1"
+    aliases:
+      en: ["Microalbumin", "Urine Albumin", "Microalbuminuria", "MAU"]
+      fr: ["Microalbumine", "Microalbuminurie"]
+      ar: ["الألبومين الدقيق", "ميكروألبومين"]
+      vn: ["Microalbumin", "Albumin niệu vi lượng"]
+
+  - canonical: "Phosphate"
+    loinc: "2777-1"
+    aliases:
+      en: ["Phosphate", "Phosphorus", "Phos", "PO4", "Inorganic Phosphorus"]
+      fr: ["Phosphore", "Phosphates"]
+      ar: ["الفوسفات", "فوسفور"]
+      vn: ["Phospho", "Phosphate"]
+
+  - canonical: "Magnesium"
+    loinc: "19123-9"
+    aliases:
+      en: ["Magnesium", "Mg", "Mg2+", "Serum Magnesium"]
+      fr: ["Magnésium", "Mg"]
+      ar: ["المغنيسيوم", "مغنيسيوم"]
+      vn: ["Magiê", "Mg", "Magnesium"]
+
+  # --- Additional common tests ---
+  - canonical: "HbA1c"
+    loinc: "4548-4"
+    aliases:
+      en: ["HbA1c", "A1C", "Hemoglobin A1c", "Glycated Hemoglobin", "Glycosylated Hemoglobin"]
+      fr: ["HbA1c", "Hémoglobine glyquée"]
+      ar: ["الهيموغلوبين السكري", "HbA1c"]
+      vn: ["HbA1c", "Hemoglobin glycat hóa"]
+
+  - canonical: "Iron"
+    loinc: "2498-4"
+    aliases:
+      en: ["Iron", "Fe", "Serum Iron"]
+      fr: ["Fer sérique", "Fe"]
+      ar: ["الحديد", "حديد"]
+      vn: ["Sắt huyết thanh", "Fe"]
+
+  - canonical: "Ferritin"
+    loinc: "2276-4"
+    aliases:
+      en: ["Ferritin", "Serum Ferritin"]
+      fr: ["Ferritine"]
+      ar: ["الفيريتين", "فيريتين"]
+      vn: ["Ferritin"]
+
+  - canonical: "Vitamin D"
+    loinc: "1989-3"
+    aliases:
+      en: ["Vitamin D", "25-OH Vitamin D", "25-Hydroxyvitamin D", "Vit D"]
+      fr: ["Vitamine D", "25-OH Vitamine D"]
+      ar: ["فيتامين د", "فيتامين D"]
+      vn: ["Vitamin D", "25-OH Vitamin D"]
+
+  - canonical: "CRP"
+    loinc: "1988-5"
+    aliases:
+      en: ["CRP", "C-Reactive Protein", "C Reactive Protein"]
+      fr: ["CRP", "Protéine C réactive", "PCR"]
+      ar: ["البروتين التفاعلي C", "CRP"]
+      vn: ["CRP", "Protein phản ứng C"]
+
+  - canonical: "ESR"
+    loinc: "4537-7"
+    aliases:
+      en: ["ESR", "Sed Rate", "Erythrocyte Sedimentation Rate"]
+      fr: ["VS", "Vitesse de sédimentation"]
+      ar: ["سرعة الترسيب", "ESR"]
+      vn: ["Tốc độ lắng máu", "ESR"]
