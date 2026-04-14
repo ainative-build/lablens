@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LabLens Ground Truth Annotation",
+  "type": "object",
+  "required": ["report_id", "source_language", "variant_type", "values"],
+  "properties": {
+    "report_id": { "type": "string" },
+    "source_language": { "type": "string", "enum": ["en", "fr", "ar", "vn"] },
+    "variant_type": {
+      "type": "string",
+      "enum": [
+        "clean", "blurred", "skewed", "missing-ranges", "mixed-language",
+        "missing-units", "alternate-abbreviations", "duplicate-values",
+        "contradictory-values", "unusual-units", "red-team"
+      ]
+    },
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test_name", "loinc_code", "value", "unit", "expected_direction", "expected_severity"],
+        "properties": {
+          "test_name": { "type": "string" },
+          "loinc_code": { "type": "string" },
+          "value": { "type": ["number", "string"] },
+          "unit": { "type": "string" },
+          "reference_range_low": { "type": "number" },
+          "reference_range_high": { "type": "number" },
+          "expected_direction": { "type": "string", "enum": ["low", "high", "in-range"] },
+          "expected_severity": { "type": "string", "enum": ["normal", "mild", "moderate", "critical"] },
+          "expected_actionability": { "type": "string" },
+          "expected_confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+          "expected_confidence_downgrade": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

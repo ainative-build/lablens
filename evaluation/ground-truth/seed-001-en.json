@@ -1,0 +1,111 @@
+{
+  "report_id": "seed-001",
+  "source_language": "en",
+  "variant_type": "clean",
+  "values": [
+    {
+      "test_name": "WBC",
+      "loinc_code": "6690-2",
+      "value": 7.5,
+      "unit": "K/uL",
+      "reference_range_low": 4.5,
+      "reference_range_high": 11.0,
+      "expected_direction": "in-range",
+      "expected_severity": "normal",
+      "expected_actionability": "routine",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    },
+    {
+      "test_name": "RBC",
+      "loinc_code": "789-8",
+      "value": 4.8,
+      "unit": "M/uL",
+      "reference_range_low": 4.5,
+      "reference_range_high": 5.9,
+      "expected_direction": "in-range",
+      "expected_severity": "normal",
+      "expected_actionability": "routine",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    },
+    {
+      "test_name": "Hemoglobin",
+      "loinc_code": "718-7",
+      "value": 10.5,
+      "unit": "g/dL",
+      "reference_range_low": 12.0,
+      "reference_range_high": 15.5,
+      "expected_direction": "low",
+      "expected_severity": "mild",
+      "expected_actionability": "monitor",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    },
+    {
+      "test_name": "Glucose",
+      "loinc_code": "2345-7",
+      "value": 250,
+      "unit": "mg/dL",
+      "reference_range_low": 70,
+      "reference_range_high": 100,
+      "expected_direction": "high",
+      "expected_severity": "moderate",
+      "expected_actionability": "consult",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    },
+    {
+      "test_name": "Creatinine",
+      "loinc_code": "2160-0",
+      "value": 0.9,
+      "unit": "mg/dL",
+      "reference_range_low": 0.6,
+      "reference_range_high": 1.1,
+      "expected_direction": "in-range",
+      "expected_severity": "normal",
+      "expected_actionability": "routine",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    },
+    {
+      "test_name": "Potassium",
+      "loinc_code": "2823-3",
+      "value": 5.8,
+      "unit": "mmol/L",
+      "reference_range_low": 3.5,
+      "reference_range_high": 5.0,
+      "expected_direction": "high",
+      "expected_severity": "moderate",
+      "expected_actionability": "consult",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    },
+    {
+      "test_name": "TSH",
+      "loinc_code": "3016-3",
+      "value": 0.3,
+      "unit": "mIU/L",
+      "reference_range_low": 0.4,
+      "reference_range_high": 4.0,
+      "expected_direction": "low",
+      "expected_severity": "mild",
+      "expected_actionability": "monitor",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    },
+    {
+      "test_name": "Total Cholesterol",
+      "loinc_code": "2093-3",
+      "value": 185,
+      "unit": "mg/dL",
+      "reference_range_low": 0,
+      "reference_range_high": 200,
+      "expected_direction": "in-range",
+      "expected_severity": "normal",
+      "expected_actionability": "routine",
+      "expected_confidence": "high",
+      "expected_confidence_downgrade": false
+    }
+  ]
+}
