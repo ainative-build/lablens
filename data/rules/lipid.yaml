@@ -1,0 +1,119 @@
+# Lipid Panel — interpretation rules
+# Sources: ATP III / ACC/AHA 2018 cholesterol guidelines, ARUP Laboratories
+
+- loinc_code: "2093-3"
+  test_name: "Total Cholesterol"
+  unit: "mg/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 0
+      high: 200
+      source: "ATP III — desirable total cholesterol"
+  severity_bands:
+    normal: { low: 0, high: 200 }
+    mild_high: { low: 201, high: 239 }
+    moderate_high: { low: 240, high: 300 }
+    critical_high: { low: 301, high: 9999 }
+  actionability:
+    normal: "routine"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"
+
+- loinc_code: "2085-9"
+  test_name: "HDL Cholesterol"
+  unit: "mg/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "male"
+      low: 40
+      high: 999
+      source: "ATP III — male HDL (low HDL is risk factor)"
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "female"
+      low: 50
+      high: 999
+      source: "ATP III — female HDL (low HDL is risk factor)"
+  severity_bands:
+    normal: { low: 40, high: 999 }
+    mild_low: { low: 30, high: 39 }
+    moderate_low: { low: 20, high: 29 }
+    critical_low: { low: 0, high: 19 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    moderate_low: "consult"
+    critical_low: "urgent"
+
+- loinc_code: "13457-7"
+  test_name: "LDL Cholesterol (calculated)"
+  unit: "mg/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 0
+      high: 100
+      source: "ACC/AHA 2018 — optimal LDL"
+  severity_bands:
+    normal: { low: 0, high: 100 }
+    mild_high: { low: 101, high: 129 }
+    moderate_high: { low: 130, high: 189 }
+    critical_high: { low: 190, high: 9999 }
+  actionability:
+    normal: "routine"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"
+
+- loinc_code: "2571-8"
+  test_name: "Triglycerides"
+  unit: "mg/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 0
+      high: 150
+      source: "ATP III — normal triglycerides"
+  severity_bands:
+    normal: { low: 0, high: 150 }
+    mild_high: { low: 151, high: 199 }
+    moderate_high: { low: 200, high: 499 }
+    critical_high: { low: 500, high: 99999 }
+  actionability:
+    normal: "routine"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"
+
+- loinc_code: "13458-5"
+  test_name: "VLDL Cholesterol (calculated)"
+  unit: "mg/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 2
+      high: 30
+      source: "ARUP Laboratories — adult reference range"
+  severity_bands:
+    normal: { low: 2, high: 30 }
+    mild_high: { low: 31, high: 40 }
+    moderate_high: { low: 41, high: 60 }
+    critical_high: { low: 61, high: 9999 }
+  actionability:
+    normal: "routine"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"

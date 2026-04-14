@@ -1,0 +1,103 @@
+# Liver Panel — additional tests beyond CMP
+# Sources: ACG guidelines, ARUP Laboratories, UpToDate hepatology
+
+- loinc_code: "2324-2"
+  test_name: "GGT (Gamma-Glutamyl Transferase)"
+  unit: "U/L"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "male"
+      low: 9
+      high: 48
+      source: "ARUP Laboratories — adult male GGT"
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "female"
+      low: 9
+      high: 36
+      source: "ARUP Laboratories — adult female GGT"
+  severity_bands:
+    normal: { low: 9, high: 48 }
+    mild_high: { low: 49, high: 100 }
+    moderate_high: { low: 101, high: 300 }
+    critical_high: { low: 301, high: 99999 }
+  actionability:
+    normal: "routine"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"
+
+- loinc_code: "1968-7"
+  test_name: "Direct Bilirubin"
+  unit: "mg/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 0
+      high: 0.3
+      source: "ARUP Laboratories — adult direct bilirubin"
+  severity_bands:
+    normal: { low: 0, high: 0.3 }
+    mild_high: { low: 0.4, high: 1.0 }
+    moderate_high: { low: 1.1, high: 3.0 }
+    critical_high: { low: 3.1, high: 999 }
+  actionability:
+    normal: "routine"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"
+
+- loinc_code: "1971-1"
+  test_name: "Indirect Bilirubin"
+  unit: "mg/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 0.1
+      high: 1.0
+      source: "ARUP Laboratories — adult indirect bilirubin (calculated)"
+  severity_bands:
+    normal: { low: 0.1, high: 1.0 }
+    mild_high: { low: 1.1, high: 2.0 }
+    moderate_high: { low: 2.1, high: 5.0 }
+    critical_high: { low: 5.1, high: 999 }
+  actionability:
+    normal: "routine"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"
+
+- loinc_code: "2532-0"
+  test_name: "LDH (Lactate Dehydrogenase)"
+  unit: "U/L"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 140
+      high: 280
+      source: "ARUP Laboratories — adult LDH"
+  severity_bands:
+    normal: { low: 140, high: 280 }
+    mild_low: { low: 100, high: 139 }
+    mild_high: { low: 281, high: 450 }
+    moderate_low: { low: 50, high: 99 }
+    moderate_high: { low: 451, high: 800 }
+    critical_low: { low: 0, high: 49 }
+    critical_high: { low: 801, high: 99999 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    mild_high: "monitor"
+    moderate_low: "consult"
+    moderate_high: "consult"
+    critical_low: "urgent"
+    critical_high: "urgent"

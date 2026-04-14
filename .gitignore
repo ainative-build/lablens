@@ -75,7 +75,9 @@ dist/
 *.so
 .venv/
 venv/
-data/loinc/
+data/loinc/*.csv
+data/loinc/LinguisticVariants/
+data/medlineplus-cache/
 
 # CK meta commands
 prompt.md
