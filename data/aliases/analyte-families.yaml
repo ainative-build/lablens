@@ -162,3 +162,4 @@ decision_threshold_loinc_codes:
   - "13457-7"  # LDL (optimal < 100)
   - "2571-8"   # Triglycerides (normal < 150)
   - "4548-4"   # HbA1c (normal < 5.7, prediabetes 5.7-6.4)
+  - "53553-4"  # Estimated Average Glucose / eAG (derived from HbA1c)

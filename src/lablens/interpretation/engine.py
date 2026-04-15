@@ -148,24 +148,28 @@ class InterpretationEngine:
                         )
                         return result
 
-        # Decision-threshold tests with suspicious ranges → indeterminate
-        # These tests (HbA1c, lipids) use clinical cut-points, not reference
-        # intervals — a suspicious lab range is unreliable for interpretation
+        # Decision-threshold tests: lab-provided ranges are unreliable unless
+        # a curated rule can cross-validate. These tests use clinical cut-points
+        # (not reference intervals), so OCR-grabbed ranges from neighboring rows
+        # are especially dangerous.
         is_decision_threshold = v.get("is_decision_threshold", False)
-        if is_decision_threshold and range_source == "lab-provided" and range_trust == "low":
-            logger.info(
-                "Decision-threshold test %s with low-trust lab range — "
-                "degrading to indeterminate",
-                v.get("test_name", "?"),
-            )
-            result.direction = "indeterminate"
-            result.range_source = "no-range"
-            result.range_trust = range_trust
-            result.confidence = "low"
-            result.evidence_trace = build_evidence_trace(
-                result, rule, match_confidence
-            )
-            return result
+        if is_decision_threshold and range_source == "lab-provided":
+            has_curated_crosscheck = rule and rule.get("reference_ranges")
+            if range_trust == "low" or not has_curated_crosscheck:
+                logger.info(
+                    "Decision-threshold test %s with unverifiable lab range "
+                    "(trust=%s, curated=%s) — degrading to indeterminate",
+                    v.get("test_name", "?"), range_trust,
+                    "yes" if has_curated_crosscheck else "no",
+                )
+                result.direction = "indeterminate"
+                result.range_source = "no-range"
+                result.range_trust = range_trust
+                result.confidence = "low"
+                result.evidence_trace = build_evidence_trace(
+                    result, rule, match_confidence
+                )
+                return result
 
         # Expand range_source with trust level
         if range_source == "lab-provided":

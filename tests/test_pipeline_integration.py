@@ -709,12 +709,28 @@ class TestDecisionThresholdGating:
         assert report.values[0].range_source == "no-range"
         assert report.values[0].confidence == "low"
 
-    def test_decision_threshold_high_trust_uses_range(self, engine):
-        """Decision-threshold test with trusted lab range → normal interpretation."""
+    def test_decision_threshold_no_curated_degrades(self, engine):
+        """Decision-threshold test with no curated cross-check → indeterminate."""
         values = [{
-            "test_name": "HbA1c", "value": 5.4, "unit": "%",
-            "loinc_code": "4548-4",
-            "ref_range_low": 3.9, "ref_range_high": 5.7,
+            "test_name": "eAG", "value": 5.53, "unit": "mmol/L",
+            "loinc_code": "53553-4",
+            "ref_range_low": 3.9, "ref_range_high": 5.5,
+            "range_trust": "high",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "indeterminate"
+        assert report.values[0].confidence == "low"
+
+    def test_decision_threshold_with_curated_crosscheck_uses_range(self, engine):
+        """Decision-threshold test with curated cross-check → normal interpretation.
+
+        Uses Total Cholesterol (2093-3) which has a curated rule.
+        """
+        values = [{
+            "test_name": "Total Cholesterol", "value": 180, "unit": "mg/dL",
+            "loinc_code": "2093-3",
+            "ref_range_low": 0, "ref_range_high": 200,
             "range_trust": "high",
             "is_decision_threshold": True,
         }]
