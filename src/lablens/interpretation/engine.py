@@ -33,6 +33,18 @@ _DEFAULT_ACTIONABILITY = {
     "critical": "urgent",
 }
 
+# Qualitative values indicating normal/expected results
+_NORMAL_QUALITATIVE = {
+    "negative", "non-reactive", "nonreactive", "normal", "not detected",
+    "absent", "clear", "âm tính", "négatif",
+}
+
+# Qualitative values indicating abnormal/unexpected results
+_ABNORMAL_QUALITATIVE = {
+    "positive", "reactive", "abnormal", "detected", "present",
+    "dương tính", "positif",
+}
+
 
 class InterpretationEngine:
     """Core deterministic engine — no LLM, no network."""
@@ -63,7 +75,7 @@ class InterpretationEngine:
 
         present_codes = [r.loinc_code for r in results if r.loinc_code]
         panels = check_panels(present_codes, self.rules)
-        abnormal = [r for r in results if r.direction != "in-range"]
+        abnormal = [r for r in results if r.direction in ("high", "low")]
 
         return InterpretedReport(
             values=results,
@@ -82,13 +94,12 @@ class InterpretationEngine:
             unit=v.get("unit", ""),
         )
 
-        # Non-numeric: skip rule-based interpretation
+        # Non-numeric: interpret qualitative values
         if not isinstance(v["value"], (int, float)):
-            result.direction = "indeterminate"
-            result.confidence = "low"
-            result.evidence_trace = {
-                "note": "Non-numeric value, rule-based interpretation skipped"
-            }
+            result.direction, result.confidence = self._interpret_qualitative(
+                v["value"], v.get("flag")
+            )
+            result.evidence_trace = {"note": "Qualitative interpretation", "raw": str(v["value"])}
             return result
 
         value = float(v["value"])
@@ -102,7 +113,16 @@ class InterpretationEngine:
         result.range_source = range_source
 
         if ref_low is None or ref_high is None:
-            result.direction = "indeterminate"
+            # Fallback: use OCR flag for direction if available
+            flag = v.get("flag")
+            if flag and flag.upper() in ("H", "A"):
+                result.direction = "high"
+                result.range_source = "ocr-flag"
+            elif flag and flag.upper() == "L":
+                result.direction = "low"
+                result.range_source = "ocr-flag"
+            else:
+                result.direction = "indeterminate"
             result.confidence = "low"
             result.evidence_trace = build_evidence_trace(
                 result, rule, match_confidence
@@ -112,8 +132,11 @@ class InterpretationEngine:
         # Step 2: Determine direction
         result.direction = self._determine_direction(value, ref_low, ref_high)
 
-        # Step 3: Apply severity band
+        # Step 3: Apply severity band (curated rule or heuristic deviation)
         result.severity = self._apply_severity(value, rule)
+        if result.severity == "normal" and result.direction != "in-range":
+            # Heuristic fallback: estimate severity from deviation %
+            result.severity = self._heuristic_severity(value, ref_low, ref_high)
 
         # Step 4: Check panic threshold
         result.is_panic = self._check_panic(value, rule)
@@ -138,8 +161,11 @@ class InterpretationEngine:
     @staticmethod
     def _select_range(v: dict, rule: dict | None) -> tuple:
         """Step 1: Lab-provided preferred, curated fallback."""
-        if v.get("ref_range_low") is not None and v.get("ref_range_high") is not None:
-            return v["ref_range_low"], v["ref_range_high"], "lab-provided"
+        # Support both abbreviated and full key names from pipeline
+        low = v.get("reference_range_low", v.get("ref_range_low"))
+        high = v.get("reference_range_high", v.get("ref_range_high"))
+        if low is not None and high is not None:
+            return low, high, "lab-provided"
         if rule:
             ranges = rule.get("reference_ranges", [])
             if ranges:
@@ -194,3 +220,35 @@ class InterpretationEngine:
             value <= panic.get("low", float("-inf"))
             or value >= panic.get("high", float("inf"))
         )
+
+    @staticmethod
+    def _heuristic_severity(value: float, ref_low: float, ref_high: float) -> str:
+        """Estimate severity from deviation % when no curated severity bands exist."""
+        range_span = ref_high - ref_low
+        if range_span <= 0:
+            return "mild"
+        if value < ref_low:
+            deviation = (ref_low - value) / range_span
+        else:
+            deviation = (value - ref_high) / range_span
+        if deviation <= 0.1:
+            return "mild"
+        return "moderate"
+
+    @staticmethod
+    def _interpret_qualitative(value: str, flag: str | None) -> tuple[str, str]:
+        """Interpret non-numeric qualitative lab values. Returns (direction, confidence)."""
+        val_lower = str(value).strip().lower()
+        if val_lower in _NORMAL_QUALITATIVE:
+            return "in-range", "medium"
+        if val_lower in _ABNORMAL_QUALITATIVE:
+            return "high", "medium"
+        # Semi-quantitative: +, ++, +++, 1+, 2+, etc.
+        if val_lower in {"+", "++", "+++", "++++", "1+", "2+", "3+", "4+"}:
+            return "high", "low"
+        # Flag-based fallback
+        if flag and flag.upper() in ("H", "A"):
+            return "high", "low"
+        if flag and flag.upper() == "L":
+            return "low", "low"
+        return "indeterminate", "low"

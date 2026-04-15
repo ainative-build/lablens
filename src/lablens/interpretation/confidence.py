@@ -1,6 +1,8 @@
 """Composite confidence scoring for interpretation results.
 
-Confidence = min(match_confidence, range_confidence, unit_confidence).
+Confidence = min(match, range, unit) with lab-provided range boost.
+Lab-provided ranges are the most trustworthy source (from the lab's own report),
+so they compensate for weak LOINC match confidence.
 """
 
 
@@ -9,9 +11,10 @@ def calculate_confidence(
     range_source: str,
     unit_confidence: str = "high",
 ) -> str:
-    """Composite confidence: lowest of three dimensions.
+    """Composite confidence from three dimensions.
 
-    high = all three high. medium = at least one medium, none low. low = any low.
+    When lab-provided ranges exist, match confidence is boosted to at least
+    medium — the lab's own ranges don't need LOINC matching to be trustworthy.
     """
     scores = {"high": 3, "medium": 2, "low": 1}
     range_conf_map = {
@@ -19,12 +22,16 @@ def calculate_confidence(
         "curated-fallback": "medium",
         "none": "low",
     }
-    dimensions = [
-        scores.get(match_confidence, 1),
-        scores.get(range_conf_map.get(range_source, "low"), 1),
-        scores.get(unit_confidence, 1),
-    ]
-    minimum = min(dimensions)
+
+    match_score = scores.get(match_confidence, 1)
+    range_score = scores.get(range_conf_map.get(range_source, "low"), 1)
+    unit_score = scores.get(unit_confidence, 1)
+
+    # Lab-provided ranges are self-sufficient — match quality matters less
+    if range_source == "lab-provided":
+        match_score = max(match_score, 2)
+
+    minimum = min(match_score, range_score, unit_score)
     if minimum >= 3:
         return "high"
     if minimum >= 2:

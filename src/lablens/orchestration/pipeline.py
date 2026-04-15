@@ -48,11 +48,32 @@ class PlainPipeline:
             loinc_code, match_conf = mapper.match(v.test_name)
             vdict = v.model_dump()
             vdict["loinc_code"] = loinc_code
-            if isinstance(v.value, (int, float)) and v.unit:
-                norm = normalizer.normalize(loinc_code or "", float(v.value), v.unit)
-                vdict["value"] = norm.value
-                vdict["unit"] = norm.unit
-                vdict["unit_confidence"] = norm.confidence
+
+            # Convert numeric string values to float (OCR returns strings)
+            raw_val = vdict["value"]
+            if isinstance(raw_val, str):
+                try:
+                    raw_val = float(raw_val)
+                    vdict["value"] = raw_val
+                except ValueError:
+                    pass  # Keep as string for qualitative values
+
+            has_lab_range = (
+                vdict.get("reference_range_low") is not None
+                and vdict.get("reference_range_high") is not None
+            )
+            if isinstance(vdict["value"], (int, float)) and v.unit:
+                if has_lab_range:
+                    # Keep original units — value and ranges are already consistent
+                    vdict["unit_confidence"] = "high"
+                else:
+                    # Convert to canonical unit for curated fallback comparison
+                    norm = normalizer.normalize(
+                        loinc_code or "", float(vdict["value"]), v.unit
+                    )
+                    vdict["value"] = norm.value
+                    vdict["unit"] = norm.unit
+                    vdict["unit_confidence"] = norm.confidence
             confidences[i] = match_conf
             enriched_values.append(vdict)
 

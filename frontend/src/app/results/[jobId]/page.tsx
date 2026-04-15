@@ -8,7 +8,7 @@ import { EvidencePanel } from "@/components/evidence-panel";
 import { LanguageSelector } from "@/components/language-selector";
 import { ResultsSummary } from "@/components/results-summary";
 import type { AnalysisResult } from "@/lib/api-client";
-import { pollResult } from "@/lib/api-client";
+import { getExportUrl, pollResult } from "@/lib/api-client";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
@@ -97,7 +97,16 @@ export default function ResultsPage() {
         <h1 className="text-2xl font-bold text-gray-900">
           {t("results.title", language)}
         </h1>
-        <LanguageSelector value={language} onChange={setLanguage} />
+        <div className="flex items-center gap-3">
+          <a
+            href={getExportUrl(jobId)}
+            download
+            className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700"
+          >
+            Export CSV
+          </a>
+          <LanguageSelector value={language} onChange={setLanguage} />
+        </div>
       </div>
 
       <DisclaimerBanner type="results" language={language} />

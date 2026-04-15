@@ -4,13 +4,28 @@ Each language has tailored hints for script direction, common test names, and un
 """
 
 _BASE_RULES = """
-- Extract EVERY test result visible, even if partially readable
+- Extract ONLY actual lab test results (analytes with measured values)
 - Preserve original test names (do not translate or normalize)
 - Preserve original units exactly as printed
-- If reference range is text like "< 200", set reference_range_high=200
+- ALWAYS extract reference ranges from the report — look for columns labeled "Normal Range", "Ref Range", "Giá trị tham chiếu", "Valeurs normales", or similar
+- If range is "3.5 - 5.0", split into reference_range_low=3.5 and reference_range_high=5.0
+- If range is "< 200" or "<= 39", set reference_range_low=null and reference_range_high=200 (or 39)
+- If range is "> 60" or ">= 90", set reference_range_low=60 (or 90) and reference_range_high=null
+- If range has categories (e.g., "Desirable: < 5.18"), extract the numeric bound
 - If value is non-numeric (e.g., "Positive", "Reactive"), keep as string
 - If a field is unreadable, set to null
 - Do NOT infer or calculate values not present in the report
+
+IMPORTANT - DO NOT extract any of the following:
+- Section headers or category labels (e.g., "GENETICS", "Lipid Panel")
+- Patient metadata (name, ID, date of birth, doctor, sample date, collection site)
+- Lab methodology or analysis descriptions (how tests are performed)
+- Marketing text, lab certifications, statistics, or promotional content
+- Organ names from screening charts without individual test values
+- Sample processing information (reagents, equipment, procedures)
+- Free-text paragraphs explaining results or procedures
+- JSON schema examples or template placeholders
+Only extract rows that have a test_name AND a measured value (numeric or qualitative like Positive/Negative).
 """
 
 _JSON_SCHEMA = """{

@@ -122,13 +122,22 @@ def test_severity_critical(engine):
 # --- Non-numeric ---
 
 
-def test_non_numeric_value(engine):
+def test_non_numeric_positive_detected_as_high(engine):
     values = [{
         "test_name": "HIV Screening", "value": "Positive",
         "unit": None, "loinc_code": "75622-1",
     }]
     report = engine.interpret_report(values, {0: "high"})
-    assert report.values[0].direction == "indeterminate"
+    assert report.values[0].direction == "high"
+
+
+def test_non_numeric_negative_detected_as_in_range(engine):
+    values = [{
+        "test_name": "HIV Screening", "value": "Negative",
+        "unit": None, "loinc_code": "75622-1",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    assert report.values[0].direction == "in-range"
 
 
 # --- Step 5: Actionability ---

@@ -11,8 +11,9 @@ def test_curated_range_caps_at_medium():
     assert calculate_confidence("high", "curated-fallback", "high") == "medium"
 
 
-def test_low_match_drops_to_low():
-    assert calculate_confidence("low", "lab-provided", "high") == "low"
+def test_low_match_with_lab_range_boosted():
+    # Lab-provided range boosts low match to medium
+    assert calculate_confidence("low", "lab-provided", "high") == "medium"
 
 
 def test_no_range_is_low():
