@@ -1,9 +1,12 @@
 """FastAPI endpoints for lab report analysis."""
 
 import asyncio
+import csv
+import io
 import logging
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 
 from lablens.config import settings
 from lablens.extraction.pdf_processor import PDFProcessor
@@ -62,3 +65,44 @@ async def get_analysis(job_id: str):
     elif job.status == JobStatus.FAILED:
         response["error"] = job.error
     return response
+
+
+@router.get("/analysis/{job_id}/export")
+async def export_analysis(job_id: str):
+    """Export completed analysis results as CSV."""
+    job = job_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != JobStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Job not completed yet")
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "test_name", "value", "unit", "direction", "severity",
+        "is_panic", "actionability", "confidence",
+        "reference_range_low", "reference_range_high",
+        "range_source", "range_trust",
+    ])
+    for v in job.result.get("values", []):
+        writer.writerow([
+            v.get("test_name", ""),
+            v.get("value", ""),
+            v.get("unit", ""),
+            v.get("direction", ""),
+            v.get("severity", ""),
+            v.get("is_panic", ""),
+            v.get("actionability", ""),
+            v.get("confidence", ""),
+            v.get("reference_range_low", ""),
+            v.get("reference_range_high", ""),
+            v.get("range_source", ""),
+            v.get("range_trust", ""),
+        ])
+
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=lablens-{job_id[:8]}.csv"},
+    )

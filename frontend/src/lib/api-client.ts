@@ -69,3 +69,7 @@ export async function pollResult(jobId: string): Promise<AnalysisResult> {
   if (!resp.ok) throw new Error(`Poll failed: ${resp.status}`);
   return resp.json();
 }
+
+export function getExportUrl(jobId: string): string {
+  return `${API_BASE}/analysis/${jobId}/export`;
+}

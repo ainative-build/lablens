@@ -87,7 +87,7 @@ aliases:
   - canonical: "Glucose"
     loinc: "2345-7"
     aliases:
-      en: ["Glucose", "Blood Glucose", "Fasting Glucose", "FBG", "Blood Sugar", "Glu"]
+      en: ["Glucose", "Blood Glucose", "Fasting Glucose", "FBG", "Blood Sugar", "Glu", "Glucose Fasting"]
       fr: ["Glycémie", "Glucose sanguin", "Glycémie à jeun"]
       ar: ["الجلوكوز", "سكر الدم", "غلوكوز"]
       vn: ["Đường huyết", "Glucose máu", "Đường máu"]
@@ -250,7 +250,7 @@ aliases:
   - canonical: "Free T4"
     loinc: "3024-7"
     aliases:
-      en: ["Free T4", "FT4", "Free Thyroxine", "Thyroxine Free"]
+      en: ["Free T4", "FT4", "Free Thyroxine", "Thyroxine Free", "Free Thyroxine (Free T4)"]
       fr: ["T4 libre", "T4L", "Thyroxine libre"]
       ar: ["T4 الحر", "الثيروكسين الحر"]
       vn: ["FT4", "T4 tự do"]
@@ -393,3 +393,194 @@ aliases:
       fr: ["VS", "Vitesse de sédimentation"]
       ar: ["سرعة الترسيب", "ESR"]
       vn: ["Tốc độ lắng máu", "ESR"]
+
+  # --- CBC differentials ---
+  - canonical: "Neutrophils"
+    loinc: "751-8"
+    aliases:
+      en: ["Neutrophils", "Neutrophil Count", "NEU", "Neut", "Absolute Neutrophils"]
+      fr: ["Neutrophiles", "PNN"]
+      ar: ["العدلات", "نيتروفيل"]
+      vn: ["Bạch cầu trung tính", "Neutrophil"]
+
+  - canonical: "Lymphocytes"
+    loinc: "731-0"
+    aliases:
+      en: ["Lymphocytes", "Lymphocyte Count", "Lymph", "Absolute Lymphocytes"]
+      fr: ["Lymphocytes"]
+      ar: ["الخلايا الليمفاوية", "لمفاويات"]
+      vn: ["Bạch cầu lympho", "Lymphocyte"]
+
+  - canonical: "Monocytes"
+    loinc: "742-7"
+    aliases:
+      en: ["Monocytes", "Monocyte Count", "Mono", "Absolute Monocytes"]
+      fr: ["Monocytes"]
+      ar: ["الوحيدات", "مونوسيت"]
+      vn: ["Bạch cầu mono", "Monocyte"]
+
+  - canonical: "Eosinophils"
+    loinc: "711-2"
+    aliases:
+      en: ["Eosinophils", "Eosinophil Count", "EOS", "Eos", "Absolute Eosinophils"]
+      fr: ["Éosinophiles", "PNE"]
+      ar: ["الحمضات", "إيوزينوفيل"]
+      vn: ["Bạch cầu ái toan", "Eosinophil"]
+
+  - canonical: "Basophils"
+    loinc: "704-7"
+    aliases:
+      en: ["Basophils", "Basophil Count", "Baso", "Absolute Basophils"]
+      fr: ["Basophiles", "PNB"]
+      ar: ["القعدات", "بازوفيل"]
+      vn: ["Bạch cầu ái kiềm", "Basophil"]
+
+  # --- Hormones & immunology ---
+  - canonical: "Testosterone"
+    loinc: "2986-8"
+    aliases:
+      en: ["Testosterone", "Total Testosterone", "Testosterone Total"]
+      fr: ["Testostérone"]
+      ar: ["التستوستيرون"]
+      vn: ["Testosterone"]
+
+  - canonical: "Free Testosterone"
+    loinc: "2991-8"
+    aliases:
+      en: ["Free Testosterone", "Free Testosterone Index", "FTI"]
+      fr: ["Testostérone libre"]
+      ar: ["التستوستيرون الحر"]
+      vn: ["Testosterone tự do"]
+
+  - canonical: "SHBG"
+    loinc: "13967-5"
+    aliases:
+      en: ["SHBG", "Sex Hormone Binding Globulin", "Sex Hormone-binding Globulin"]
+      fr: ["SHBG", "Protéine de liaison des hormones sexuelles"]
+      ar: ["الغلوبيولين الرابط للهرمونات الجنسية"]
+      vn: ["SHBG"]
+
+  - canonical: "Vitamin B12"
+    loinc: "2132-9"
+    aliases:
+      en: ["Vitamin B12", "B12", "Cobalamin", "Cyanocobalamin"]
+      fr: ["Vitamine B12", "Cobalamine"]
+      ar: ["فيتامين ب12"]
+      vn: ["Vitamin B12"]
+
+  - canonical: "Homocysteine"
+    loinc: "13965-9"
+    aliases:
+      en: ["Homocysteine", "Hcy", "Total Homocysteine"]
+      fr: ["Homocystéine"]
+      ar: ["الهوموسيستين"]
+      vn: ["Homocysteine"]
+
+  # --- Hepatitis markers ---
+  - canonical: "HBsAb"
+    loinc: "22322-2"
+    aliases:
+      en: ["HBsAb", "Hepatitis B Surface Antibody", "Anti-HBs", "HBs Ab"]
+      fr: ["Anticorps anti-HBs"]
+      ar: ["أجسام مضادة لسطح التهاب الكبد ب"]
+      vn: ["HBsAb", "Kháng thể bề mặt viêm gan B"]
+
+  - canonical: "HBsAg"
+    loinc: "5195-3"
+    aliases:
+      en: ["HBsAg", "Hepatitis B Surface Antigen", "HBsAg Qualitative", "HBs Ag"]
+      fr: ["Antigène HBs"]
+      ar: ["مستضد سطح التهاب الكبد ب"]
+      vn: ["HBsAg", "Kháng nguyên bề mặt viêm gan B"]
+
+  - canonical: "HCV Ab"
+    loinc: "16128-1"
+    aliases:
+      en: ["HCV Ab", "Hepatitis C Antibody", "Anti-HCV", "HCV Antibody"]
+      fr: ["Anticorps anti-VHC"]
+      ar: ["أجسام مضادة لفيروس الكبد سي"]
+      vn: ["HCV Ab", "Kháng thể viêm gan C"]
+
+  # --- Tumor markers ---
+  - canonical: "CA 19-9"
+    loinc: "24108-3"
+    aliases:
+      en: ["CA 19-9", "Carbohydrate Antigen 19-9", "CA19-9", "Cancer Antigen 19-9"]
+      fr: ["CA 19-9", "Antigène carbohydrate 19-9"]
+      ar: ["مستضد السرطان 19-9"]
+      vn: ["CA 19-9"]
+
+  # --- Kidney / metabolic additional ---
+  - canonical: "Urea"
+    loinc: "3091-6"
+    aliases:
+      en: ["Urea", "Blood Urea", "Serum Urea"]
+      fr: ["Urée"]
+      ar: ["اليوريا"]
+      vn: ["Ure", "Urea"]
+
+  - canonical: "Non-HDL Cholesterol"
+    loinc: "43396-1"
+    aliases:
+      en: ["Non-HDL Cholesterol", "Non HDL Cholesterol", "Non-HDL-C"]
+      fr: ["Cholestérol non-HDL"]
+      ar: ["كوليسترول غير HDL"]
+      vn: ["Non-HDL Cholesterol"]
+
+  # --- Urinalysis ---
+  - canonical: "Urine Specific Gravity"
+    loinc: "2965-2"
+    aliases:
+      en: ["Specific Gravity", "SG", "Urine SG", "Urine Specific Gravity"]
+      fr: ["Densité urinaire"]
+      ar: ["الكثافة النوعية"]
+      vn: ["Tỷ trọng nước tiểu"]
+
+  - canonical: "Urine pH"
+    loinc: "2756-5"
+    aliases:
+      en: ["pH", "Urine pH"]
+      fr: ["pH urinaire"]
+      ar: ["درجة الحموضة"]
+      vn: ["pH nước tiểu"]
+
+  # --- Other CBC ---
+  - canonical: "Plateletcrit"
+    loinc: "37874-4"
+    aliases:
+      en: ["Plateletcrit", "PCT"]
+      fr: ["Plaquettocrite"]
+      ar: ["نسبة الصفائح"]
+      vn: ["Plateletcrit", "PCT"]
+
+  - canonical: "PDW"
+    loinc: "32207-3"
+    aliases:
+      en: ["PDW", "Platelet Distribution Width", "Platelets Distribution Width"]
+      fr: ["IDT", "Indice de Distribution des Thrombocytes"]
+      ar: ["عرض توزيع الصفائح"]
+      vn: ["PDW", "Độ phân bố tiểu cầu"]
+
+  - canonical: "Estimated Average Glucose"
+    loinc: "53553-4"
+    aliases:
+      en: ["Estimated Average Glucose", "eAG", "EAG", "Average Glucose"]
+      fr: ["Glucose moyen estimé"]
+      ar: ["الغلوكوز المتوسط المقدر"]
+      vn: ["Đường máu trung bình ước tính"]
+
+  - canonical: "Immature Granulocytes"
+    loinc: "53115-2"
+    aliases:
+      en: ["Immature Granulocytes", "IG", "Imature Granulocytes", "Immature Grans"]
+      fr: ["Granulocytes immatures"]
+      ar: ["الخلايا الحبيبية غير الناضجة"]
+      vn: ["Bạch cầu hạt non"]
+
+  - canonical: "NRBC"
+    loinc: "58413-6"
+    aliases:
+      en: ["NRBC", "Nucleated Red Blood Cells", "Nucleated Red Blood Cell", "Nucleated RBC"]
+      fr: ["Érythroblastes"]
+      ar: ["كريات الدم الحمراء المنواة"]
+      vn: ["Hồng cầu có nhân"]

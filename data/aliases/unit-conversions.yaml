@@ -80,6 +80,24 @@ conversions:
         reversible: true
         confidence: "high"
 
+  "3024-7":  # Free T4
+    canonical_unit: "ng/dL"
+    conversions:
+      - from: "pmol/L"
+        to: "ng/dL"
+        factor: 0.0777
+        reversible: true
+        confidence: "high"
+
+  "3051-0":  # Free T3
+    canonical_unit: "pg/mL"
+    conversions:
+      - from: "pmol/L"
+        to: "pg/mL"
+        factor: 0.6513
+        reversible: true
+        confidence: "high"
+
   "3094-0":  # BUN
     canonical_unit: "mg/dL"
     conversions:
@@ -100,6 +118,34 @@ conversions:
       - from: "umol/L"
         to: "mg/dL"
         factor: 0.01681
+        reversible: true
+        confidence: "high"
+
+  "1975-2":  # Total Bilirubin
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "µmol/L"
+        to: "mg/dL"
+        factor: 0.0585
+        reversible: true
+        confidence: "high"
+      - from: "umol/L"
+        to: "mg/dL"
+        factor: 0.0585
+        reversible: true
+        confidence: "high"
+
+  "1968-7":  # Direct Bilirubin
+    canonical_unit: "mg/dL"
+    conversions:
+      - from: "µmol/L"
+        to: "mg/dL"
+        factor: 0.0585
+        reversible: true
+        confidence: "high"
+      - from: "umol/L"
+        to: "mg/dL"
+        factor: 0.0585
         reversible: true
         confidence: "high"
 
@@ -174,5 +220,7 @@ unit_aliases:
   "mg/l": "mg/L"
   "ng/mL": "ng/mL"
   "ng/ml": "ng/mL"
+  "pmol/L": "pmol/L"
+  "pmol/l": "pmol/L"
   "mL/min/1.73m2": "mL/min/1.73m2"
   "mL/min/1.73 m2": "mL/min/1.73m2"

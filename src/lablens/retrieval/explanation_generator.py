@@ -4,8 +4,10 @@ LLM generates text; it does NOT make clinical decisions.
 Explanations are grounded in evidence from the interpretation engine.
 """
 
+import asyncio
 import json
 import logging
+from functools import partial
 
 from lablens.config import Settings
 from lablens.interpretation.models import InterpretedReport
@@ -73,17 +75,26 @@ class ExplanationGenerator:
             try:
                 from dashscope import Generation
 
-                resp = Generation.call(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": EXPLANATION_SYSTEM_PROMPT},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    api_key=self.api_key,
-                    result_format="message",
+                loop = asyncio.get_event_loop()
+                resp = await loop.run_in_executor(
+                    None,
+                    partial(
+                        Generation.call,
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": EXPLANATION_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        api_key=self.api_key,
+                        result_format="message",
+                    ),
                 )
                 raw = resp.output.choices[0].message.content
                 explanations = self._parse_explanations(raw, language)
+                # Fallback if LLM returned valid response but parsing produced nothing
+                if not explanations and abnormal:
+                    logger.warning("LLM returned unparseable explanations, using templates")
+                    explanations = self._fallback_explanations(abnormal, language)
             except Exception as e:
                 logger.error("Explanation generation failed: %s", e)
                 explanations = self._fallback_explanations(abnormal, language)

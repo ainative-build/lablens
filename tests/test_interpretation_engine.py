@@ -19,7 +19,7 @@ def test_lab_provided_range_preferred(engine):
         "loinc_code": "2345-7", "ref_range_low": 70, "ref_range_high": 100,
     }]
     report = engine.interpret_report(values, {0: "high"})
-    assert report.values[0].range_source == "lab-provided"
+    assert report.values[0].range_source == "lab-provided-validated"
 
 
 def test_curated_fallback_range(engine):
@@ -38,7 +38,7 @@ def test_no_range_available(engine):
     }]
     report = engine.interpret_report(values, {0: "low"})
     assert report.values[0].direction == "indeterminate"
-    assert report.values[0].range_source == "none"
+    assert report.values[0].range_source == "no-range"
 
 
 # --- Step 2: Direction ---
@@ -122,13 +122,22 @@ def test_severity_critical(engine):
 # --- Non-numeric ---
 
 
-def test_non_numeric_value(engine):
+def test_non_numeric_positive_detected_as_high(engine):
     values = [{
         "test_name": "HIV Screening", "value": "Positive",
         "unit": None, "loinc_code": "75622-1",
     }]
     report = engine.interpret_report(values, {0: "high"})
-    assert report.values[0].direction == "indeterminate"
+    assert report.values[0].direction == "high"
+
+
+def test_non_numeric_negative_detected_as_in_range(engine):
+    values = [{
+        "test_name": "HIV Screening", "value": "Negative",
+        "unit": None, "loinc_code": "75622-1",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    assert report.values[0].direction == "in-range"
 
 
 # --- Step 5: Actionability ---
@@ -193,7 +202,7 @@ def test_evidence_trace_populated(engine):
     report = engine.interpret_report(values, {0: "high"})
     trace = report.values[0].evidence_trace
     assert trace["direction"] == "high"
-    assert trace["range_source"] == "lab-provided"
+    assert trace["range_source"] == "lab-provided-validated"
     assert trace["match_confidence"] == "high"
 
 

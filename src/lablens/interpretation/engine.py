@@ -10,28 +10,21 @@ from lablens.interpretation.confidence import calculate_confidence
 from lablens.interpretation.evidence import build_evidence_trace
 from lablens.interpretation.models import InterpretedReport, InterpretedResult
 from lablens.interpretation.panel_checker import check_panels
+from lablens.interpretation.qualitative import interpret_qualitative
+from lablens.interpretation.range_selection import (
+    determine_direction,
+    direction_from_text,
+    select_range,
+)
+from lablens.interpretation.severity import (
+    DEFAULT_ACTIONABILITY,
+    apply_severity,
+    check_panic,
+    heuristic_severity,
+)
 from lablens.knowledge.rules_loader import get_rule, load_all_rules
 
 logger = logging.getLogger(__name__)
-
-# Maps YAML severity band names to severity tiers
-_SEVERITY_TIERS = {
-    "normal": "normal",
-    "mild_low": "mild",
-    "mild_high": "mild",
-    "moderate_low": "moderate",
-    "moderate_high": "moderate",
-    "critical_low": "critical",
-    "critical_high": "critical",
-}
-
-# Maps severity tiers to default actionability
-_DEFAULT_ACTIONABILITY = {
-    "normal": "routine",
-    "mild": "monitor",
-    "moderate": "consult",
-    "critical": "urgent",
-}
 
 
 class InterpretationEngine:
@@ -63,7 +56,7 @@ class InterpretationEngine:
 
         present_codes = [r.loinc_code for r in results if r.loinc_code]
         panels = check_panels(present_codes, self.rules)
-        abnormal = [r for r in results if r.direction != "in-range"]
+        abnormal = [r for r in results if r.direction in ("high", "low")]
 
         return InterpretedReport(
             values=results,
@@ -82,46 +75,125 @@ class InterpretationEngine:
             unit=v.get("unit", ""),
         )
 
-        # Non-numeric: skip rule-based interpretation
+        # Non-numeric: interpret qualitative values
         if not isinstance(v["value"], (int, float)):
-            result.direction = "indeterminate"
-            result.confidence = "low"
-            result.evidence_trace = {
-                "note": "Non-numeric value, rule-based interpretation skipped"
-            }
+            result.direction, result.confidence = interpret_qualitative(
+                v["value"], v.get("flag")
+            )
+            result.evidence_trace = {"note": "Qualitative interpretation", "raw": str(v["value"])}
             return result
 
         value = float(v["value"])
         loinc = v.get("loinc_code", "")
         rule = get_rule(loinc, self.rules) if loinc else None
+        range_trust = v.get("range_trust", "high")
+        restricted_flag = v.get("restricted_flag", False)
 
         # Step 1: Select reference range
-        ref_low, ref_high, range_source = self._select_range(v, rule)
+        ref_low, ref_high, range_source = select_range(v, rule)
+
+        # Guard: curated fallback with low unit confidence is unreliable
+        unit_confidence = v.get("unit_confidence", "high")
+        if range_source == "curated-fallback" and unit_confidence == "low":
+            logger.info(
+                "Low unit confidence for %s — clearing curated fallback range",
+                v.get("test_name", "?"),
+            )
+            ref_low, ref_high, range_source = None, None, "no-range"
+
+        # Guard: curated fallback with empty unit — can't verify unit system
+        unit_str = v.get("unit") or ""
+        if range_source == "curated-fallback" and not unit_str.strip():
+            logger.info(
+                "Empty unit for %s — clearing curated fallback range",
+                v.get("test_name", "?"),
+            )
+            ref_low, ref_high, range_source = None, None, "no-range"
+
+        # Suspicious lab range override: prefer curated only if unit-compatible
+        if range_source == "lab-provided" and range_trust == "low":
+            if rule:
+                ranges = rule.get("reference_ranges", [])
+                if ranges:
+                    curated_unit = (rule.get("unit") or "").strip().lower()
+                    value_unit = (v.get("unit") or "").strip().lower()
+                    units_compatible = (
+                        curated_unit and value_unit
+                        and curated_unit == value_unit
+                    )
+                    if units_compatible:
+                        cur_low, cur_high = ranges[0]["low"], ranges[0]["high"]
+                        logger.info(
+                            "Low-trust lab range for %s — unit-compatible "
+                            "curated [%s-%s] %s (was [%s-%s])",
+                            v.get("test_name", "?"), cur_low, cur_high,
+                            curated_unit, ref_low, ref_high,
+                        )
+                        ref_low, ref_high = cur_low, cur_high
+                        range_source = "curated-fallback"
+                    else:
+                        # Unit mismatch — can't safely use curated or lab range
+                        logger.info(
+                            "Low-trust lab range for %s — curated unit '%s' "
+                            "differs from value unit '%s', degrading to "
+                            "indeterminate",
+                            v.get("test_name", "?"), curated_unit, value_unit,
+                        )
+                        result.direction = "indeterminate"
+                        result.range_source = "no-range"
+                        result.range_trust = range_trust
+                        result.confidence = "low"
+                        result.evidence_trace = build_evidence_trace(
+                            result, rule, match_confidence
+                        )
+                        return result
+
+        # Decision-threshold tests: lab-provided ranges are unreliable unless
+        # a curated rule can cross-validate. These tests use clinical cut-points
+        # (not reference intervals), so OCR-grabbed ranges from neighboring rows
+        # are especially dangerous.
+        is_decision_threshold = v.get("is_decision_threshold", False)
+        if is_decision_threshold and range_source == "lab-provided":
+            has_curated_crosscheck = rule and rule.get("reference_ranges")
+            if range_trust == "low" or not has_curated_crosscheck:
+                logger.info(
+                    "Decision-threshold test %s with unverifiable lab range "
+                    "(trust=%s, curated=%s) — degrading to indeterminate",
+                    v.get("test_name", "?"), range_trust,
+                    "yes" if has_curated_crosscheck else "no",
+                )
+                result.direction = "indeterminate"
+                result.range_source = "no-range"
+                result.range_trust = range_trust
+                result.confidence = "low"
+                result.evidence_trace = build_evidence_trace(
+                    result, rule, match_confidence
+                )
+                return result
+
+        # Expand range_source with trust level
+        if range_source == "lab-provided":
+            if range_trust == "low":
+                # Low trust but no curated fallback available — keep but mark suspicious
+                range_source = "lab-provided-suspicious"
+            else:
+                range_source = "lab-provided-validated"
+
         result.reference_range_low = ref_low
         result.reference_range_high = ref_high
         result.range_source = range_source
+        result.range_trust = range_trust
 
         if ref_low is None or ref_high is None:
-            result.direction = "indeterminate"
-            result.confidence = "low"
-            result.evidence_trace = build_evidence_trace(
-                result, rule, match_confidence
-            )
-            return result
+            return self._handle_no_range(result, v, value, rule, match_confidence, restricted_flag)
 
         # Step 2: Determine direction
-        result.direction = self._determine_direction(value, ref_low, ref_high)
+        result.direction = determine_direction(value, ref_low, ref_high)
 
-        # Step 3: Apply severity band
-        result.severity = self._apply_severity(value, rule)
-
-        # Step 4: Check panic threshold
-        result.is_panic = self._check_panic(value, rule)
-
-        # Step 5: Assign actionability
-        result.actionability = _DEFAULT_ACTIONABILITY.get(result.severity, "routine")
-        if result.is_panic:
-            result.actionability = "urgent"
+        # Steps 3-5: Severity, panic, actionability
+        self._apply_severity_and_actionability(
+            result, value, ref_low, ref_high, rule, range_source, range_trust
+        )
 
         # Step 6: Calculate confidence
         result.confidence = calculate_confidence(
@@ -135,62 +207,83 @@ class InterpretationEngine:
 
         return result
 
-    @staticmethod
-    def _select_range(v: dict, rule: dict | None) -> tuple:
-        """Step 1: Lab-provided preferred, curated fallback."""
-        if v.get("ref_range_low") is not None and v.get("ref_range_high") is not None:
-            return v["ref_range_low"], v["ref_range_high"], "lab-provided"
-        if rule:
-            ranges = rule.get("reference_ranges", [])
-            if ranges:
-                default = ranges[0]
-                return default["low"], default["high"], "curated-fallback"
-        return None, None, "none"
+    def _handle_no_range(
+        self, result: InterpretedResult, v: dict, value: float,
+        rule: dict | None, match_confidence: str, restricted_flag: bool,
+    ) -> InterpretedResult:
+        """Handle values with no usable reference range (text fallback, OCR flag, indeterminate)."""
+        # Try to extract direction from reference_range_text
+        ref_text = v.get("reference_range_text", "")
+        if ref_text and isinstance(value, (int, float)):
+            direction = direction_from_text(value, ref_text)
+            if direction:
+                result.direction = direction
+                result.range_source = "range-text"
+                result.confidence = "low"
+                result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
+                return result
 
-    @staticmethod
-    def _determine_direction(value: float, low: float, high: float) -> str:
-        """Step 2: Compare value against reference range."""
-        if value < low:
-            return "low"
-        if value > high:
-            return "high"
-        return "in-range"
+        # Last resort: OCR flag — only if unit is known and not restricted
+        flag = v.get("flag")
+        unit = v.get("unit") or ""
+        if not unit.strip():
+            result.direction = "indeterminate"
+        elif restricted_flag:
+            # Hormones, tumor markers, infectious — flag is unreliable
+            result.direction = "indeterminate"
+            result.range_source = "no-range"
+        elif flag and flag.upper() in ("H", "A"):
+            result.direction = "high"
+            result.range_source = "ocr-flag-fallback"
+        elif flag and flag.upper() == "L":
+            result.direction = "low"
+            result.range_source = "ocr-flag-fallback"
+        else:
+            result.direction = "indeterminate"
+        result.confidence = "low"
+        result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
+        return result
 
-    @staticmethod
-    def _apply_severity(value: float, rule: dict | None) -> str:
-        """Step 3: Map value to severity band.
+    def _apply_severity_and_actionability(
+        self, result: InterpretedResult, value: float,
+        ref_low: float, ref_high: float, rule: dict | None,
+        range_source: str, range_trust: str,
+    ) -> None:
+        """Steps 3-5: Severity band, panic check, actionability assignment."""
+        if result.direction == "in-range":
+            # Hard guard: in-range values are always normal severity
+            result.severity = "normal"
+            result.actionability = "routine"
+            result.is_panic = False
+            return
 
-        Finding #7: If value falls in a band gap, return based on whether
-        it's outside the normal range (not silently 'normal').
-        """
-        if not rule or "severity_bands" not in rule:
-            return "normal"
+        # Low-trust lab range -> cap severity at mild
+        if range_trust == "low":
+            result.severity = heuristic_severity(value, ref_low, ref_high)
+            if result.severity in ("moderate", "critical"):
+                result.severity = "mild"
+        elif rule and range_source == "curated-fallback":
+            result.severity = apply_severity(value, rule)
+        elif rule and range_source.startswith("lab-provided"):
+            result.severity = heuristic_severity(value, ref_low, ref_high)
+        else:
+            result.severity = "normal"
 
-        bands = rule["severity_bands"]
-        # Check bands in priority order (most severe first)
-        for band_name in [
-            "critical_low", "critical_high",
-            "moderate_low", "moderate_high",
-            "mild_low", "mild_high",
-            "normal",
-        ]:
-            band = bands.get(band_name)
-            if band and band["low"] <= value <= band["high"]:
-                return _SEVERITY_TIERS.get(band_name, "normal")
+        if result.severity == "normal" and result.direction != "in-range":
+            result.severity = heuristic_severity(value, ref_low, ref_high)
 
-        # Band gap fallback (Finding #7)
-        normal_band = bands.get("normal")
-        if normal_band and not (normal_band["low"] <= value <= normal_band["high"]):
-            return "moderate"  # Outside normal, no band matched
-        return "normal"
+        # Severity cap: never critical without curated bands
+        if result.severity == "critical" and range_source != "curated-fallback":
+            result.severity = "moderate"
 
-    @staticmethod
-    def _check_panic(value: float, rule: dict | None) -> bool:
-        """Step 4: Check panic thresholds."""
-        if not rule or "panic_thresholds" not in rule:
-            return False
-        panic = rule["panic_thresholds"]
-        return (
-            value <= panic.get("low", float("-inf"))
-            or value >= panic.get("high", float("inf"))
+        # Step 4: Check panic threshold (only with curated fallback)
+        result.is_panic = (
+            check_panic(value, rule)
+            if range_source == "curated-fallback"
+            else False
         )
+
+        # Step 5: Assign actionability
+        result.actionability = DEFAULT_ACTIONABILITY.get(result.severity, "routine")
+        if result.is_panic:
+            result.actionability = "urgent"

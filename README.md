@@ -5,11 +5,15 @@ Deterministic lab-interpretation pipeline with graph-backed retrieval and multil
 ## Architecture
 
 ```
-PDF → Qwen-OCR → Canonical Lab JSON → LOINC Mapper → Deterministic Engine
-  → Optional Retrieval Enrichment (GDB + DashVector) → Qwen Explainer → UI + Evidence Panel
+PDF → Qwen-OCR → Noise Filter → LOINC Mapper → Unit Normalizer → Deterministic Engine
+  → Qwen Explainer → UI + Evidence Panel
 ```
 
 **Core principle**: Deterministic engine owns clinical logic; LLM owns explanation phrasing.
+
+> **Note**: Graph retrieval (GDB) and vector enrichment (DashVector) are optional add-ons
+> not active in the default pipeline. The core path runs without them. Set `GDB_HOST` and
+> `DASHVECTOR_ENDPOINT` in `.env` to enable enrichment.
 
 ## Tech Stack
 
