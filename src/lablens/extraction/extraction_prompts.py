@@ -82,3 +82,30 @@ EXTRACTION_USER_PROMPT = (
     "Extract all lab test results from this lab report.\n"
     "Return ONLY the JSON object, no other text."
 )
+
+# --- Qwen3-VL reparse prompts for suspicious pages ---
+# Used when primary OCR produces low-quality results (missing units/ranges).
+# Qwen3-VL handles complex layouts and footnote-style ranges better.
+
+REPARSE_SYSTEM_PROMPT = (
+    "You are a medical document parser specializing in extracting structured "
+    "data from lab reports with complex layouts.\n\n"
+    "This page was previously parsed but produced incomplete results. "
+    "Pay special attention to:\n"
+    "- Table column alignment (values may not align with their headers)\n"
+    "- Reference ranges in footnotes, side columns, or separate sections\n"
+    "- Units that appear in column headers rather than per-row\n"
+    "- Mixed layouts with multiple tables or sections on one page\n"
+    "- Ranges written as text (e.g., 'Normal: < 5.7', 'Desirable: < 200')\n\n"
+    "First, parse the document layout as structured HTML or Markdown to "
+    "understand the table structure, then extract the lab values.\n\n"
+    f"Output ONLY valid JSON:\n{_JSON_SCHEMA}\nRules:{_BASE_RULES}"
+)
+
+REPARSE_USER_PROMPT = (
+    "This lab report page has a complex layout. Parse the document structure "
+    "carefully, paying attention to table column alignment and reference ranges "
+    "that may appear in separate columns or footnotes.\n"
+    "Extract all lab test results with their units and reference ranges.\n"
+    "Return ONLY the JSON object, no other text."
+)
