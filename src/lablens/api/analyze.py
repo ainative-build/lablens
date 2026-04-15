@@ -81,7 +81,8 @@ async def export_analysis(job_id: str):
     writer.writerow([
         "test_name", "value", "unit", "direction", "severity",
         "is_panic", "actionability", "confidence",
-        "reference_range_low", "reference_range_high", "range_source",
+        "reference_range_low", "reference_range_high",
+        "range_source", "range_trust",
     ])
     for v in job.result.get("values", []):
         writer.writerow([
@@ -96,6 +97,7 @@ async def export_analysis(job_id: str):
             v.get("reference_range_low", ""),
             v.get("reference_range_high", ""),
             v.get("range_source", ""),
+            v.get("range_trust", ""),
         ])
 
     buf.seek(0)

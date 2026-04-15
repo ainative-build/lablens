@@ -19,7 +19,13 @@ def calculate_confidence(
     scores = {"high": 3, "medium": 2, "low": 1}
     range_conf_map = {
         "lab-provided": "high",
+        "lab-provided-validated": "high",
+        "lab-provided-suspicious": "low",
         "curated-fallback": "medium",
+        "range-text": "low",
+        "ocr-flag-fallback": "low",
+        "ocr-flag": "low",  # backwards compat
+        "no-range": "low",
         "none": "low",
     }
 
@@ -27,8 +33,8 @@ def calculate_confidence(
     range_score = scores.get(range_conf_map.get(range_source, "low"), 1)
     unit_score = scores.get(unit_confidence, 1)
 
-    # Lab-provided ranges are self-sufficient — match quality matters less
-    if range_source == "lab-provided":
+    # Lab-provided validated ranges are self-sufficient
+    if range_source in ("lab-provided", "lab-provided-validated"):
         match_score = max(match_score, 2)
 
     minimum = min(match_score, range_score, unit_score)

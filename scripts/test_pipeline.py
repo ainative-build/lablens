@@ -75,14 +75,14 @@ async def main():
             print(f"  {name:50s} val={str(v.get('value', '?')):>10s}")
 
     # Export CSV
-    csv_path = Path(__file__).parent.parent / "resources" / "pipeline-test-round3.csv"
+    csv_path = Path(__file__).parent.parent / "resources" / "pipeline-test-round4.csv"
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
             "test_name", "value", "unit", "direction", "severity",
             "is_panic", "actionability", "confidence",
-            "reference_range_low", "reference_range_high", "range_source",
-            "loinc_code",
+            "reference_range_low", "reference_range_high",
+            "range_source", "range_trust", "loinc_code",
         ])
         for v in values:
             writer.writerow([
@@ -97,6 +97,7 @@ async def main():
                 v.get("reference_range_low", ""),
                 v.get("reference_range_high", ""),
                 v.get("range_source", ""),
+                v.get("range_trust", ""),
                 v.get("loinc_code", ""),
             ])
     print(f"\nCSV exported to: {csv_path}")

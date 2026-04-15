@@ -106,8 +106,13 @@ class PlainPipeline:
         from lablens.extraction.terminology_mapper import TerminologyMapper
         from lablens.extraction.unit_normalizer import UnitNormalizer
 
+        from lablens.extraction.range_plausibility_checker import (
+            RangePlausibilityChecker,
+        )
+
         mapper = TerminologyMapper(AliasRegistry())
         normalizer = UnitNormalizer()
+        plausibility_checker = RangePlausibilityChecker()
 
         enriched_values = []
         confidences = {}
@@ -167,6 +172,28 @@ class PlainPipeline:
                     v.test_name,
                 )
                 vdict["loinc_code"] = None
+
+            # Compute range_trust via analyte-family plausibility
+            lc = vdict.get("loinc_code")
+            if isinstance(vdict["value"], (int, float)) and has_lab_range:
+                vdict["range_trust"] = plausibility_checker.validate_range(
+                    lc,
+                    float(vdict["value"]),
+                    vdict.get("reference_range_low"),
+                    vdict.get("reference_range_high"),
+                    vdict.get("unit"),
+                )
+            else:
+                vdict["range_trust"] = "high"
+
+            # Pass analyte category and decision-threshold flag
+            vdict["analyte_category"] = plausibility_checker.get_category(lc)
+            vdict["is_decision_threshold"] = (
+                plausibility_checker.is_decision_threshold(lc)
+            )
+            vdict["restricted_flag"] = (
+                plausibility_checker.is_restricted_flag_category(lc)
+            )
 
             confidences[i] = match_conf
             enriched_values.append(vdict)

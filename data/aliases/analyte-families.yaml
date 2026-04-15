@@ -1,0 +1,164 @@
+# Analyte-family plausibility rules for OCR range validation
+# Each family defines expected value range and reference range bounds
+# Used to detect OCR row-swaps where an adjacent row's range is grabbed
+#
+# Fields:
+#   value_range: [min, max] — plausible reported values in canonical unit
+#   ref_range:   [min, max] — plausible reference range bounds
+#   unit: canonical unit for this family
+#   category: test category for OCR-flag gating
+
+families:
+  # ── CBC indices ──
+  cbc_counts:
+    loinc_codes: ["6690-2", "789-8", "785-6", "786-4", "787-2", "788-0"]
+    tests: ["WBC", "RBC", "MCH", "MCHC", "MCV", "RDW"]
+    value_range: [0.1, 500]
+    ref_range: [0.1, 500]
+    unit: "varies"
+    category: "cbc"
+
+  cbc_hemoglobin:
+    loinc_codes: ["718-7", "4544-3"]
+    tests: ["Hemoglobin", "Hematocrit"]
+    value_range: [3, 60]
+    ref_range: [3, 60]
+    unit: "g/dL or %"
+    category: "cbc"
+
+  cbc_platelets:
+    loinc_codes: ["777-3", "32623-1"]
+    tests: ["Platelets", "Platelet count"]
+    value_range: [10, 1500]
+    ref_range: [50, 600]
+    unit: "K/uL"
+    category: "cbc"
+
+  # ── Electrolytes / minerals ──
+  electrolytes:
+    loinc_codes: ["2951-2", "2823-3", "2075-0", "17861-6", "19123-9", "2777-1"]
+    tests: ["Sodium", "Potassium", "Chloride", "Calcium", "Magnesium", "Phosphate"]
+    value_range: [0.1, 200]
+    ref_range: [0.1, 200]
+    unit: "mmol/L or mg/dL"
+    category: "electrolyte"
+
+  calcium_mgdl:
+    loinc_codes: ["17861-6"]
+    tests: ["Calcium"]
+    value_range: [4, 20]
+    ref_range: [6, 14]
+    unit: "mg/dL"
+    category: "electrolyte"
+
+  calcium_mmol:
+    loinc_codes: ["17861-6"]
+    tests: ["Calcium"]
+    value_range: [1.0, 5.0]
+    ref_range: [1.5, 3.5]
+    unit: "mmol/L"
+    category: "electrolyte"
+
+  phosphate_mmol:
+    loinc_codes: ["2777-1"]
+    tests: ["Phosphate", "Phosphorus"]
+    value_range: [0.3, 5.0]
+    ref_range: [0.5, 2.5]
+    unit: "mmol/L"
+    category: "electrolyte"
+
+  # ── Lipids ──
+  lipids_mgdl:
+    loinc_codes: ["2093-3", "2085-9", "13457-7", "2571-8"]
+    tests: ["Total Cholesterol", "HDL", "LDL", "Triglycerides"]
+    value_range: [5, 1500]
+    ref_range: [0, 1000]
+    unit: "mg/dL"
+    category: "lipid"
+
+  lipids_mmol:
+    loinc_codes: ["2093-3", "2085-9", "13457-7", "2571-8"]
+    tests: ["Total Cholesterol", "HDL", "LDL", "Triglycerides"]
+    value_range: [0.1, 30]
+    ref_range: [0, 15]
+    unit: "mmol/L"
+    category: "lipid"
+
+  # ── Thyroid ──
+  thyroid:
+    loinc_codes: ["3016-3", "3024-7", "3051-0"]
+    tests: ["TSH", "Free T4", "Free T3"]
+    value_range: [0.001, 200]
+    ref_range: [0.001, 100]
+    unit: "varies"
+    category: "hormone"
+
+  # ── Hormones ──
+  hormones:
+    loinc_codes: ["2986-8", "2991-8", "83085-1"]
+    tests: ["Testosterone", "Free Testosterone", "Free Testosterone Index"]
+    value_range: [0.01, 5000]
+    ref_range: [0.01, 2000]
+    unit: "varies"
+    category: "hormone"
+
+  # ── Tumor markers ──
+  tumor_markers:
+    loinc_codes: ["2857-1", "10535-3", "19961-2", "83112-3"]
+    tests: ["PSA", "AFP", "CA 19-9", "CA 125", "CEA"]
+    value_range: [0, 100000]
+    ref_range: [0, 1000]
+    unit: "varies"
+    category: "tumor-marker"
+
+  # ── Kidney ──
+  kidney:
+    loinc_codes: ["2160-0", "3094-0", "3084-1", "33914-3", "62238-1"]
+    tests: ["Creatinine", "BUN", "Uric Acid", "eGFR"]
+    value_range: [0.01, 500]
+    ref_range: [0.01, 300]
+    unit: "varies"
+    category: "kidney"
+
+  # ── Liver ──
+  liver:
+    loinc_codes: ["1742-6", "1920-8", "6768-6", "2324-2", "1975-2", "1968-7"]
+    tests: ["ALT", "AST", "ALP", "GGT", "Total Bilirubin", "Direct Bilirubin"]
+    value_range: [0.01, 5000]
+    ref_range: [0, 2000]
+    unit: "varies"
+    category: "liver"
+
+  # ── Glucose / HbA1c ──
+  glucose:
+    loinc_codes: ["2345-7", "4548-4"]
+    tests: ["Glucose", "HbA1c"]
+    value_range: [0.1, 1000]
+    ref_range: [0.1, 500]
+    unit: "varies"
+    category: "metabolic"
+
+  # ── Infectious / immunology ──
+  infectious:
+    loinc_codes: ["5196-1", "16935-9", "13955-0", "22322-2"]
+    tests: ["HBsAg", "HBsAb", "HCV Ab", "HIV"]
+    value_range: [0, 100000]
+    ref_range: [0, 100000]
+    unit: "varies"
+    category: "infectious"
+
+# Categories that should NOT use OCR-flag for severity escalation
+# OCR flag is directional only (high/low) — severity stays mild max
+restricted_flag_categories:
+  - "hormone"
+  - "tumor-marker"
+  - "infectious"
+
+# Rules marked as decision-threshold (not reference intervals)
+# These use clinical cut-points, not population-based intervals
+decision_threshold_loinc_codes:
+  - "2093-3"   # Total Cholesterol (desirable < 200)
+  - "2085-9"   # HDL (risk factor if < 40)
+  - "13457-7"  # LDL (optimal < 100)
+  - "2571-8"   # Triglycerides (normal < 150)
+  - "4548-4"   # HbA1c (normal < 5.7, prediabetes 5.7-6.4)

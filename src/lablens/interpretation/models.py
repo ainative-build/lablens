@@ -22,7 +22,10 @@ class InterpretedResult:
     # Range provenance
     reference_range_low: float | None = None
     reference_range_high: float | None = None
-    range_source: str = "none"  # lab-provided | curated-fallback | none
+    range_source: str = "no-range"
+    # lab-provided-validated | lab-provided-suspicious | curated-fallback
+    # | ocr-flag-fallback | range-text | no-range
+    range_trust: str = "high"  # high | medium | low
     rule_source: str | None = None
     evidence_trace: dict = field(default_factory=dict)
 

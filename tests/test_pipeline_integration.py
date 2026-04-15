@@ -154,7 +154,7 @@ class TestOCRFlagFallback:
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "high"
-        assert report.values[0].range_source == "ocr-flag"
+        assert report.values[0].range_source == "ocr-flag-fallback"
 
     def test_flag_low_when_no_range(self, engine):
         values = [{
@@ -448,7 +448,7 @@ class TestCuratedCrossValidation:
         report = engine.interpret_report(values)
         # Lab says low, curated also says low → lab-provided kept
         assert report.values[0].direction == "low"
-        assert report.values[0].range_source == "lab-provided"
+        assert report.values[0].range_source == "lab-provided-validated"
 
     def test_both_agree_abnormal_keeps_lab(self, engine):
         """Value abnormal per both lab and curated → lab-provided retained."""
@@ -459,7 +459,7 @@ class TestCuratedCrossValidation:
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "low"
-        assert report.values[0].range_source == "lab-provided"
+        assert report.values[0].range_source == "lab-provided-validated"
 
 
 # ── Fix B+C: Empty unit guards ──
@@ -487,7 +487,7 @@ class TestEmptyUnitGuards:
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "high"
-        assert report.values[0].range_source == "ocr-flag"
+        assert report.values[0].range_source == "ocr-flag-fallback"
 
     def test_low_unit_confidence_blocks_curated_fallback(self, engine):
         """unit_confidence=low with curated fallback → don't trust curated range."""
@@ -557,3 +557,156 @@ class TestUnitMisreportDetection:
         }
         result = PlainPipeline._check_unit_misreport(vdict, None, normalizer)
         assert result["unit_confidence"] == "high"
+
+
+# ── Round 4: Range trust + plausibility ──
+
+
+class TestRangeTrust:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_low_trust_range_caps_severity_at_mild(self, engine):
+        """Low-trust lab range should not produce moderate/critical severity."""
+        values = [{
+            "test_name": "Calcium", "value": 2.26, "unit": "mmol/L",
+            "loinc_code": "17861-6",
+            "ref_range_low": 0.81, "ref_range_high": 1.45,
+            "range_trust": "low",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].severity in ("mild", "normal")
+        assert report.values[0].range_trust == "low"
+
+    def test_high_trust_range_allows_moderate(self, engine):
+        """High-trust lab range allows normal severity escalation."""
+        values = [{
+            "test_name": "WBC", "value": 15.0, "unit": "K/uL",
+            "loinc_code": None,
+            "ref_range_low": 4.0, "ref_range_high": 11.0,
+            "range_trust": "high",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].severity == "moderate"
+
+
+class TestExpandedRangeSource:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_lab_provided_validated(self, engine):
+        """Normal lab range → lab-provided-validated."""
+        values = [{
+            "test_name": "Glucose", "value": 90, "unit": "mg/dL",
+            "loinc_code": "2345-7",
+            "ref_range_low": 70, "ref_range_high": 100,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].range_source == "lab-provided-validated"
+
+    def test_lab_provided_suspicious(self, engine):
+        """Low-trust lab range → lab-provided-suspicious."""
+        values = [{
+            "test_name": "Calcium", "value": 2.26, "unit": "mmol/L",
+            "loinc_code": "17861-6",
+            "ref_range_low": 0.81, "ref_range_high": 1.45,
+            "range_trust": "low",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].range_source == "lab-provided-suspicious"
+
+    def test_ocr_flag_fallback_source(self, engine):
+        """OCR flag → ocr-flag-fallback."""
+        values = [{
+            "test_name": "Unknown Test", "value": 7.5, "unit": "mg/dL",
+            "loinc_code": None, "flag": "H",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].range_source == "ocr-flag-fallback"
+
+    def test_no_range_source(self, engine):
+        """No range, no flag → no-range."""
+        values = [{
+            "test_name": "Unknown", "value": 42, "unit": "",
+            "loinc_code": None,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].range_source == "no-range"
+
+
+class TestCategoryGating:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_hormone_flag_produces_indeterminate(self, engine):
+        """Testosterone with flag=H but restricted category → indeterminate."""
+        values = [{
+            "test_name": "Testosterone", "value": 642.56, "unit": "ng/dL",
+            "loinc_code": "2986-8", "flag": "H",
+            "restricted_flag": True,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "indeterminate"
+
+    def test_non_restricted_flag_still_works(self, engine):
+        """Non-restricted test with flag=H → high direction."""
+        values = [{
+            "test_name": "WBC", "value": 15.0, "unit": "K/uL",
+            "loinc_code": None, "flag": "H",
+            "restricted_flag": False,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "high"
+
+
+class TestSeverityCap:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_never_critical_without_curated(self, engine):
+        """Heuristic severity cannot reach critical — capped at moderate."""
+        values = [{
+            "test_name": "Unknown", "value": 100.0, "unit": "mg/dL",
+            "loinc_code": None,
+            "ref_range_low": 5.0, "ref_range_high": 10.0,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].severity != "critical"
+        assert report.values[0].severity == "moderate"
+
+
+class TestPlausibilityChecker:
+    def test_checker_loads(self):
+        from lablens.extraction.range_plausibility_checker import (
+            RangePlausibilityChecker,
+        )
+        checker = RangePlausibilityChecker()
+        assert checker.get_category("2085-9") == "lipid"
+        assert checker.get_category("2986-8") == "hormone"
+        assert checker.is_restricted_flag_category("2986-8") is True
+        assert checker.is_restricted_flag_category("6690-2") is False
+        assert checker.is_decision_threshold("2093-3") is True
+        assert checker.is_decision_threshold("6690-2") is False
+
+    def test_plausible_range_returns_high(self):
+        from lablens.extraction.range_plausibility_checker import (
+            RangePlausibilityChecker,
+        )
+        checker = RangePlausibilityChecker()
+        trust = checker.validate_range("718-7", 14.0, 12.0, 17.0, "g/dL")
+        assert trust == "high"
+
+    def test_implausible_range_returns_low(self):
+        from lablens.extraction.range_plausibility_checker import (
+            RangePlausibilityChecker,
+        )
+        checker = RangePlausibilityChecker()
+        # Platelet value=163 with range [9-12] (from adjacent MPV row)
+        # range midpoint=10.5, platelet family ref midpoint is ~325
+        # ratio = 10.5/325 = 0.032 → well outside [0.2, 5.0]
+        trust = checker.validate_range("777-3", 163.0, 9.0, 12.0, "K/uL")
+        assert trust == "low"
