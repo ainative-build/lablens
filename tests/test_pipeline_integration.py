@@ -567,8 +567,8 @@ class TestRangeTrust:
     def engine(self):
         return InterpretationEngine()
 
-    def test_low_trust_overrides_to_curated_when_available(self, engine):
-        """Low-trust lab range with curated available → override to curated."""
+    def test_low_trust_unit_mismatch_degrades_to_indeterminate(self, engine):
+        """Low-trust lab range with unit mismatch → indeterminate, not curated override."""
         values = [{
             "test_name": "Calcium", "value": 2.26, "unit": "mmol/L",
             "loinc_code": "17861-6",
@@ -576,9 +576,24 @@ class TestRangeTrust:
             "range_trust": "low",
         }]
         report = engine.interpret_report(values)
-        # Should override to curated [8.5-10.5] mg/dL — value 2.26 is below range
+        # Curated is mg/dL, value is mmol/L — can't reconcile, degrade
+        assert report.values[0].direction == "indeterminate"
+        assert report.values[0].range_source == "no-range"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].confidence == "low"
+
+    def test_low_trust_unit_compatible_uses_curated(self, engine):
+        """Low-trust lab range with matching unit → use curated fallback."""
+        values = [{
+            "test_name": "Glucose", "value": 90, "unit": "mg/dL",
+            "loinc_code": "2345-7",
+            "ref_range_low": 5.0, "ref_range_high": 10.0,
+            "range_trust": "low",
+        }]
+        report = engine.interpret_report(values)
+        # Curated is mg/dL, value is mg/dL — compatible, use curated [70-100]
         assert report.values[0].range_source == "curated-fallback"
-        assert report.values[0].range_trust == "low"
+        assert report.values[0].direction == "in-range"
 
     def test_low_trust_caps_severity_when_no_curated(self, engine):
         """Low-trust lab range without curated → keep but cap severity at mild."""

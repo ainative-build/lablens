@@ -110,20 +110,43 @@ class InterpretationEngine:
             )
             ref_low, ref_high, range_source = None, None, "no-range"
 
-        # Suspicious lab range override: prefer curated when trust is low
+        # Suspicious lab range override: prefer curated only if unit-compatible
         if range_source == "lab-provided" and range_trust == "low":
             if rule:
                 ranges = rule.get("reference_ranges", [])
                 if ranges:
-                    cur_low, cur_high = ranges[0]["low"], ranges[0]["high"]
-                    logger.info(
-                        "Low-trust lab range for %s — overriding with curated "
-                        "[%s-%s] (was [%s-%s])",
-                        v.get("test_name", "?"), cur_low, cur_high,
-                        ref_low, ref_high,
+                    curated_unit = (rule.get("unit") or "").strip().lower()
+                    value_unit = (v.get("unit") or "").strip().lower()
+                    units_compatible = (
+                        curated_unit and value_unit
+                        and curated_unit == value_unit
                     )
-                    ref_low, ref_high = cur_low, cur_high
-                    range_source = "curated-fallback"
+                    if units_compatible:
+                        cur_low, cur_high = ranges[0]["low"], ranges[0]["high"]
+                        logger.info(
+                            "Low-trust lab range for %s — unit-compatible "
+                            "curated [%s-%s] %s (was [%s-%s])",
+                            v.get("test_name", "?"), cur_low, cur_high,
+                            curated_unit, ref_low, ref_high,
+                        )
+                        ref_low, ref_high = cur_low, cur_high
+                        range_source = "curated-fallback"
+                    else:
+                        # Unit mismatch — can't safely use curated or lab range
+                        logger.info(
+                            "Low-trust lab range for %s — curated unit '%s' "
+                            "differs from value unit '%s', degrading to "
+                            "indeterminate",
+                            v.get("test_name", "?"), curated_unit, value_unit,
+                        )
+                        result.direction = "indeterminate"
+                        result.range_source = "no-range"
+                        result.range_trust = range_trust
+                        result.confidence = "low"
+                        result.evidence_trace = build_evidence_trace(
+                            result, rule, match_confidence
+                        )
+                        return result
 
         # Expand range_source with trust level
         if range_source == "lab-provided":
