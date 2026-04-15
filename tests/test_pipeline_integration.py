@@ -416,3 +416,144 @@ class TestPDFValidation:
         fake = b"%PDF-" + b"\x00" * (25 * 1024 * 1024)
         with pytest.raises(ValueError, match="too large"):
             PDFProcessor.validate_pdf(fake)
+
+
+# ── Fix A: Curated range cross-validation ──
+
+
+class TestCuratedCrossValidation:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_ocr_row_swap_corrected_by_curated(self, engine):
+        """MCHC=33.3 with OCR range [11.6-14.0] but curated [32-36] → prefer curated."""
+        values = [{
+            "test_name": "MCHC", "value": 33.3, "unit": "g/dL",
+            "loinc_code": "786-4",
+            "ref_range_low": 11.6, "ref_range_high": 14.0,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "in-range"
+        assert report.values[0].range_source == "curated-fallback"
+        assert report.values[0].severity == "normal"
+
+    def test_valid_lab_range_not_overridden(self, engine):
+        """Lab range agrees with curated → keep lab-provided."""
+        values = [{
+            "test_name": "MCHC", "value": 30.0, "unit": "g/dL",
+            "loinc_code": "786-4",
+            "ref_range_low": 32.0, "ref_range_high": 36.0,
+        }]
+        report = engine.interpret_report(values)
+        # Lab says low, curated also says low → lab-provided kept
+        assert report.values[0].direction == "low"
+        assert report.values[0].range_source == "lab-provided"
+
+    def test_both_agree_abnormal_keeps_lab(self, engine):
+        """Value abnormal per both lab and curated → lab-provided retained."""
+        values = [{
+            "test_name": "MCHC", "value": 28.0, "unit": "g/dL",
+            "loinc_code": "786-4",
+            "ref_range_low": 32.0, "ref_range_high": 36.0,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "low"
+        assert report.values[0].range_source == "lab-provided"
+
+
+# ── Fix B+C: Empty unit guards ──
+
+
+class TestEmptyUnitGuards:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_no_unit_no_range_ignores_ocr_flag(self, engine):
+        """Testosterone=642.56 with no unit, no range, flag=H → indeterminate."""
+        values = [{
+            "test_name": "Testosterone", "value": 642.56, "unit": "",
+            "loinc_code": None, "flag": "H",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "indeterminate"
+
+    def test_unit_present_still_uses_flag(self, engine):
+        """With unit present, OCR flag is still used."""
+        values = [{
+            "test_name": "Testosterone", "value": 642.56, "unit": "ng/dL",
+            "loinc_code": None, "flag": "H",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "high"
+        assert report.values[0].range_source == "ocr-flag"
+
+    def test_low_unit_confidence_blocks_curated_fallback(self, engine):
+        """unit_confidence=low with curated fallback → don't trust curated range."""
+        values = [{
+            "test_name": "HDL Cholesterol", "value": 0.92, "unit": "mg/dL",
+            "loinc_code": "2085-9", "unit_confidence": "low",
+        }]
+        report = engine.interpret_report(values)
+        # Should NOT get critical severity from curated [40-999]
+        assert report.values[0].direction == "indeterminate"
+        assert report.values[0].severity != "critical"
+
+    def test_empty_unit_blocks_curated_fallback(self, engine):
+        """Free T4=13.59 with empty unit → don't trust curated [0.8-1.8] ng/dL."""
+        values = [{
+            "test_name": "Free T4", "value": 13.59, "unit": "",
+            "loinc_code": "3024-7",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "indeterminate"
+        assert report.values[0].severity != "critical"
+
+
+# ── Fix D: Unit misreport detection ──
+
+
+class TestUnitMisreportDetection:
+    def test_implausibly_low_value_flags_low_confidence(self):
+        """HDL-C=0.92 'mg/dL' is implausible for curated [40-999] mg/dL."""
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        from lablens.orchestration.pipeline import PlainPipeline
+
+        normalizer = UnitNormalizer()
+        vdict = {
+            "test_name": "HDL Cholesterol",
+            "value": 0.92,
+            "unit": "mg/dL",
+            "unit_confidence": "high",
+        }
+        result = PlainPipeline._check_unit_misreport(vdict, "2085-9", normalizer)
+        assert result["unit_confidence"] == "low"
+
+    def test_plausible_value_keeps_high_confidence(self):
+        """HDL-C=45 mg/dL is plausible for curated [40-999] → keep high confidence."""
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        from lablens.orchestration.pipeline import PlainPipeline
+
+        normalizer = UnitNormalizer()
+        vdict = {
+            "test_name": "HDL Cholesterol",
+            "value": 45.0,
+            "unit": "mg/dL",
+            "unit_confidence": "high",
+        }
+        result = PlainPipeline._check_unit_misreport(vdict, "2085-9", normalizer)
+        assert result["unit_confidence"] == "high"
+
+    def test_no_loinc_code_passthrough(self):
+        """No LOINC code → no misreport check."""
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        from lablens.orchestration.pipeline import PlainPipeline
+
+        normalizer = UnitNormalizer()
+        vdict = {
+            "test_name": "Unknown", "value": 0.5, "unit": "mg/dL",
+            "unit_confidence": "high",
+        }
+        result = PlainPipeline._check_unit_misreport(vdict, None, normalizer)
+        assert result["unit_confidence"] == "high"

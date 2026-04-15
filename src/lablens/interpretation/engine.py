@@ -108,6 +108,29 @@ class InterpretationEngine:
 
         # Step 1: Select reference range
         ref_low, ref_high, range_source = self._select_range(v, rule)
+
+        # Guard: curated fallback with low unit confidence is unreliable
+        # (e.g. HDL-C=0.92 "mg/dL" against curated [40-999] mg/dL when
+        # the actual unit is mmol/L)
+        unit_confidence = v.get("unit_confidence", "high")
+        if range_source == "curated-fallback" and unit_confidence == "low":
+            logger.info(
+                "Low unit confidence for %s — clearing curated fallback range",
+                v.get("test_name", "?"),
+            )
+            ref_low, ref_high, range_source = None, None, "none"
+
+        # Guard: curated fallback with empty unit — can't verify unit system
+        # (e.g. Free T4=13.59 with no unit, curated expects ng/dL but
+        # value may be in pmol/L)
+        unit_str = v.get("unit") or ""
+        if range_source == "curated-fallback" and not unit_str.strip():
+            logger.info(
+                "Empty unit for %s — clearing curated fallback range",
+                v.get("test_name", "?"),
+            )
+            ref_low, ref_high, range_source = None, None, "none"
+
         result.reference_range_low = ref_low
         result.reference_range_high = ref_high
         result.range_source = range_source
@@ -126,9 +149,13 @@ class InterpretationEngine:
                     )
                     return result
 
-            # Last resort: use OCR flag for direction
+            # Last resort: use OCR flag for direction — but only if unit is known
             flag = v.get("flag")
-            if flag and flag.upper() in ("H", "A"):
+            unit = v.get("unit") or ""
+            if not unit.strip():
+                # No unit + no range = too uncertain — flag is unreliable
+                result.direction = "indeterminate"
+            elif flag and flag.upper() in ("H", "A"):
                 result.direction = "high"
                 result.range_source = "ocr-flag"
             elif flag and flag.upper() == "L":
@@ -193,10 +220,34 @@ class InterpretationEngine:
 
     @staticmethod
     def _select_range(v: dict, rule: dict | None) -> tuple:
-        """Step 1: Lab-provided preferred, curated fallback."""
+        """Step 1: Lab-provided preferred, curated fallback.
+
+        Cross-validates lab range against curated rule when both exist.
+        If curated says in-range but lab says out-of-range, the lab range
+        is likely an OCR row-swap — prefer curated.
+        """
         low = v.get("reference_range_low", v.get("ref_range_low"))
         high = v.get("reference_range_high", v.get("ref_range_high"))
+        value = v.get("value")
+
         if low is not None and high is not None:
+            # Cross-validate against curated if available and value is numeric
+            if rule and isinstance(value, (int, float)):
+                ranges = rule.get("reference_ranges", [])
+                if ranges:
+                    cur_low = ranges[0]["low"]
+                    cur_high = ranges[0]["high"]
+                    lab_says_abnormal = value < low or value > high
+                    curated_says_in_range = cur_low <= value <= cur_high
+                    if lab_says_abnormal and curated_says_in_range:
+                        logger.info(
+                            "Lab range [%s-%s] flags %s as abnormal but curated "
+                            "[%s-%s] says in-range — likely OCR row-swap, "
+                            "preferring curated for %s",
+                            low, high, value, cur_low, cur_high,
+                            v.get("test_name", "?"),
+                        )
+                        return cur_low, cur_high, "curated-fallback"
             return low, high, "lab-provided"
         if rule:
             ranges = rule.get("reference_ranges", [])

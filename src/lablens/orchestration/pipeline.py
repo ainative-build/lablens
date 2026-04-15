@@ -22,6 +22,73 @@ class PlainPipeline:
     def __init__(self, settings: Settings):
         self.settings = settings
 
+    _cached_rules: dict | None = None
+
+    @classmethod
+    def _check_unit_misreport(
+        cls, vdict: dict, loinc_code: str | None, normalizer
+    ) -> dict:
+        """Detect OCR unit misreport via curated range plausibility.
+
+        If value with reported unit is >10x outside curated range but converting
+        from an alternative unit brings it into plausible range, flag low confidence.
+        Example: HDL-C=0.92 "mg/dL" — actually mmol/L (0.92×38.67=35.6 mg/dL).
+        """
+        if not loinc_code:
+            return vdict
+
+        from lablens.knowledge.rules_loader import get_rule, load_all_rules
+
+        if cls._cached_rules is None:
+            cls._cached_rules = load_all_rules()
+        rule = get_rule(loinc_code, cls._cached_rules)
+        if not rule:
+            return vdict
+
+        ranges = rule.get("reference_ranges", [])
+        if not ranges:
+            return vdict
+
+        cur_low = ranges[0]["low"]
+        cur_high = ranges[0]["high"]
+        value = float(vdict["value"])
+
+        # Only check if value is wildly outside curated range (>10x from bounds)
+        if cur_low > 0 and value < cur_low / 10:
+            pass  # Implausibly low — try conversion
+        elif cur_high > 0 and value > cur_high * 10:
+            pass  # Implausibly high — try conversion
+        else:
+            return vdict  # Value is in plausible range for reported unit
+
+        # Value is wildly implausible — check if any conversion would fix it
+        conv_data = normalizer._conversions.get(loinc_code)
+        if not conv_data:
+            # No conversion available — just drop confidence
+            vdict["unit_confidence"] = "low"
+            return vdict
+
+        reported_unit = vdict.get("unit", "")
+        canonical_unit = conv_data.get("canonical_unit", "")
+
+        for conv in conv_data.get("conversions", []):
+            converted = round(value * conv["factor"], 4)
+            # Check if converted value is in plausible range (within 50% of bounds)
+            plausible_low = cur_low * 0.5 if cur_low > 0 else float("-inf")
+            if plausible_low <= converted <= cur_high * 2:
+                logger.warning(
+                    "Unit misreport detected for %s: value=%s '%s' is "
+                    "implausible for curated [%s-%s] %s, but converting "
+                    "from '%s' gives %s — flagging low confidence.",
+                    vdict.get("test_name", "?"), value, reported_unit,
+                    cur_low, cur_high, canonical_unit,
+                    conv["from"], converted,
+                )
+                vdict["unit_confidence"] = "low"
+                return vdict
+
+        return vdict
+
     async def analyze(self, pdf_bytes: bytes, language: str = "en") -> dict:
         """Full pipeline: PDF → extraction → mapping → interpretation → explanation."""
 
@@ -62,7 +129,8 @@ class PlainPipeline:
                 vdict.get("reference_range_low") is not None
                 and vdict.get("reference_range_high") is not None
             )
-            if isinstance(vdict["value"], (int, float)) and v.unit:
+            unit_present = v.unit and v.unit.strip()
+            if isinstance(vdict["value"], (int, float)) and unit_present:
                 if has_lab_range:
                     # Keep original units — value and ranges are already consistent
                     vdict["unit_confidence"] = "high"
@@ -83,6 +151,23 @@ class PlainPipeline:
                             v.test_name, v.unit,
                         )
                         vdict["loinc_code"] = None
+
+                # Check for unit misreport: if value is implausibly far from
+                # curated range, OCR may have reported the wrong unit
+                if vdict.get("loinc_code"):
+                    vdict = self._check_unit_misreport(
+                        vdict, vdict["loinc_code"], normalizer
+                    )
+            # If no unit and no lab range, clear LOINC to prevent curated
+            # fallback with unknown unit system (e.g. Free T4 in pmol/L vs ng/dL)
+            if not unit_present and not has_lab_range and vdict.get("loinc_code"):
+                logger.warning(
+                    "No unit and no lab range for %s — clearing LOINC to "
+                    "prevent curated fallback with unknown unit system.",
+                    v.test_name,
+                )
+                vdict["loinc_code"] = None
+
             confidences[i] = match_conf
             enriched_values.append(vdict)
 
