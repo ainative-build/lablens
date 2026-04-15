@@ -113,7 +113,20 @@ class InterpretationEngine:
         result.range_source = range_source
 
         if ref_low is None or ref_high is None:
-            # Fallback: use OCR flag for direction if available
+            # Try to extract direction from reference_range_text (e.g. "≤ 39", "< 200")
+            ref_text = v.get("reference_range_text", "")
+            if ref_text and isinstance(value, (int, float)):
+                direction = self._direction_from_text(value, ref_text)
+                if direction:
+                    result.direction = direction
+                    result.range_source = "range-text"
+                    result.confidence = "low"
+                    result.evidence_trace = build_evidence_trace(
+                        result, rule, match_confidence
+                    )
+                    return result
+
+            # Last resort: use OCR flag for direction
             flag = v.get("flag")
             if flag and flag.upper() in ("H", "A"):
                 result.direction = "high"
@@ -132,19 +145,39 @@ class InterpretationEngine:
         # Step 2: Determine direction
         result.direction = self._determine_direction(value, ref_low, ref_high)
 
-        # Step 3: Apply severity band (curated rule or heuristic deviation)
-        result.severity = self._apply_severity(value, rule)
-        if result.severity == "normal" and result.direction != "in-range":
-            # Heuristic fallback: estimate severity from deviation %
-            result.severity = self._heuristic_severity(value, ref_low, ref_high)
+        # Step 3: Apply severity band
+        if result.direction == "in-range":
+            # Hard guard: in-range values are always normal severity
+            result.severity = "normal"
+            result.actionability = "routine"
+            result.is_panic = False
+        else:
+            # Only apply severity bands when value is actually out of range
+            # AND curated rule units match the value's units (range_source check)
+            if rule and range_source == "curated-fallback":
+                # Curated fallback range was used — severity bands are in same unit system
+                result.severity = self._apply_severity(value, rule)
+            elif rule and range_source == "lab-provided":
+                # Lab-provided range — curated severity bands may be in different units
+                # Use heuristic severity based on deviation from lab range instead
+                result.severity = self._heuristic_severity(value, ref_low, ref_high)
+            else:
+                result.severity = "normal"
 
-        # Step 4: Check panic threshold
-        result.is_panic = self._check_panic(value, rule)
+            if result.severity == "normal" and result.direction != "in-range":
+                result.severity = self._heuristic_severity(value, ref_low, ref_high)
 
-        # Step 5: Assign actionability
-        result.actionability = _DEFAULT_ACTIONABILITY.get(result.severity, "routine")
-        if result.is_panic:
-            result.actionability = "urgent"
+            # Step 4: Check panic threshold (only with curated fallback — same unit system)
+            result.is_panic = (
+                self._check_panic(value, rule)
+                if range_source == "curated-fallback"
+                else False
+            )
+
+            # Step 5: Assign actionability
+            result.actionability = _DEFAULT_ACTIONABILITY.get(result.severity, "routine")
+            if result.is_panic:
+                result.actionability = "urgent"
 
         # Step 6: Calculate confidence
         result.confidence = calculate_confidence(
@@ -161,7 +194,6 @@ class InterpretationEngine:
     @staticmethod
     def _select_range(v: dict, rule: dict | None) -> tuple:
         """Step 1: Lab-provided preferred, curated fallback."""
-        # Support both abbreviated and full key names from pipeline
         low = v.get("reference_range_low", v.get("ref_range_low"))
         high = v.get("reference_range_high", v.get("ref_range_high"))
         if low is not None and high is not None:
@@ -220,6 +252,26 @@ class InterpretationEngine:
             value <= panic.get("low", float("-inf"))
             or value >= panic.get("high", float("inf"))
         )
+
+    @staticmethod
+    def _direction_from_text(value: float, ref_text: str) -> str | None:
+        """Try to extract direction from reference_range_text like '≤ 39', '< 200'.
+
+        Returns direction string or None if text is not parseable.
+        """
+        import re
+        text = ref_text.strip()
+        # Pattern: "< 200", "<= 39", "≤ 39"
+        m = re.search(r"[<≤]\s*=?\s*([\d.]+)", text)
+        if m:
+            threshold = float(m.group(1))
+            return "high" if value > threshold else "in-range"
+        # Pattern: "> 60", ">= 3.5", "≥ 3.5"
+        m = re.search(r"[>≥]\s*=?\s*([\d.]+)", text)
+        if m:
+            threshold = float(m.group(1))
+            return "low" if value < threshold else "in-range"
+        return None
 
     @staticmethod
     def _heuristic_severity(value: float, ref_low: float, ref_high: float) -> str:

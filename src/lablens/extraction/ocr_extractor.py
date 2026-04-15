@@ -132,6 +132,22 @@ def _validate_range_plausibility(v: dict) -> dict:
         except (ValueError, ZeroDivisionError):
             pass
 
+    # Detect threshold/category-style ranges (e.g. "Desirable: < 1.7", "Borderline: 1.7-2.25")
+    # These are decision thresholds, not reference intervals — clear them
+    ref_text = v.get("reference_range_text", "")
+    if ref_text and isinstance(ref_text, str):
+        threshold_keywords = (
+            "desirable", "optimal", "borderline", "risk", "target",
+            "acceptable", "ideal", "goal", "category",
+        )
+        if any(kw in ref_text.lower() for kw in threshold_keywords):
+            logger.info(
+                "Clearing threshold-style range for %s: text='%s'",
+                v.get("test_name", "?"), ref_text,
+            )
+            v["reference_range_low"] = None
+            v["reference_range_high"] = None
+
     return v
 
 

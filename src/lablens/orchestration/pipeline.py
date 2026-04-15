@@ -74,6 +74,15 @@ class PlainPipeline:
                     vdict["value"] = norm.value
                     vdict["unit"] = norm.unit
                     vdict["unit_confidence"] = norm.confidence
+                    # If conversion failed (low confidence), clear LOINC to prevent
+                    # curated fallback range comparison with mismatched units
+                    if norm.confidence == "low" and not norm.converted:
+                        logger.warning(
+                            "Unit mismatch for %s: %s not convertible to canonical. "
+                            "Clearing LOINC to prevent curated range mismatch.",
+                            v.test_name, v.unit,
+                        )
+                        vdict["loinc_code"] = None
             confidences[i] = match_conf
             enriched_values.append(vdict)
 

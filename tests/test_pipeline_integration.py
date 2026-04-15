@@ -289,6 +289,116 @@ class TestExplanationFallback:
         assert result[0].test_name == "WBC"
 
 
+# ── Bug 1: Direction guard — in-range must be normal ──
+
+
+class TestDirectionGuard:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_in_range_always_normal_severity(self, engine):
+        """Even with curated severity bands, in-range → normal."""
+        values = [{
+            "test_name": "Albumin", "value": 4.0, "unit": "g/dL",
+            "loinc_code": "1751-7", "ref_range_low": 3.5, "ref_range_high": 5.0,
+        }]
+        report = engine.interpret_report(values, {0: "high"})
+        assert report.values[0].direction == "in-range"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].actionability == "routine"
+
+    def test_in_range_never_escalates(self, engine):
+        """In-range value with mismatched-unit severity bands must stay normal."""
+        # Simulates: value=2.26 mmol/L (in-range per lab [2.25-2.55])
+        # but curated bands in mg/dL would flag this as critical
+        values = [{
+            "test_name": "Total Bilirubin", "value": 0.5, "unit": "mg/dL",
+            "loinc_code": "1975-2", "ref_range_low": 0.1, "ref_range_high": 1.2,
+        }]
+        report = engine.interpret_report(values, {0: "high"})
+        assert report.values[0].direction == "in-range"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].actionability == "routine"
+
+
+# ── Bug 2: Threshold-style range detection ──
+
+
+class TestThresholdRangeDetection:
+    def test_desirable_threshold_cleared(self):
+        v = {
+            "test_name": "Triglycerides",
+            "value": 0.93,
+            "reference_range_low": 1.7,
+            "reference_range_high": 2.25,
+            "reference_range_text": "Desirable: < 1.7",
+        }
+        result = _validate_range_plausibility(v)
+        assert result["reference_range_low"] is None
+        assert result["reference_range_high"] is None
+
+    def test_borderline_threshold_cleared(self):
+        v = {
+            "test_name": "Total Cholesterol",
+            "value": 4.47,
+            "reference_range_low": 5.18,
+            "reference_range_high": 6.21,
+            "reference_range_text": "Borderline High: 5.18-6.21",
+        }
+        result = _validate_range_plausibility(v)
+        assert result["reference_range_low"] is None
+
+    def test_normal_range_text_kept(self):
+        v = {
+            "test_name": "WBC",
+            "value": 7.5,
+            "reference_range_low": 4.0,
+            "reference_range_high": 11.0,
+            "reference_range_text": "4.0 - 11.0",
+        }
+        result = _validate_range_plausibility(v)
+        assert result["reference_range_low"] == 4.0
+        assert result["reference_range_high"] == 11.0
+
+
+# ─�� Bug 4: Direction from reference text ──
+
+
+class TestDirectionFromText:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_upper_bound_high(self, engine):
+        """CA 19-9=42 with ref '≤ 39' → high."""
+        values = [{
+            "test_name": "CA 19-9", "value": 42.0, "unit": "U/mL",
+            "loinc_code": None, "reference_range_text": "≤ 39",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "high"
+        assert report.values[0].range_source == "range-text"
+
+    def test_upper_bound_in_range(self, engine):
+        """CRP=1.11 with ref '< 5' → in-range."""
+        values = [{
+            "test_name": "CRP", "value": 1.11, "unit": "mg/L",
+            "loinc_code": None, "reference_range_text": "< 5",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "in-range"
+
+    def test_lower_bound(self, engine):
+        """Value below lower threshold → low."""
+        values = [{
+            "test_name": "HDL", "value": 0.8, "unit": "mmol/L",
+            "loinc_code": None, "reference_range_text": "> 1.0",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "low"
+
+
 # ── PDF validation ──
 
 
