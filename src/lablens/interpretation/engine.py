@@ -223,13 +223,15 @@ class InterpretationEngine:
                 result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
                 return result
 
-        # Last resort: OCR flag — only if unit is known and not restricted
+        # Last resort: OCR flag — only if unit is known, not restricted,
+        # and not a decision-threshold test (flags on threshold tests are
+        # unreliable without curated range cross-validation).
         flag = v.get("flag")
         unit = v.get("unit") or ""
+        is_decision_threshold = v.get("is_decision_threshold", False)
         if not unit.strip():
             result.direction = "indeterminate"
-        elif restricted_flag:
-            # Hormones, tumor markers, infectious — flag is unreliable
+        elif restricted_flag or is_decision_threshold:
             result.direction = "indeterminate"
             result.range_source = "no-range"
         elif flag and flag.upper() in ("H", "A"):
