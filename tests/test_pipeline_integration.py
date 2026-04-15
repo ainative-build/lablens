@@ -850,8 +850,8 @@ class TestSuspiciousPageDetection:
         assert is_page_suspicious([]) is False
 
 
-class TestReparseQualityComparison:
-    def test_reparse_with_more_values_and_units_wins(self):
+class TestRowLevelMerge:
+    def test_incomplete_rows_patched_from_reparse(self):
         from lablens.extraction.ocr_extractor import OCRExtractor
         original = [
             {"test_name": "A", "value": 1, "unit": None},
@@ -862,16 +862,13 @@ class TestReparseQualityComparison:
              "reference_range_low": 0.5, "reference_range_high": 1.5},
             {"test_name": "B", "value": 2, "unit": "g/L",
              "reference_range_low": 1.0, "reference_range_high": 3.0},
-            {"test_name": "C", "value": 3, "unit": "mmol/L"},
         ]
-        assert OCRExtractor._reparse_is_better(original, reparsed) is True
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 2
+        assert merged[0]["unit"] == "mg/dL"
+        assert merged[1]["unit"] == "g/L"
 
-    def test_empty_reparse_loses(self):
-        from lablens.extraction.ocr_extractor import OCRExtractor
-        original = [{"test_name": "A", "value": 1, "unit": "mg/dL"}]
-        assert OCRExtractor._reparse_is_better(original, []) is False
-
-    def test_worse_reparse_loses(self):
+    def test_complete_rows_preserved(self):
         from lablens.extraction.ocr_extractor import OCRExtractor
         original = [
             {"test_name": "A", "value": 1, "unit": "mg/dL",
@@ -882,4 +879,42 @@ class TestReparseQualityComparison:
         reparsed = [
             {"test_name": "A", "value": 1, "unit": None},
         ]
-        assert OCRExtractor._reparse_is_better(original, reparsed) is False
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 0
+        assert merged[0]["unit"] == "mg/dL"
+        assert merged[1]["unit"] == "g/L"
+
+    def test_empty_reparse_returns_original(self):
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [{"test_name": "A", "value": 1, "unit": "mg/dL"}]
+        merged, patched = OCRExtractor._merge_row_level(original, [])
+        assert patched == 0
+        assert len(merged) == 1
+
+    def test_unit_regression_blocked(self):
+        """If original has unit X and reparse has unit Y, keep original."""
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [
+            {"test_name": "A", "value": 1, "unit": "mmol/L"},
+        ]
+        reparsed = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+        ]
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 0
+        assert merged[0]["unit"] == "mmol/L"
+
+    def test_new_values_from_reparse_added(self):
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+        ]
+        reparsed = [
+            {"test_name": "B", "value": 2, "unit": "g/L",
+             "reference_range_low": 1.0, "reference_range_high": 3.0},
+        ]
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 1
+        assert len(merged) == 2

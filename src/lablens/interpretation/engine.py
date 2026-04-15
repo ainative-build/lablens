@@ -173,8 +173,8 @@ class InterpretationEngine:
 
         # Expand range_source with trust level
         if range_source == "lab-provided":
-            if range_trust == "low":
-                # Low trust but no curated fallback available — keep but mark suspicious
+            if range_trust in ("low", "medium"):
+                # Low/medium trust — keep but mark suspicious
                 range_source = "lab-provided-suspicious"
             else:
                 range_source = "lab-provided-validated"

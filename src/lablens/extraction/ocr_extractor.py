@@ -73,12 +73,15 @@ class OCRExtractor:
                 )
                 if reparse_result:
                     reparse_values = reparse_result.get("values", [])
-                    if self._reparse_is_better(raw_values, reparse_values):
+                    merged, patched = self._merge_row_level(
+                        raw_values, reparse_values
+                    )
+                    if patched > 0:
                         logger.info(
-                            "Reparse improved page %d: %d→%d values",
-                            page_num, len(raw_values), len(reparse_values),
+                            "Row-level merge improved page %d: patched %d/%d rows",
+                            page_num, patched, len(merged),
                         )
-                        raw_values = reparse_values
+                        raw_values = merged
 
             for v in raw_values:
                 try:
@@ -150,29 +153,89 @@ class OCRExtractor:
             return None
 
     @staticmethod
-    def _reparse_is_better(
-        original: list[dict], reparsed: list[dict]
-    ) -> bool:
-        """Compare original vs reparsed extraction quality.
+    def _normalize_name(name: str) -> str:
+        """Normalize test name for matching between original and reparse."""
+        import re
+        name = name.lower().strip()
+        name = re.sub(r"\s*\[.*?\]", "", name)   # Remove [Serum], [Whole blood]
+        name = re.sub(r"\s*\(.*?\)", "", name)    # Remove (NGSP), (IFCC)
+        name = re.sub(r"[*#†]", "", name)         # Remove footnote markers
+        name = re.sub(r"\s+", " ", name).strip()
+        return name
 
-        Reparse wins if it has more values with units and ranges.
+    @staticmethod
+    def _row_is_complete(v: dict) -> bool:
+        """Check if a row has unit AND at least one range bound."""
+        has_unit = bool(v.get("unit"))
+        has_range = (
+            v.get("reference_range_low") is not None
+            or v.get("reference_range_high") is not None
+        )
+        return has_unit and has_range
+
+    @classmethod
+    def _merge_row_level(
+        cls, original: list[dict], reparsed: list[dict]
+    ) -> tuple[list[dict], int]:
+        """Merge original and reparsed values at row level.
+
+        Keeps original rows that are already complete. Only patches
+        incomplete rows with reparsed equivalents when the reparse is
+        demonstrably better for that specific analyte.
+
+        Returns:
+            (merged_values, patch_count)
         """
         if not reparsed:
-            return False
+            return original, 0
 
-        def quality_score(values: list[dict]) -> float:
-            if not values:
-                return 0
-            total = len(values)
-            has_unit = sum(1 for v in values if v.get("unit"))
-            has_range = sum(
-                1 for v in values
-                if v.get("reference_range_low") is not None
-                or v.get("reference_range_high") is not None
-            )
-            return total + (has_unit / total) * total + (has_range / total) * total
+        # Build reparse lookup by normalized name
+        reparse_map: dict[str, list[dict]] = {}
+        for v in reparsed:
+            key = cls._normalize_name(v.get("test_name", ""))
+            if key:
+                reparse_map.setdefault(key, []).append(v)
 
-        return quality_score(reparsed) > quality_score(original)
+        merged = []
+        patched = 0
+
+        for orig in original:
+            if cls._row_is_complete(orig):
+                # Original is good — keep it
+                merged.append(orig)
+                continue
+
+            # Original is incomplete — look for reparse match
+            key = cls._normalize_name(orig.get("test_name", ""))
+            candidates = reparse_map.get(key, [])
+
+            best = None
+            for cand in candidates:
+                if not cls._row_is_complete(cand):
+                    continue
+                # Verify unit consistency: if both have units, they should match
+                orig_unit = (orig.get("unit") or "").strip().lower()
+                cand_unit = (cand.get("unit") or "").strip().lower()
+                if orig_unit and cand_unit and orig_unit != cand_unit:
+                    continue  # Unit regression — skip
+                best = cand
+                break
+
+            if best:
+                merged.append(best)
+                patched += 1
+            else:
+                merged.append(orig)
+
+        # Add new values from reparse that weren't in original
+        orig_keys = {cls._normalize_name(v.get("test_name", "")) for v in original}
+        for v in reparsed:
+            key = cls._normalize_name(v.get("test_name", ""))
+            if key and key not in orig_keys and cls._row_is_complete(v):
+                merged.append(v)
+                patched += 1
+
+        return merged, patched
 
     async def _call_dashscope_ocr(self, model: str, messages: list) -> str:
         """Call DashScope multimodal API in executor to avoid blocking event loop."""
