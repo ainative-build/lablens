@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # DashScope (Qwen API)
     dashscope_api_key: str = ""
+    dashscope_api_base: str = "https://dashscope-intl.aliyuncs.com/api/v1"
     dashscope_ocr_model: str = "qwen-vl-ocr"
     dashscope_chat_model: str = "qwen-plus"
     dashscope_embedding_model: str = "text-embedding-v3"
@@ -30,3 +31,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Set DashScope SDK base URL for international endpoint
+import dashscope as _dashscope
+
+_dashscope.base_http_api_url = settings.dashscope_api_base
