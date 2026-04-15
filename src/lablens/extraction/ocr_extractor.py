@@ -106,6 +106,13 @@ def _validate_range_plausibility(v: dict) -> dict:
             v["reference_range_high"] = None
             return v
 
+    # Coerce value to float for comparison (OCR often returns strings like "163")
+    if val is not None and not isinstance(val, (int, float)):
+        try:
+            val = float(val)
+        except (ValueError, TypeError):
+            return v
+
     # If value is numeric, check it's within plausible distance of range
     if isinstance(val, (int, float)) and isinstance(low, (int, float)) and isinstance(high, (int, float)):
         try:
