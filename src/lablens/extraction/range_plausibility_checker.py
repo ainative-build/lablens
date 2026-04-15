@@ -73,6 +73,8 @@ class RangePlausibilityChecker:
         ref_low: float | None,
         ref_high: float | None,
         unit: str | None,
+        curated_ref_low: float | None = None,
+        curated_ref_high: float | None = None,
     ) -> str:
         """Validate range plausibility for a given analyte.
 
@@ -83,6 +85,22 @@ class RangePlausibilityChecker:
         """
         if ref_low is None or ref_high is None:
             return "high"  # No range to validate
+
+        # Curated cross-check: if lab range midpoint differs from curated by >5x,
+        # the lab range is likely from a different unit system or adjacent row
+        if curated_ref_low is not None and curated_ref_high is not None:
+            lab_mid = (ref_low + ref_high) / 2
+            cur_mid = (curated_ref_low + curated_ref_high) / 2
+            if lab_mid > 0 and cur_mid > 0:
+                ratio = max(lab_mid / cur_mid, cur_mid / lab_mid)
+                if ratio > 5.0:
+                    logger.info(
+                        "Lab range [%s-%s] midpoint differs from curated [%s-%s] "
+                        "by %.1fx — suspicious for %s",
+                        ref_low, ref_high, curated_ref_low, curated_ref_high,
+                        ratio, loinc_code,
+                    )
+                    return "low"
 
         if not loinc_code:
             # No LOINC — can't do family-specific check, use generic

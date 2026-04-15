@@ -110,9 +110,14 @@ class PlainPipeline:
             RangePlausibilityChecker,
         )
 
+        from lablens.knowledge.rules_loader import load_all_rules
+
         mapper = TerminologyMapper(AliasRegistry())
         normalizer = UnitNormalizer()
         plausibility_checker = RangePlausibilityChecker()
+
+        if PlainPipeline._cached_rules is None:
+            PlainPipeline._cached_rules = load_all_rules()
 
         enriched_values = []
         confidences = {}
@@ -175,6 +180,16 @@ class PlainPipeline:
 
             # Compute range_trust via analyte-family plausibility
             lc = vdict.get("loinc_code")
+            curated_low, curated_high = None, None
+            if lc:
+                from lablens.knowledge.rules_loader import get_rule
+                rule = get_rule(lc, PlainPipeline._cached_rules or {})
+                if rule:
+                    ranges = rule.get("reference_ranges", [])
+                    if ranges:
+                        curated_low = ranges[0]["low"]
+                        curated_high = ranges[0]["high"]
+
             if isinstance(vdict["value"], (int, float)) and has_lab_range:
                 vdict["range_trust"] = plausibility_checker.validate_range(
                     lc,
@@ -182,6 +197,8 @@ class PlainPipeline:
                     vdict.get("reference_range_low"),
                     vdict.get("reference_range_high"),
                     vdict.get("unit"),
+                    curated_ref_low=curated_low,
+                    curated_ref_high=curated_high,
                 )
             else:
                 vdict["range_trust"] = "high"

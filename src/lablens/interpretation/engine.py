@@ -110,9 +110,25 @@ class InterpretationEngine:
             )
             ref_low, ref_high, range_source = None, None, "no-range"
 
+        # Suspicious lab range override: prefer curated when trust is low
+        if range_source == "lab-provided" and range_trust == "low":
+            if rule:
+                ranges = rule.get("reference_ranges", [])
+                if ranges:
+                    cur_low, cur_high = ranges[0]["low"], ranges[0]["high"]
+                    logger.info(
+                        "Low-trust lab range for %s — overriding with curated "
+                        "[%s-%s] (was [%s-%s])",
+                        v.get("test_name", "?"), cur_low, cur_high,
+                        ref_low, ref_high,
+                    )
+                    ref_low, ref_high = cur_low, cur_high
+                    range_source = "curated-fallback"
+
         # Expand range_source with trust level
         if range_source == "lab-provided":
             if range_trust == "low":
+                # Low trust but no curated fallback available — keep but mark suspicious
                 range_source = "lab-provided-suspicious"
             else:
                 range_source = "lab-provided-validated"

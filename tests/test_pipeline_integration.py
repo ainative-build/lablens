@@ -567,8 +567,8 @@ class TestRangeTrust:
     def engine(self):
         return InterpretationEngine()
 
-    def test_low_trust_range_caps_severity_at_mild(self, engine):
-        """Low-trust lab range should not produce moderate/critical severity."""
+    def test_low_trust_overrides_to_curated_when_available(self, engine):
+        """Low-trust lab range with curated available → override to curated."""
         values = [{
             "test_name": "Calcium", "value": 2.26, "unit": "mmol/L",
             "loinc_code": "17861-6",
@@ -576,8 +576,21 @@ class TestRangeTrust:
             "range_trust": "low",
         }]
         report = engine.interpret_report(values)
-        assert report.values[0].severity in ("mild", "normal")
+        # Should override to curated [8.5-10.5] mg/dL — value 2.26 is below range
+        assert report.values[0].range_source == "curated-fallback"
         assert report.values[0].range_trust == "low"
+
+    def test_low_trust_caps_severity_when_no_curated(self, engine):
+        """Low-trust lab range without curated → keep but cap severity at mild."""
+        values = [{
+            "test_name": "Unknown Test", "value": 50.0, "unit": "mg/dL",
+            "loinc_code": None,
+            "ref_range_low": 10.0, "ref_range_high": 20.0,
+            "range_trust": "low",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].severity in ("mild", "normal")
+        assert report.values[0].range_source == "lab-provided-suspicious"
 
     def test_high_trust_range_allows_moderate(self, engine):
         """High-trust lab range allows normal severity escalation."""
@@ -606,12 +619,12 @@ class TestExpandedRangeSource:
         report = engine.interpret_report(values)
         assert report.values[0].range_source == "lab-provided-validated"
 
-    def test_lab_provided_suspicious(self, engine):
-        """Low-trust lab range → lab-provided-suspicious."""
+    def test_lab_provided_suspicious_no_curated(self, engine):
+        """Low-trust lab range without curated → lab-provided-suspicious."""
         values = [{
-            "test_name": "Calcium", "value": 2.26, "unit": "mmol/L",
-            "loinc_code": "17861-6",
-            "ref_range_low": 0.81, "ref_range_high": 1.45,
+            "test_name": "Unknown Test", "value": 50.0, "unit": "mg/dL",
+            "loinc_code": None,
+            "ref_range_low": 10.0, "ref_range_high": 20.0,
             "range_trust": "low",
         }]
         report = engine.interpret_report(values)
@@ -710,3 +723,29 @@ class TestPlausibilityChecker:
         # ratio = 10.5/325 = 0.032 → well outside [0.2, 5.0]
         trust = checker.validate_range("777-3", 163.0, 9.0, 12.0, "K/uL")
         assert trust == "low"
+
+    def test_curated_crosscheck_detects_unit_mismatch(self):
+        """Lab range in mmol/L vs curated in mg/dL → >5x midpoint diff → low trust."""
+        from lablens.extraction.range_plausibility_checker import (
+            RangePlausibilityChecker,
+        )
+        checker = RangePlausibilityChecker()
+        # Calcium: lab range [0.81-1.45] mmol/L, curated [8.5-10.5] mg/dL
+        trust = checker.validate_range(
+            "17861-6", 2.26, 0.81, 1.45, "mmol/L",
+            curated_ref_low=8.5, curated_ref_high=10.5,
+        )
+        assert trust == "low"
+
+    def test_curated_crosscheck_passes_same_scale(self):
+        """Lab range same scale as curated → not flagged."""
+        from lablens.extraction.range_plausibility_checker import (
+            RangePlausibilityChecker,
+        )
+        checker = RangePlausibilityChecker()
+        # Glucose: lab [70-100], curated [70-100] — same scale
+        trust = checker.validate_range(
+            "2345-7", 90.0, 70.0, 100.0, "mg/dL",
+            curated_ref_low=70.0, curated_ref_high=100.0,
+        )
+        assert trust == "high"
