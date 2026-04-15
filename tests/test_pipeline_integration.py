@@ -918,3 +918,53 @@ class TestRowLevelMerge:
         merged, patched = OCRExtractor._merge_row_level(original, reparsed)
         assert patched == 1
         assert len(merged) == 2
+
+
+# ── HPLC semantic validation ──
+
+
+class TestHPLCSemanticValidation:
+    def test_hba1c_prediabetes_range_cleared(self):
+        from lablens.extraction.ocr_range_preprocessor import (
+            validate_range_plausibility,
+        )
+        v = {
+            "test_name": "HbA1c [Whole blood]",
+            "value": "5.1", "unit": "%",
+            "reference_range_low": 5.1, "reference_range_high": 6.4,
+            "reference_range_text": "Prediabetes: 5.7 - 6.4",
+        }
+        result = validate_range_plausibility(v)
+        assert result["reference_range_low"] is None
+
+    def test_hba1c_ifcc_threshold_cleared(self):
+        from lablens.extraction.ocr_range_preprocessor import validate_range_plausibility
+        v = {
+            "test_name": "HbA1c (IFCC)",
+            "value": "33.00", "unit": "mmol/mol",
+            "reference_range_low": 39.0, "reference_range_high": 48.0,
+            "reference_range_text": "Normal: < 39",
+        }
+        result = validate_range_plausibility(v)
+        assert result["reference_range_low"] is None
+
+    def test_eag_implausible_range_cleared(self):
+        from lablens.extraction.hplc_semantic_validator import validate_hplc_semantics
+        v = {
+            "test_name": "Estimated Average Glucose (eAG)",
+            "value": "5.53", "unit": "mmol/L",
+            "reference_range_low": 100.0, "reference_range_high": 100.0,
+        }
+        result = validate_hplc_semantics(v)
+        assert result["reference_range_low"] is None
+
+    def test_hba1c_ngsp_unit_mismatch_cleared(self):
+        """If NGSP gets mmol/mol unit, clear ranges."""
+        from lablens.extraction.hplc_semantic_validator import validate_hplc_semantics
+        v = {
+            "test_name": "HbA1c [Whole blood]",
+            "value": "5.1", "unit": "mmol/mol",
+            "reference_range_low": 39.0, "reference_range_high": 48.0,
+        }
+        result = validate_hplc_semantics(v)
+        assert result["reference_range_low"] is None

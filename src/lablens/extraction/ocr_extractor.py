@@ -17,6 +17,7 @@ from lablens.extraction.extraction_prompts import (
     REPARSE_SYSTEM_PROMPT,
     REPARSE_USER_PROMPT,
 )
+from lablens.extraction.hplc_semantic_validator import validate_hplc_semantics
 from lablens.extraction.ocr_range_preprocessor import (
     fix_range_fields,
     is_page_suspicious,
@@ -87,6 +88,7 @@ class OCRExtractor:
                 try:
                     v = fix_range_fields(v)
                     v = validate_range_plausibility(v)
+                    v = validate_hplc_semantics(v)
                     all_values.append(LabValue(**v))
                 except Exception as e:
                     logger.warning("Skipping invalid value on page %d: %s", page_num, e)

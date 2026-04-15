@@ -125,6 +125,7 @@ def validate_range_plausibility(v: dict) -> dict:
         threshold_keywords = (
             "desirable", "optimal", "borderline", "risk", "target",
             "acceptable", "ideal", "goal", "category",
+            "prediabetes", "diabetes", "normal:",
         )
         if any(kw in ref_text.lower() for kw in threshold_keywords):
             logger.info(
