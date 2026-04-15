@@ -148,6 +148,25 @@ class InterpretationEngine:
                         )
                         return result
 
+        # Decision-threshold tests with suspicious ranges → indeterminate
+        # These tests (HbA1c, lipids) use clinical cut-points, not reference
+        # intervals — a suspicious lab range is unreliable for interpretation
+        is_decision_threshold = v.get("is_decision_threshold", False)
+        if is_decision_threshold and range_source == "lab-provided" and range_trust == "low":
+            logger.info(
+                "Decision-threshold test %s with low-trust lab range — "
+                "degrading to indeterminate",
+                v.get("test_name", "?"),
+            )
+            result.direction = "indeterminate"
+            result.range_source = "no-range"
+            result.range_trust = range_trust
+            result.confidence = "low"
+            result.evidence_trace = build_evidence_trace(
+                result, rule, match_confidence
+            )
+            return result
+
         # Expand range_source with trust level
         if range_source == "lab-provided":
             if range_trust == "low":

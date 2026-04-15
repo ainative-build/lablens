@@ -690,6 +690,38 @@ class TestCategoryGating:
         assert report.values[0].direction == "high"
 
 
+class TestDecisionThresholdGating:
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_decision_threshold_low_trust_degrades_to_indeterminate(self, engine):
+        """Decision-threshold test with suspicious lab range → indeterminate."""
+        values = [{
+            "test_name": "HbA1c (NGSP)", "value": 33.0, "unit": "%",
+            "loinc_code": "4548-4",
+            "ref_range_low": 3.9, "ref_range_high": 5.5,
+            "range_trust": "low",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "indeterminate"
+        assert report.values[0].range_source == "no-range"
+        assert report.values[0].confidence == "low"
+
+    def test_decision_threshold_high_trust_uses_range(self, engine):
+        """Decision-threshold test with trusted lab range → normal interpretation."""
+        values = [{
+            "test_name": "HbA1c", "value": 5.4, "unit": "%",
+            "loinc_code": "4548-4",
+            "ref_range_low": 3.9, "ref_range_high": 5.7,
+            "range_trust": "high",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "in-range"
+
+
 class TestSeverityCap:
     @pytest.fixture
     def engine(self):
