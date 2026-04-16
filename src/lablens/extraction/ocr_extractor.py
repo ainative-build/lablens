@@ -182,6 +182,9 @@ class OCRExtractor:
         all_values = filter_noise_values(all_values)
         all_values = deduplicate_values(all_values)
 
+        # Deduplicate screening results: keep highest-confidence per test_type
+        screening_results = self._dedupe_screening(screening_results)
+
         # Serialize ScreeningResult dataclasses to dicts for Pydantic
         from dataclasses import asdict
 
@@ -203,6 +206,67 @@ class OCRExtractor:
             page_count=len(images),
         )
         return report, page_images, hplc_blocks, screening_results
+
+    @staticmethod
+    def _dedupe_screening(results: list) -> list:
+        """Deduplicate screening results, keeping highest-confidence per test_type.
+
+        Multiple pages of the same screening report (cover, result,
+        methodology, limitations) each produce a ScreeningResult. Merge
+        into one canonical result per test_type with the richest content.
+        """
+        if len(results) <= 1:
+            return results
+
+        best: dict = {}  # test_type → ScreeningResult
+        for sr in results:
+            key = sr.test_type.lower().strip()
+            existing = best.get(key)
+            if existing is None:
+                best[key] = sr
+                continue
+            # Keep higher confidence, or merge richer content
+            if sr.confidence > existing.confidence:
+                # Merge organs from both into the winner
+                merged_organs = list(dict.fromkeys(
+                    existing.organs_screened + sr.organs_screened
+                ))
+                sr.organs_screened = merged_organs
+                # Keep longer limitations/followup text
+                if existing.limitations and (
+                    not sr.limitations
+                    or len(str(existing.limitations)) > len(str(sr.limitations))
+                ):
+                    sr.limitations = existing.limitations
+                if existing.followup_recommendation and (
+                    not sr.followup_recommendation
+                    or len(str(existing.followup_recommendation))
+                    > len(str(sr.followup_recommendation))
+                ):
+                    sr.followup_recommendation = existing.followup_recommendation
+                best[key] = sr
+            else:
+                # Existing wins — merge new organs in
+                merged_organs = list(dict.fromkeys(
+                    existing.organs_screened + sr.organs_screened
+                ))
+                existing.organs_screened = merged_organs
+                if sr.limitations and (
+                    not existing.limitations
+                    or len(str(sr.limitations)) > len(str(existing.limitations))
+                ):
+                    existing.limitations = sr.limitations
+                if sr.followup_recommendation and (
+                    not existing.followup_recommendation
+                    or len(str(sr.followup_recommendation))
+                    > len(str(existing.followup_recommendation))
+                ):
+                    existing.followup_recommendation = sr.followup_recommendation
+
+        logger.info(
+            "Screening dedup: %d → %d results", len(results), len(best)
+        )
+        return list(best.values())
 
     async def _extract_page(
         self, img_b64: str, language: str, page_num: int

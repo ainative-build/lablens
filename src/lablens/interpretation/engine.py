@@ -73,6 +73,10 @@ class InterpretationEngine:
             loinc_code=v.get("loinc_code"),
             value=v["value"],
             unit=v.get("unit", ""),
+            section_type=v.get("section_type"),
+            verification_verdict=v.get("verification_verdict", "accepted"),
+            unit_confidence=v.get("unit_confidence", "high"),
+            flag=v.get("flag"),
         )
 
         # Non-numeric: interpret qualitative values

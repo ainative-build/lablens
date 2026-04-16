@@ -173,6 +173,7 @@ class ExplanationGenerator:
                     ),
                     next_steps="Follow up with your doctor for guidance.",
                     language=language,
+                    is_fallback=True,
                 ))
         return explanations
 
@@ -223,6 +224,7 @@ class ExplanationGenerator:
                     ),
                     next_steps="Continue routine screening as recommended.",
                     language=language,
+                    is_fallback=True,
                 ))
         return explanations
 
@@ -306,6 +308,7 @@ class ExplanationGenerator:
                 next_steps="Please consult your healthcare provider.",
                 language=language,
                 sources=[],
+                is_fallback=True,
             )
             for v in abnormal
         ]

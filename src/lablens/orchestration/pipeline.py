@@ -45,6 +45,61 @@ class PlainPipeline:
                     cat_map[key] = cat
         return cat_map
 
+    @staticmethod
+    def _normalize_micro(text: str) -> str:
+        """Normalize unicode micro sign variants (µ U+00B5 ↔ μ U+03BC)."""
+        return text.replace("\u00b5", "\u03bc")  # µ → μ
+
+    @staticmethod
+    def _dedupe_analytes(values: list) -> tuple[list, list]:
+        """Deduplicate analytes with same name in multiple units.
+
+        When the source PDF reports the same test in two unit systems
+        (e.g. Free T4 in pmol/L and ng/dL), keep the higher-confidence
+        row and move the alternate to an audit list.
+
+        Also normalizes micro-symbol variants (µ/μ) to detect TSH dupes.
+
+        Returns (canonical_values, alternate_values).
+        """
+        import unicodedata
+
+        def norm_key(v) -> str:
+            name = (v.test_name or "").lower().strip()
+            # Normalize unicode (µ → μ)
+            name = name.replace("\u00b5", "\u03bc")
+            # Strip bracketed/parenthesized qualifiers for grouping
+            import re
+            name = re.sub(r"\s*\[.*?\]", "", name)
+            name = re.sub(r"\s*\(.*?\)", "", name)
+            name = re.sub(r"[*#]", "", name)
+            return name.strip()
+
+        # Confidence ranking: high > medium > low
+        conf_rank = {"high": 3, "medium": 2, "low": 1}
+
+        # Group by normalized name + loinc_code
+        groups: dict[str, list] = {}
+        for v in values:
+            key = f"{norm_key(v)}|{v.loinc_code or ''}"
+            groups.setdefault(key, []).append(v)
+
+        canonical = []
+        alternates = []
+        for key, group in groups.items():
+            if len(group) == 1:
+                canonical.append(group[0])
+                continue
+            # Sort: highest confidence first, then lab-validated range_source
+            group.sort(key=lambda v: (
+                conf_rank.get(v.confidence, 0),
+                1 if "validated" in v.range_source else 0,
+            ), reverse=True)
+            canonical.append(group[0])
+            alternates.extend(group[1:])
+
+        return canonical, alternates
+
     @classmethod
     def _check_unit_misreport(
         cls, vdict: dict, loinc_code: str | None, normalizer
@@ -325,6 +380,18 @@ class PlainPipeline:
             interpreted.total_abnormal,
         )
 
+        # Stage 3.5: Deduplicate analytes with same name in multiple units
+        # Source PDFs sometimes list Free T4 in pmol/L AND ng/dL, or
+        # TSH with µ vs μ micro symbols. Keep lab-validated row; move
+        # alternate to audit.
+        interpreted.values, deduped_alternates = self._dedupe_analytes(
+            interpreted.values
+        )
+        if deduped_alternates:
+            logger.info(
+                "Deduped %d duplicate analyte(s)", len(deduped_alternates)
+            )
+
         # Stage 4: Explain
         from lablens.retrieval.context_assembler import ContextAssembler
         from lablens.retrieval.explanation_generator import ExplanationGenerator
@@ -371,6 +438,7 @@ class PlainPipeline:
             "explanations": [vars(e) for e in final.explanations],
             "panels": [vars(p) for p in final.panels] if final.panels else [],
             "coverage_score": final.coverage_score,
+            "explanation_quality": final.explanation_quality,
             "disclaimer": final.disclaimer,
             "language": final.language,
         }
@@ -390,6 +458,10 @@ class PlainPipeline:
                     "checks_failed": vr.checks_failed,
                 }
                 for vr in verification_verdicts
+            ]
+        if deduped_alternates:
+            audit["deduped_alternates"] = [
+                vars(v) for v in deduped_alternates
             ]
         if audit:
             result["audit"] = audit
