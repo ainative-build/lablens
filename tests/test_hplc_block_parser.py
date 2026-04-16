@@ -337,6 +337,17 @@ class TestPlausibilityReclassification:
         ]
         block = parser.parse_rows(rows)
         assert block.eag_unit == "mmol/L"
+        assert block.eag.unit == "mmol/L"  # analyte unit must stay in sync
+
+    def test_eag_unit_synced_to_analyte_on_parse(self, parser):
+        """eag.unit must reflect eag_unit default when OCR provides no unit."""
+        rows = [
+            {"test_name": "HbA1c (NGSP)", "value": 5.1, "unit": "%"},
+            {"test_name": "eAG", "value": 115.0, "unit": ""},
+        ]
+        block = parser.parse_rows(rows)
+        assert block.eag_unit == "mg/dL"
+        assert block.eag.unit == "mg/dL"
 
     def test_both_ngsp_and_ifcc_present_no_reclassification(self, parser):
         """When both slots are filled, no reclassification should occur."""

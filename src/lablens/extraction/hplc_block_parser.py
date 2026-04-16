@@ -69,6 +69,7 @@ class HPLCBlockParser:
             elif analyte_type == "eag":
                 block.eag = hplc_analyte
                 block.eag_unit = (row.get("unit") or "mg/dL").strip()
+                block.eag.unit = block.eag_unit
 
         # Post-parse plausibility: detect misidentified analytes
         self._fix_misidentified_analytes(block)
@@ -224,6 +225,7 @@ class HPLCBlockParser:
                     block.eag.value,
                 )
                 block.eag_unit = "mmol/L"
+                block.eag.unit = "mmol/L"
 
     def _cross_check(self, block: HPLCBlock) -> bool:
         """Cross-validate NGSP/IFCC/eAG using conversion formulas.
