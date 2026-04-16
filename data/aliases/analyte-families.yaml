@@ -10,13 +10,21 @@
 
 families:
   # ── CBC indices ──
-  cbc_counts:
-    loinc_codes: ["6690-2", "789-8", "785-6", "786-4", "787-2", "788-0"]
-    tests: ["WBC", "RBC", "MCH", "MCHC", "MCV", "RDW"]
-    value_range: [0.1, 500]
+  cbc_cell_counts:
+    loinc_codes: ["6690-2", "789-8", "26464-8", "26474-7"]
+    tests: ["WBC", "RBC", "Total WBC", "Total Lymphocytes"]
+    value_range: [0.1, 2000]
     ref_range: [0.1, 500]
     unit: "varies"
-    category: "cbc"
+    category: hematology
+
+  cbc_indices:
+    loinc_codes: ["787-2", "785-6", "786-4", "788-0", "4544-3"]
+    tests: ["MCV", "MCH", "MCHC", "RDW", "Hematocrit"]
+    value_range: [1, 500]
+    ref_range: [1, 200]
+    unit: "varies"
+    category: hematology
 
   cbc_hemoglobin:
     loinc_codes: ["718-7", "4544-3"]
@@ -85,13 +93,21 @@ families:
     category: "lipid"
 
   # ── Thyroid ──
-  thyroid:
-    loinc_codes: ["3016-3", "3024-7", "3051-0"]
-    tests: ["TSH", "Free T4", "Free T3"]
-    value_range: [0.001, 200]
-    ref_range: [0.001, 100]
+  thyroid_tsh:
+    loinc_codes: ["3016-3"]
+    tests: ["TSH"]
+    value_range: [0.001, 500]
+    ref_range: [0.01, 20]
+    unit: "mIU/L"
+    category: endocrine
+
+  thyroid_hormones:
+    loinc_codes: ["3024-7", "3026-2", "3051-0"]
+    tests: ["Free T4", "T4", "Free T3"]
+    value_range: [0.01, 200]
+    ref_range: [0.01, 80]
     unit: "varies"
-    category: "hormone"
+    category: endocrine
 
   # ── Hormones ──
   hormones:
@@ -125,7 +141,7 @@ families:
     loinc_codes: ["1742-6", "1920-8", "6768-6", "2324-2", "1975-2", "1968-7"]
     tests: ["ALT", "AST", "ALP", "GGT", "Total Bilirubin", "Direct Bilirubin"]
     value_range: [0.01, 5000]
-    ref_range: [0, 2000]
+    ref_range: [0, 500]
     unit: "varies"
     category: "liver"
 
@@ -142,10 +158,28 @@ families:
   infectious:
     loinc_codes: ["5196-1", "16935-9", "13955-0", "22322-2"]
     tests: ["HBsAg", "HBsAb", "HCV Ab", "HIV"]
-    value_range: [0, 100000]
-    ref_range: [0, 100000]
+    value_range: [0, 50000]
+    ref_range: [0, 10000]
     unit: "varies"
     category: "infectious"
+
+  # ── Iron studies ──
+  iron_studies:
+    loinc_codes: ["2498-4", "2276-4", "2500-7", "14800-7"]
+    tests: ["Serum Iron", "Ferritin", "TIBC", "Transferrin Saturation"]
+    value_range: [0.1, 100000]
+    ref_range: [0.1, 5000]
+    unit: "varies"
+    category: nutrition
+
+  # ── Inflammatory markers ──
+  inflammatory:
+    loinc_codes: ["1988-5", "33959-8"]
+    tests: ["CRP", "Procalcitonin"]
+    value_range: [0.01, 5000]
+    ref_range: [0, 500]
+    unit: "varies"
+    category: inflammatory
 
 # Categories that should NOT use OCR-flag for severity escalation
 # OCR flag is directional only (high/low) — severity stays mild max

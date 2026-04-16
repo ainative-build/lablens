@@ -214,6 +214,7 @@ unit_aliases:
   "10^6/uL": "M/uL"
   "x10^12/L": "M/uL"
   "T/L": "M/uL"
+  "g/L": "g/L"
   "g/dL": "g/dL"
   "gm/dL": "g/dL"
   "mg/dL": "mg/dL"

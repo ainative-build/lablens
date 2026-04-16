@@ -301,6 +301,51 @@ class PlainPipeline:
                     norm = normalizer.normalize(
                         loinc_code or "", float(vdict["value"]), unit_str
                     )
+                    # Post-conversion plausibility guard: if conversion
+                    # produced an implausible result, revert to original
+                    if norm.converted:
+                        from lablens.extraction.semantic_verifier import (
+                            check_unit_value_plausibility,
+                        )
+                        from lablens.extraction.plausibility_validator import (
+                            HUMAN_POSSIBLE_BOUNDS,
+                        )
+                        conv_ok = check_unit_value_plausibility(norm.value, norm.unit)
+                        # LOINC-specific tighter check overrides generic unit check
+                        loinc_tmp = loinc_code or ""
+                        if loinc_tmp and loinc_tmp in HUMAN_POSSIBLE_BOUNDS:
+                            lo, hi = HUMAN_POSSIBLE_BOUNDS[loinc_tmp]
+                            conv_ok = conv_ok and (lo <= norm.value <= hi)
+                        if not conv_ok:
+                            orig_ok = check_unit_value_plausibility(
+                                norm.original_value, norm.original_unit
+                            )
+                            if orig_ok:
+                                logger.warning(
+                                    "Post-conversion plausibility fail for %s: "
+                                    "%s %s → %s %s. Reverting.",
+                                    vdict.get("test_name", "?"),
+                                    norm.original_value, norm.original_unit,
+                                    norm.value, norm.unit,
+                                )
+                                norm = type(norm)(
+                                    value=norm.original_value,
+                                    unit=norm.original_unit,
+                                    original_value=norm.original_value,
+                                    original_unit=norm.original_unit,
+                                    converted=False,
+                                    confidence="low",
+                                )
+                            else:
+                                # Both bad — keep converted (right unit system)
+                                norm = type(norm)(
+                                    value=norm.value,
+                                    unit=norm.unit,
+                                    original_value=norm.original_value,
+                                    original_unit=norm.original_unit,
+                                    converted=norm.converted,
+                                    confidence="low",
+                                )
                     vdict["value"] = norm.value
                     vdict["unit"] = norm.unit
                     vdict["unit_confidence"] = norm.confidence
@@ -354,6 +399,31 @@ class PlainPipeline:
                 )
             else:
                 vdict["range_trust"] = "high"
+
+            # Cross-unit mismatch: value and range individually plausible
+            # but in different unit systems (e.g., val=2.26 mmol/L, range=[8.5-10.5] mg/dL)
+            if (
+                isinstance(vdict["value"], (int, float))
+                and has_lab_range
+                and vdict.get("reference_range_low") is not None
+                and vdict.get("reference_range_high") is not None
+            ):
+                _low = vdict["reference_range_low"]
+                _high = vdict["reference_range_high"]
+                _mid = (_low + _high) / 2
+                if _mid > 0:
+                    _ratio = float(vdict["value"]) / _mid
+                    if _ratio > 20 or _ratio < 0.05:
+                        logger.info(
+                            "Value/range unit mismatch for %s: val=%s range=[%s-%s] "
+                            "ratio=%.2f — clearing range",
+                            vdict.get("test_name", "?"), vdict["value"],
+                            _low, _high, _ratio,
+                        )
+                        vdict["reference_range_low"] = None
+                        vdict["reference_range_high"] = None
+                        vdict["range_trust"] = "low"
+                        has_lab_range = False
 
             # Pass analyte category and decision-threshold flag
             vdict["analyte_category"] = plausibility_checker.get_category(lc)

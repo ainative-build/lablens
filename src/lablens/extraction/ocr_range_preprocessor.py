@@ -19,6 +19,14 @@ _LOWER_BOUND_PATTERN = re.compile(r"^\s*[>≥]\s*=?\s*([\d.]+)\s*$")
 _TEXT_RANGE_PATTERN = re.compile(r"([\d.]+)\s*[-–—]\s*([\d.]+)")
 
 
+def _normalize_decimal_comma(s: str) -> str:
+    """Replace decimal commas: '3,2' → '3.2' but NOT '3,200' → '3.200'.
+
+    Comma followed by 1-2 digits (not 3+) is a decimal separator.
+    """
+    return re.sub(r'(\d),(\d{1,2})(?!\d)', r'\1.\2', s)
+
+
 def fix_range_fields(v: dict) -> dict:
     """Pre-process reference range fields from LLM output before Pydantic validation.
 
@@ -29,6 +37,7 @@ def fix_range_fields(v: dict) -> dict:
         if val is None or isinstance(val, (int, float)):
             continue
         val = str(val).strip()
+        val = _normalize_decimal_comma(val)
 
         # Try simple "low - high" range pattern
         m = _RANGE_PATTERN.match(val)
@@ -79,6 +88,14 @@ def validate_range_plausibility(v: dict) -> dict:
     Catches row-swap errors where OCR grabs an adjacent row's range.
     If range is implausible, clear it so the engine falls back to curated ranges.
     """
+    # Coerce range bounds to float (OCR may return strings)
+    for rf in ("reference_range_low", "reference_range_high"):
+        rv = v.get(rf)
+        if rv is not None and not isinstance(rv, (int, float)):
+            try:
+                v[rf] = float(rv)
+            except (ValueError, TypeError):
+                v[rf] = None
     low = v.get("reference_range_low")
     high = v.get("reference_range_high")
     val = v.get("value")

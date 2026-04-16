@@ -56,22 +56,48 @@ class VerificationResult:
 
 
 # --- Unit-value plausibility bounds ---
-# Extreme outlier detection: if value falls outside these bounds for
-# the given unit, it is implausible (OCR artifact or unit mismatch).
+# Hard-impossible ceilings per unit system. Catches OCR garble (5+ digit noise).
+# Deliberately wide for shared units (ng/mL, pg/mL, nmol/L serve many analytes).
+# Per-analyte tightening: use HUMAN_POSSIBLE_BOUNDS in plausibility_validator.py.
 _UNIT_BOUNDS: dict[str, tuple[float, float]] = {
+    # Percentages / ratios
     "%": (0, 100),
     "mmol/mol": (0, 250),
+    # Mass concentration
     "mg/dl": (0, 10000),
-    "mmol/l": (0, 500),
     "g/dl": (0, 50),
     "g/l": (0, 500),
+    "ug/dl": (0, 10000),
+    "μg/dl": (0, 10000),
+    "ng/dl": (0, 50000),
+    "ng/ml": (0, 100000),
+    "pg/ml": (0, 50000),
+    "ug/l": (0, 100000),
+    "mg/l": (0, 5000),
+    # Molar concentration
+    "mmol/l": (0, 500),
+    "nmol/l": (0, 50000),
+    "pmol/l": (0, 500),
+    "meq/l": (0, 500),
+    # Enzyme activity
     "u/l": (0, 50000),
     "iu/l": (0, 50000),
+    # Cell counts
     "cells/ul": (0, 500000),
     "10^9/l": (0, 500),
     "10^12/l": (0, 20),
+    "k/ul": (0, 2000),
+    "10^3/ul": (0, 2000),
+    "10^3/μl": (0, 2000),
+    # Red cell indices
     "fl": (0, 200),
     "pg": (0, 100),
+    # Thyroid / hormones
+    "miu/l": (0, 1000),
+    "miu/ml": (0, 100000),
+    "μiu/ml": (0, 1000),
+    # Inflammatory / sediment
+    "mm/hr": (0, 200),
 }
 
 
