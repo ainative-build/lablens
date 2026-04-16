@@ -1,0 +1,134 @@
+{
+  "archetype": "vietnamese_full",
+  "source_pdf": "vietnamese_full_panel.pdf",
+  "pages": 3,
+  "expected_sections": [
+    {"page": 1, "section_type": "standard_lab_table", "row_count": 25},
+    {"page": 2, "section_type": "standard_lab_table", "row_count": 15},
+    {"page": 2, "section_type": "hplc_diabetes_block", "row_count": 3}
+  ],
+  "expected_values": [
+    {
+      "test_name": "WBC",
+      "value": 7.53,
+      "unit": "10^9/L",
+      "reference_range_low": 4.0,
+      "reference_range_high": 10.0,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "6690-2"
+    },
+    {
+      "test_name": "RBC",
+      "value": 5.17,
+      "unit": "10^12/L",
+      "reference_range_low": 4.2,
+      "reference_range_high": 6.0,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "789-8"
+    },
+    {
+      "test_name": "Hemoglobin",
+      "value": 15.4,
+      "unit": "g/dL",
+      "reference_range_low": 13.0,
+      "reference_range_high": 17.0,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "718-7"
+    },
+    {
+      "test_name": "Hematocrit",
+      "value": 46.2,
+      "unit": "%",
+      "reference_range_low": 39.0,
+      "reference_range_high": 51.0,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "4544-3"
+    },
+    {
+      "test_name": "Platelet",
+      "value": 234,
+      "unit": "10^9/L",
+      "reference_range_low": 150,
+      "reference_range_high": 400,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "777-3"
+    },
+    {
+      "test_name": "Glucose",
+      "value": 5.8,
+      "unit": "mmol/L",
+      "reference_range_low": 3.9,
+      "reference_range_high": 6.4,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "2345-7"
+    },
+    {
+      "test_name": "Creatinine",
+      "value": 82,
+      "unit": "umol/L",
+      "reference_range_low": 62,
+      "reference_range_high": 106,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "2160-0"
+    },
+    {
+      "test_name": "Cholesterol",
+      "value": 5.12,
+      "unit": "mmol/L",
+      "reference_range_low": null,
+      "reference_range_high": 5.2,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "2093-3"
+    },
+    {
+      "test_name": "Triglycerides",
+      "value": 1.85,
+      "unit": "mmol/L",
+      "reference_range_low": null,
+      "reference_range_high": 1.7,
+      "flag": "H",
+      "section_type": "standard_lab_table",
+      "loinc_code": "2571-8"
+    },
+    {
+      "test_name": "AST (SGOT)",
+      "value": 28,
+      "unit": "U/L",
+      "reference_range_low": null,
+      "reference_range_high": 40,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "1920-8"
+    },
+    {
+      "test_name": "ALT (SGPT)",
+      "value": 35,
+      "unit": "U/L",
+      "reference_range_low": null,
+      "reference_range_high": 41,
+      "flag": null,
+      "section_type": "standard_lab_table",
+      "loinc_code": "1742-6"
+    },
+    {
+      "test_name": "Uric Acid",
+      "value": 420,
+      "unit": "umol/L",
+      "reference_range_low": 202,
+      "reference_range_high": 416,
+      "flag": "H",
+      "section_type": "standard_lab_table",
+      "loinc_code": "3084-1"
+    }
+  ],
+  "expected_screening": [],
+  "expected_hplc": []
+}

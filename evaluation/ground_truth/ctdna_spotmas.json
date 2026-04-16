@@ -1,0 +1,18 @@
+{
+  "archetype": "ctdna_spotmas",
+  "source_pdf": "ctdna_spotmas_attachment.pdf",
+  "pages": 2,
+  "expected_sections": [
+    {"page": 1, "section_type": "screening_attachment", "row_count": 0},
+    {"page": 2, "section_type": "screening_attachment", "row_count": 0}
+  ],
+  "expected_values": [],
+  "expected_screening": [
+    {
+      "test_type": "SPOT-MAS ctDNA",
+      "result_status": "not_detected",
+      "signal_origin": "cfDNA methylation"
+    }
+  ],
+  "expected_hplc": []
+}

@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LabLens Ground Truth Annotation",
+  "description": "Schema for evaluation ground truth annotations. One file per archetype.",
+  "type": "object",
+  "required": ["archetype", "pages", "expected_values", "expected_sections"],
+  "properties": {
+    "archetype": {
+      "type": "string",
+      "enum": [
+        "vietnamese_full",
+        "hplc_only",
+        "mixed_standard_hplc",
+        "ctdna_spotmas",
+        "standard_en_cbc_cmp",
+        "french_metabolic",
+        "arabic_bilingual",
+        "multipage_composite"
+      ],
+      "description": "First-pass: 4 core archetypes. Expand to 8 after stabilization."
+    },
+    "source_pdf": {
+      "type": "string",
+      "description": "Filename of the source PDF in evaluation/fixtures/"
+    },
+    "pages": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expected_sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["page", "section_type", "row_count"],
+        "properties": {
+          "page": {"type": "integer"},
+          "section_type": {
+            "type": "string",
+            "enum": [
+              "standard_lab_table",
+              "hplc_diabetes_block",
+              "hormone_immunology_block",
+              "screening_attachment",
+              "appendix_text"
+            ]
+          },
+          "row_count": {"type": "integer"}
+        }
+      }
+    },
+    "expected_values": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test_name", "value", "section_type"],
+        "properties": {
+          "test_name": {"type": "string"},
+          "value": {"type": ["number", "string"]},
+          "unit": {"type": ["string", "null"]},
+          "reference_range_low": {"type": ["number", "null"]},
+          "reference_range_high": {"type": ["number", "null"]},
+          "flag": {"type": ["string", "null"]},
+          "section_type": {"type": "string"},
+          "loinc_code": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "expected_screening": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test_type", "result_status"],
+        "properties": {
+          "test_type": {"type": "string"},
+          "result_status": {"type": "string"},
+          "signal_origin": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "expected_hplc": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ngsp_value": {"type": ["number", "null"]},
+          "ifcc_value": {"type": ["number", "null"]},
+          "eag_value": {"type": ["number", "null"]},
+          "diabetes_category": {"type": "string"}
+        }
+      }
+    }
+  }
+}
