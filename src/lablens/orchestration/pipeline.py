@@ -105,9 +105,13 @@ class PlainPipeline:
             if len(group) == 1:
                 canonical.append(group[0])
                 continue
-            # Rank: confidence → range_source trust → unit_confidence
+            # Rank: confidence → unit present → range_source trust → unit_confidence
+            # A row missing its unit is fundamentally unverifiable — penalize it
+            # regardless of range source trust (fixes Vitamin D empty-unit row
+            # wrongly beating the ng/mL curated-fallback row).
             group.sort(key=lambda v: (
                 conf_rank.get(v.confidence, 0),
+                1 if (getattr(v, "unit", "") or "").strip() else 0,
                 range_trust.get(v.range_source, 0),
                 conf_rank.get(
                     getattr(v, "unit_confidence", "high"), 0
