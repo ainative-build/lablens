@@ -182,11 +182,13 @@ class TestCategorize:
         block = parser.parse_rows(self._make_consistent_rows(6.5))
         assert block.diabetes_category == DiabetesCategory.DIABETES
 
-    def test_no_ngsp_indeterminate(self, parser):
-        """Without NGSP value, category must be indeterminate."""
+    def test_ifcc_only_derives_ngsp_and_categorizes(self, parser):
+        """IFCC=42.0 alone → NGSP derived (6.0) → prediabetes."""
         rows = [{"test_name": "HbA1c (IFCC)", "value": 42.0, "unit": "mmol/mol"}]
         block = parser.parse_rows(rows)
-        assert block.diabetes_category == DiabetesCategory.INDETERMINATE
+        assert block.ngsp is not None
+        assert block.ngsp.source == "derived-from-ifcc"
+        assert block.diabetes_category == DiabetesCategory.PREDIABETES
 
     def test_cross_check_failure_forces_indeterminate(self, parser):
         """Even with valid NGSP, failed cross-check → indeterminate."""
@@ -198,12 +200,16 @@ class TestCategorize:
         assert block.cross_check_passed is False
         assert block.diabetes_category == DiabetesCategory.INDETERMINATE
 
-    def test_single_ngsp_categorizes_without_cross_check(self, parser):
-        """Single NGSP (completeness=1) can categorize since cross-check is vacuous."""
+    def test_single_ngsp_derives_full_block(self, parser):
+        """Single NGSP derives IFCC+eAG → completeness=3, category assigned."""
         rows = [{"test_name": "HbA1c (NGSP)", "value": 7.2, "unit": "%"}]
         block = parser.parse_rows(rows)
-        assert block.completeness == 1
-        assert block.cross_check_passed is True  # vacuously
+        assert block.completeness == 3
+        assert block.ifcc is not None
+        assert block.ifcc.source == "derived-from-ngsp"
+        assert block.eag is not None
+        assert block.eag.source == "derived-from-ngsp"
+        assert block.cross_check_passed is True
         assert block.diabetes_category == DiabetesCategory.DIABETES
 
 
@@ -215,18 +221,24 @@ class TestCompleteness:
         block = parser.parse_rows([])
         assert block.completeness == 0
 
-    def test_one_analyte(self, parser):
+    def test_one_ocr_analyte_derives_full_block(self, parser):
+        """Single OCR analyte → derivation fills rest → completeness=3."""
         rows = [{"test_name": "HbA1c (NGSP)", "value": 5.5, "unit": "%"}]
         block = parser.parse_rows(rows)
-        assert block.completeness == 1
+        assert block.completeness == 3
+        assert block.ngsp.source == "ocr"
+        assert block.ifcc.source == "derived-from-ngsp"
+        assert block.eag.source == "derived-from-ngsp"
 
-    def test_two_analytes(self, parser):
+    def test_two_ocr_analytes_derive_third(self, parser):
+        """Two OCR analytes → derivation fills eAG → completeness=3."""
         rows = [
             {"test_name": "HbA1c (NGSP)", "value": 5.5, "unit": "%"},
             {"test_name": "HbA1c (IFCC)", "value": 36.6, "unit": "mmol/mol"},
         ]
         block = parser.parse_rows(rows)
-        assert block.completeness == 2
+        assert block.completeness == 3
+        assert block.eag.source == "derived-from-ngsp"
 
     def test_three_analytes(self, parser):
         rows = [
@@ -237,20 +249,23 @@ class TestCompleteness:
         block = parser.parse_rows(rows)
         assert block.completeness == 3
 
-    def test_row_with_none_value_not_counted(self, parser):
+    def test_none_value_ocr_row_replaced_by_derivation(self, parser):
+        """OCR row with None value ignored; eAG derives NGSP+IFCC → completeness=3."""
         rows = [
             {"test_name": "HbA1c (NGSP)", "value": None, "unit": "%"},
             {"test_name": "eAG", "value": 125.0, "unit": "mg/dL"},
         ]
         block = parser.parse_rows(rows)
-        assert block.completeness == 1
+        assert block.completeness == 3
+        assert block.ngsp.source == "derived-from-eag"
+        assert block.ifcc.source == "derived-from-ngsp"
 
     def test_string_value_converted(self, parser):
         """String numeric values should be converted to float."""
         rows = [{"test_name": "HbA1c (NGSP)", "value": "5.8", "unit": "%"}]
         block = parser.parse_rows(rows)
-        assert block.completeness == 1
         assert block.ngsp.value == 5.8
+        assert block.completeness == 3  # derivation fills IFCC + eAG
 
 
 # ── Value-range plausibility reclassification ──
@@ -260,7 +275,7 @@ class TestPlausibilityReclassification:
     """Verify _fix_misidentified_analytes corrects OCR misclassification."""
 
     def test_ifcc_slot_with_ngsp_value_reclassified(self, parser):
-        """IFCC=5.1 (clearly NGSP %) → should be moved to NGSP slot."""
+        """IFCC=5.1 (clearly NGSP %) → reclassified to NGSP, IFCC derived."""
         rows = [
             {"test_name": "HbA1c (IFCC)", "value": 5.1, "unit": "mmol/mol"},
             {"test_name": "eAG", "value": 100.0, "unit": "mg/dL"},
@@ -270,17 +285,16 @@ class TestPlausibilityReclassification:
         assert block.ngsp is not None
         assert block.ngsp.value == 5.1
         assert block.ngsp.unit == "%"
-        assert block.ngsp.source == "plausibility-reclassified"
-        # IFCC slot should now be empty
-        assert block.ifcc is None
+        # IFCC derived from corrected NGSP
+        assert block.ifcc is not None
+        assert block.ifcc.source == "derived-from-ngsp"
         # Should still categorize correctly as normal (<5.7%)
         assert block.diabetes_category == DiabetesCategory.NORMAL
 
     def test_ifcc_slot_with_5_53_reclassified(self, parser):
-        """The exact regression case: IFCC=5.53 is actually NGSP.
+        """IFCC=5.53 is actually NGSP → reclassified, missing values derived.
 
-        Without a matching eAG, cross-check is vacuous (1 analyte),
-        so category depends only on the reclassified NGSP value.
+        Without eAG, no recovery needed. IFCC/eAG derived from NGSP.
         """
         rows = [
             {"test_name": "HbA1c (IFCC)", "value": 5.53, "unit": "mmol/mol"},
@@ -288,7 +302,12 @@ class TestPlausibilityReclassification:
         block = parser.parse_rows(rows)
         assert block.ngsp is not None
         assert block.ngsp.value == 5.53
-        assert block.ifcc is None
+        # IFCC and eAG derived from reclassified NGSP
+        assert block.ifcc is not None
+        assert block.ifcc.source == "derived-from-ngsp"
+        assert block.eag is not None
+        assert block.eag.source == "derived-from-ngsp"
+        assert block.completeness == 3
         assert block.diabetes_category == DiabetesCategory.NORMAL
 
     def test_ifcc_reclassified_with_consistent_eag(self, parser):
@@ -309,17 +328,22 @@ class TestPlausibilityReclassification:
         assert block.diabetes_category == DiabetesCategory.NORMAL
 
     def test_valid_ifcc_not_reclassified(self, parser):
-        """Real IFCC value (33.0 mmol/mol) should NOT be reclassified."""
+        """Real IFCC value (33.0 mmol/mol) should NOT be reclassified.
+        NGSP is derived from IFCC instead.
+        """
         rows = [
             {"test_name": "HbA1c (IFCC)", "value": 33.0, "unit": "mmol/mol"},
         ]
         block = parser.parse_rows(rows)
         assert block.ifcc is not None
         assert block.ifcc.value == 33.0
-        assert block.ngsp is None  # No reclassification
+        assert block.ifcc.source == "ocr"
+        # NGSP derived from IFCC (not reclassified)
+        assert block.ngsp is not None
+        assert block.ngsp.source == "derived-from-ifcc"
 
     def test_ngsp_slot_with_ifcc_value_reclassified(self, parser):
-        """NGSP=42.0 (clearly IFCC mmol/mol) → should move to IFCC slot."""
+        """NGSP=42.0 (clearly IFCC mmol/mol) → reclassified, NGSP derived."""
         rows = [
             {"test_name": "HbA1c (NGSP)", "value": 42.0, "unit": "%"},
         ]
@@ -327,7 +351,9 @@ class TestPlausibilityReclassification:
         assert block.ifcc is not None
         assert block.ifcc.value == 42.0
         assert block.ifcc.unit == "mmol/mol"
-        assert block.ngsp is None
+        # NGSP derived from reclassified IFCC
+        assert block.ngsp is not None
+        assert block.ngsp.source == "derived-from-ifcc"
 
     def test_eag_low_mgdl_corrected_to_mmol(self, parser):
         """eAG=5.53 in mg/dL is implausible → correct to mmol/L."""
@@ -348,6 +374,50 @@ class TestPlausibilityReclassification:
         block = parser.parse_rows(rows)
         assert block.eag_unit == "mg/dL"
         assert block.eag.unit == "mg/dL"
+
+    def test_reclassified_ngsp_recovered_from_eag(self, parser):
+        """THE regression fix: IFCC=5.53 + eAG=100 mg/dL.
+
+        LLM puts eAG-mmol/L (5.53) into IFCC slot. Reclassifier moves
+        to NGSP but it's the wrong value. Recovery re-derives NGSP from
+        eAG=100 → NGSP=5.1, then derives IFCC. All three values present,
+        cross-check passes, category=normal.
+        """
+        rows = [
+            {"test_name": "HbA1c (IFCC)", "value": 5.53, "unit": "mmol/mol"},
+            {"test_name": "eAG", "value": 100.0, "unit": "mg/dL"},
+        ]
+        block = parser.parse_rows(rows)
+        # NGSP re-derived from eAG (not the reclassified 5.53)
+        assert block.ngsp is not None
+        assert block.ngsp.source == "derived-from-eag"
+        assert 5.0 <= block.ngsp.value <= 5.2  # should be ~5.1
+        # IFCC derived from corrected NGSP
+        assert block.ifcc is not None
+        assert block.ifcc.source == "derived-from-ngsp"
+        assert 30 <= block.ifcc.value <= 35  # should be ~32
+        # eAG preserved from OCR
+        assert block.eag is not None
+        assert block.eag.value == 100.0
+        # Full completeness, cross-check passes, category normal
+        assert block.completeness == 3
+        assert block.cross_check_passed is True
+        assert block.diabetes_category == DiabetesCategory.NORMAL
+
+    def test_derivation_with_eag_mmol(self, parser):
+        """eAG in mmol/L (5.53) + NGSP=5.1 → IFCC derived, eAG unit corrected."""
+        rows = [
+            {"test_name": "HbA1c (NGSP)", "value": 5.1, "unit": "%"},
+            {"test_name": "eAG", "value": 5.53, "unit": "mg/dL"},
+        ]
+        block = parser.parse_rows(rows)
+        # eAG unit corrected to mmol/L
+        assert block.eag_unit == "mmol/L"
+        # IFCC derived from NGSP
+        assert block.ifcc is not None
+        assert block.ifcc.source == "derived-from-ngsp"
+        assert block.completeness == 3
+        assert block.diabetes_category == DiabetesCategory.NORMAL
 
     def test_both_ngsp_and_ifcc_present_no_reclassification(self, parser):
         """When both slots are filled, no reclassification should occur."""
