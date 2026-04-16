@@ -37,6 +37,10 @@ Do NOT skip any result. Prioritize clinically significant ones:
 - Kidney function (eGFR, Creatinine) — always explain if abnormal
 - Lipid abnormalities (HDL, LDL, cholesterol) — always explain
 - Immunology / serology (HBsAb, HBsAg, HCV) — always explain
+- Qualitative positives (infectious disease, urinalysis) — explain what the test \
+detects and what the result means. Use the explanation_hint from evidence if available. \
+For semi-quantitative results (trace, 1+, 2+, etc.), explain the grading simply. \
+Frame as "this result suggests..." — never use diagnostic language
 - Vitamin deficiencies or excesses — always explain
 - For trivial or expected findings (e.g., NRBC=0), a brief note is sufficient
 

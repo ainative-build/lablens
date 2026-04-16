@@ -310,6 +310,40 @@ class TestDedupeAnalytes:
         assert len(canonical) == 1
         assert len(alternates) == 1
 
+    def test_empty_unit_loses_to_populated_unit(self):
+        """Row with populated unit beats empty-unit row (Vitamin D scenario).
+
+        When OCR produces two rows — one with unit, one without — the row
+        with the unit is clinically verifiable and should win, even if the
+        empty-unit row has a higher-trust range source.
+        """
+        from lablens.orchestration.pipeline import PlainPipeline
+        # Row A: empty unit, lab-provided-validated (trust=5)
+        empty_unit_row = InterpretedResult(
+            test_name="25-OH Vitamin D [Serum]", loinc_code="1989-3",
+            value=25.0, unit="",
+            confidence="medium", range_source="lab-provided-validated",
+            direction="in-range", severity="normal",
+            reference_range_low=20.0, reference_range_high=29.0,
+        )
+        # Row B: ng/mL unit, curated-fallback (trust=4)
+        unit_row = InterpretedResult(
+            test_name="25-OH Vitamin D [Serum]", loinc_code="1989-3",
+            value=25.0, unit="ng/mL",
+            confidence="medium", range_source="curated-fallback",
+            direction="low", severity="mild",
+            reference_range_low=30.0, reference_range_high=100.0,
+        )
+        canonical, alternates = PlainPipeline._dedupe_analytes(
+            [empty_unit_row, unit_row]
+        )
+        assert len(canonical) == 1
+        assert len(alternates) == 1
+        # Row with unit must win
+        assert canonical[0].unit == "ng/mL"
+        assert canonical[0].direction == "low"
+        assert alternates[0].unit == ""
+
     def test_hplc_values_exempt_from_dedup(self):
         """HPLC NGSP/IFCC/eAG must never be deduplicated even with same LOINC."""
         from lablens.orchestration.pipeline import PlainPipeline

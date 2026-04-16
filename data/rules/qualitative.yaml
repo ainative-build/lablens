@@ -1,0 +1,271 @@
+# Qualitative test rules keyed by LOINC code
+# Categories: expected_negative, expected_positive, categorical, semi_quantitative
+
+tests:
+  # === Infectious Disease — expected negative ===
+  "5195-3":  # HBsAg
+    test_name: "HBsAg"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    titer_positive_threshold: 1.0  # COI; >= 1.0 = reactive (positive)
+    explanation_context: "Hepatitis B surface antigen — indicates active or chronic HBV infection"
+
+  "22322-2":  # HBsAb (Anti-HBs)
+    test_name: "HBsAb"
+    category: "expected_positive"
+    positive_direction: "in-range"
+    negative_direction: "high"
+    normal_status: "immune"
+    abnormal_status: "non-immune"
+    severity_when_abnormal: "mild"
+    actionability_when_abnormal: "follow-up"
+    titer_positive_threshold: 10.0  # mIU/mL; >= 10 = immune (positive)
+    explanation_context: "Hepatitis B surface antibody — positive indicates immunity (vaccine or prior infection)"
+
+  "16128-1":  # HCV Ab
+    test_name: "HCV Ab"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    titer_positive_threshold: 1.0  # COI; >= 1.0 = reactive (positive)
+    explanation_context: "Hepatitis C antibody — positive indicates current or past HCV exposure"
+
+  "75622-1":  # HIV Ab/Ag combo
+    test_name: "HIV Ab/Ag"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "critical"
+    actionability_when_positive: "urgent"
+    titer_positive_threshold: 1.0  # COI; >= 1.0 = reactive (positive)
+    explanation_context: "HIV antigen/antibody combo — positive requires confirmatory testing"
+
+  "5291-0":  # RPR
+    test_name: "RPR"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    explanation_context: "Rapid Plasma Reagin — screening test for syphilis"
+
+  "5292-8":  # VDRL
+    test_name: "VDRL"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    explanation_context: "VDRL — screening test for syphilis"
+
+  "14677-9":  # ANA
+    test_name: "ANA"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "mild"
+    actionability_when_positive: "follow-up"
+    explanation_context: "Antinuclear antibody — positive may suggest autoimmune activity, requires clinical correlation"
+
+  "13335-5":  # H. pylori Ag
+    test_name: "H. pylori"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    explanation_context: "Helicobacter pylori antigen — positive indicates active infection"
+
+  "73963-7":  # TB IGRA
+    test_name: "TB IGRA"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    explanation_context: "TB interferon-gamma release assay — positive indicates TB exposure"
+
+  "2335-8":  # Stool occult blood
+    test_name: "Stool Occult Blood"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    explanation_context: "Fecal occult blood — positive may indicate GI bleeding, requires further evaluation"
+
+  # === Categorical — no direction, always in-range ===
+  "883-9":  # ABO Blood Group
+    test_name: "ABO Blood Group"
+    category: "categorical"
+    direction: "in-range"
+    severity: "normal"
+    explanation_context: "Blood type classification — informational, no abnormal direction"
+
+  "10331-7":  # Rh Type
+    test_name: "Rh Type"
+    category: "categorical"
+    direction: "in-range"
+    severity: "normal"
+    explanation_context: "Rh factor — informational, Rh-negative is NOT abnormal"
+
+  "34532-2":  # Blood type combined
+    test_name: "Blood Type"
+    category: "categorical"
+    direction: "in-range"
+    severity: "normal"
+    explanation_context: "Combined ABO/Rh blood type — informational only"
+
+  # === Urinalysis semi-quantitative ===
+  "20454-5":  # Urine protein
+    test_name: "Urine Protein"
+    category: "semi_quantitative"
+    normal_values: ["negative", "trace"]
+    grade_severity:
+      "trace": "normal"
+      "1+": "mild"
+      "2+": "moderate"
+      "3+": "moderate"
+      "4+": "critical"
+    actionability_threshold: "2+"
+    explanation_context: "Urine protein — trace amounts can be normal; higher levels may suggest kidney issues"
+
+  "25428-4":  # Urine glucose
+    test_name: "Urine Glucose"
+    category: "semi_quantitative"
+    normal_values: ["negative"]
+    grade_severity:
+      "trace": "mild"
+      "1+": "mild"
+      "2+": "moderate"
+      "3+": "moderate"
+      "4+": "critical"
+    actionability_threshold: "1+"
+    explanation_context: "Urine glucose — normally absent; presence may suggest elevated blood sugar"
+
+  "2514-9":  # Urine ketones
+    test_name: "Urine Ketones"
+    category: "semi_quantitative"
+    normal_values: ["negative"]
+    grade_severity:
+      "trace": "mild"
+      "1+": "mild"
+      "2+": "moderate"
+      "3+": "moderate"
+      "4+": "critical"
+    actionability_threshold: "2+"
+    explanation_context: "Urine ketones — may appear with fasting or uncontrolled diabetes"
+
+  "5794-3":  # Urine blood
+    test_name: "Urine Blood"
+    category: "semi_quantitative"
+    normal_values: ["negative"]
+    grade_severity:
+      "trace": "mild"
+      "1+": "mild"
+      "2+": "moderate"
+      "3+": "moderate"
+      "4+": "critical"
+    actionability_threshold: "1+"
+    explanation_context: "Urine blood — may indicate infection, stones, or other urinary tract issues"
+
+  "5799-2":  # Leukocyte esterase
+    test_name: "Leukocyte Esterase"
+    category: "semi_quantitative"
+    normal_values: ["negative"]
+    grade_severity:
+      "trace": "mild"
+      "1+": "mild"
+      "2+": "moderate"
+      "3+": "moderate"
+    actionability_threshold: "1+"
+    explanation_context: "Leukocyte esterase — suggests white blood cells in urine, possible infection"
+
+  "5802-4":  # Urine nitrite
+    test_name: "Urine Nitrite"
+    category: "expected_negative"
+    positive_direction: "high"
+    negative_direction: "in-range"
+    severity_when_positive: "moderate"
+    actionability_when_positive: "follow-up"
+    explanation_context: "Urine nitrite — positive suggests bacterial infection"
+
+  "1990-1":  # Urine bilirubin
+    test_name: "Urine Bilirubin"
+    category: "semi_quantitative"
+    normal_values: ["negative"]
+    grade_severity:
+      "trace": "mild"
+      "1+": "moderate"
+      "2+": "moderate"
+      "3+": "critical"
+    actionability_threshold: "trace"
+    explanation_context: "Urine bilirubin — normally absent; presence may suggest liver or bile duct issues"
+
+  "13658-0":  # Urobilinogen
+    test_name: "Urobilinogen"
+    category: "semi_quantitative"
+    normal_values: ["negative", "trace", "1+", "normal"]
+    grade_severity:
+      "trace": "normal"
+      "1+": "normal"
+      "2+": "mild"
+      "3+": "moderate"
+      "4+": "moderate"
+    actionability_threshold: "2+"
+    explanation_context: "Urobilinogen — small amounts (trace/1+) are normal; elevated levels may suggest liver issues"
+
+  # === Other common qualitative ===
+  "2106-3":  # Pregnancy urine hCG
+    test_name: "Urine hCG"
+    category: "categorical"
+    direction: "in-range"
+    severity: "normal"
+    explanation_context: "Urine pregnancy test — result is informational"
+
+# Semi-quantitative canonical mapping
+semi_quant_canonical:
+  "+": "1+"
+  "++": "2+"
+  "+++": "3+"
+  "++++": "4+"
+  "trace": "trace"
+  "Trace": "trace"
+  "TRACE": "trace"
+  "1+": "1+"
+  "2+": "2+"
+  "3+": "3+"
+  "4+": "4+"
+
+# Value normalization map — OCR variants → canonical qualitative values
+value_aliases:
+  "non reactive": "non-reactive"
+  "nonreactive": "non-reactive"
+  "non-reactive": "non-reactive"
+  "neg": "negative"
+  "NEG": "negative"
+  "pos": "positive"
+  "POS": "positive"
+  "not detected": "negative"
+  "not-detected": "negative"
+  "detected": "positive"
+  "absent": "negative"
+  "present": "positive"
+  "clear": "negative"
+  "normal": "negative"
+  "abnormal": "positive"
+  "négatif": "negative"
+  "negatif": "negative"
+  "positif": "positive"
+  "non réactif": "non-reactive"
+  "réactif": "reactive"
+  "reactif": "reactive"
+  "dương tính": "positive"
+  "âm tính": "negative"
+  "سلبي": "negative"
+  "إيجابي": "positive"

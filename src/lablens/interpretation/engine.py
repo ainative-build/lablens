@@ -10,7 +10,10 @@ from lablens.interpretation.confidence import calculate_confidence
 from lablens.interpretation.evidence import build_evidence_trace
 from lablens.interpretation.models import InterpretedReport, InterpretedResult
 from lablens.interpretation.panel_checker import check_panels
-from lablens.interpretation.qualitative import interpret_qualitative
+from lablens.interpretation.qualitative import (
+    interpret_qualitative,
+    interpret_qualitative_titer,
+)
 from lablens.interpretation.range_selection import (
     determine_direction,
     direction_from_text,
@@ -93,12 +96,46 @@ class InterpretationEngine:
             source_flag=self._sanitize_flag(v.get("flag")),
         )
 
+        # Titer-aware qualitative routing: numeric values for qualitative
+        # assays (e.g., HBsAb 916.89 mIU/mL) use qualitative inversion
+        # rules instead of the standard quantitative path.
+        if isinstance(v["value"], (int, float)):
+            qr = interpret_qualitative_titer(
+                float(v["value"]),
+                loinc_code=v.get("loinc_code"),
+                test_name=v.get("test_name"),
+            )
+            if qr is not None:
+                result.direction = qr["direction"]
+                result.confidence = qr["confidence"]
+                result.severity = qr["severity"]
+                result.actionability = qr["actionability"]
+                result.is_panic = qr["is_panic"]
+                result.range_source = qr.get("range_source", "no-range")
+                result.evidence_trace = {
+                    **qr.get("evidence_trace", {}),
+                    "raw": str(v["value"]),
+                }
+                return result
+
         # Non-numeric: interpret qualitative values
         if not isinstance(v["value"], (int, float)):
-            result.direction, result.confidence = interpret_qualitative(
-                v["value"], v.get("flag")
+            qr = interpret_qualitative(
+                str(v["value"]),
+                v.get("flag"),
+                loinc_code=v.get("loinc_code"),
+                test_name=v.get("test_name"),
             )
-            result.evidence_trace = {"note": "Qualitative interpretation", "raw": str(v["value"])}
+            result.direction = qr["direction"]
+            result.confidence = qr["confidence"]
+            result.severity = qr["severity"]
+            result.actionability = qr["actionability"]
+            result.is_panic = qr["is_panic"]
+            result.range_source = qr.get("range_source", "no-range")
+            result.evidence_trace = {
+                **qr.get("evidence_trace", {}),
+                "raw": str(v["value"]),
+            }
             return result
 
         value = float(v["value"])

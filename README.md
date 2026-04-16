@@ -31,6 +31,7 @@ PDF → Page Classification → Qwen-VL-OCR → Noise Filter → Range Preproces
 | Unit Normalization | `unit_normalizer` | Convert to canonical units (case-insensitive aliases) + post-conversion plausibility guard |
 | **Unit Misreport Correction** | `pipeline` (stage 2.5) | Detect and correct OCR unit errors (e.g., mmol/L reported as mg/dL) |
 | Plausibility | `range_plausibility_checker` | Curated cross-check + analyte-family validation for range trust scoring |
+| **Qualitative Interpreter** | `qualitative` | LOINC-aware qualitative dispatch (4 categories, 22 assays) |
 
 ### Section-Aware Processing
 
@@ -93,6 +94,7 @@ Checks cover: missing fields, unit-value plausibility, flag-range consistency (a
 - **Pre-explanation consistency**: OCR-flag-only directions without numeric ranges downgraded to indeterminate before explanation
 - **3-tier canonical dedup**: confidence → range-source trust (5 levels) → unit_confidence; HPLC values exempt
 - **Explanation guardrails**: no clinical staging language; hedged framing ("suggests", "may indicate")
+- **Qualitative assay semantics**: LOINC-keyed dispatch with 4 categories (expected-negative, expected-positive, categorical, semi-quantitative); HBsAb inversion handled; blood type/Rh categorical bypass; urobilinogen trace/1+ normal
 
 ### Output Design
 
@@ -200,7 +202,8 @@ data/
 │   ├── thyroid.yaml             # Thyroid function
 │   ├── liver.yaml               # Liver function
 │   ├── kidney.yaml              # Kidney function (eGFR, creatinine, BUN)
-│   └── vitamins.yaml            # Vitamin D, B12, Folate, Iron, Ferritin
+│   ├── vitamins.yaml            # Vitamin D, B12, Folate, Iron, Ferritin
+│   └── qualitative.yaml             # Qualitative test rules (22 assays, 4 categories)
 ├── aliases/
 │   ├── common-aliases.yaml      # 200+ test name aliases
 │   ├── analyte-families.yaml    # 20 analyte families (split CBC/thyroid, iron, inflammatory)
@@ -210,6 +213,18 @@ data/
 tests/                       # 26 test modules, 500+ tests
 frontend/                    # Next.js app (upload, results, evidence)
 ```
+
+## Known Refinements
+
+Captured from expert review for follow-up work (non-blockers — safe to defer):
+
+1. **Tumor marker semantics (CA 19-9, etc.)** — currently flagged via numeric range only. Need assay-native interpretation (clinical decision points, "elevated above reference" framing instead of just `high`), and proper context that tumor markers are non-diagnostic in isolation.
+
+2. **Chemistry long-tail indeterminates** — tests like `Calcium [Serum]`, `Non-HDL Cholesterol`, `Free Testosterone Index`, `Plateletcrit (PCT)`, `PDW`, `NRBC %` still resolve to indeterminate due to missing curated ranges or unit-system gaps. Requires expanding `data/rules/*.yaml` and unit-conversion coverage.
+
+3. **Qualitative assay-native semantics** — minimal `interpret_qualitative()` covers positive/negative keywords. Need full assay-native semantics for HBsAg (negative=expected normal), urinalysis grades (`Trace`, `1+`, `2+`), titer routing for HCV/HIV, and proper direction/severity for categorical assays. Plan stub at `plans/260416-1958-qualitative-semantics`.
+
+4. **OCR non-determinism** — Qwen-VL-OCR conflates HPLC fields (~75% of runs). Currently mitigated by mathematical derivation in `_derive_missing_values()` (NGSP↔IFCC↔eAG via NGSP.org formulas) and plausibility reclassification. Root cause is upstream — could benefit from extraction-level prompt hardening or multi-pass voting.
 
 ## Evaluation
 

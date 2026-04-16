@@ -35,6 +35,8 @@ def load_all_rules(rules_dir: Path | None = None) -> dict[str, dict]:
             panel_rules = yaml.safe_load(f)
             if not panel_rules:
                 continue
+            if not isinstance(panel_rules, list):
+                continue
             for rule in panel_rules:
                 loinc_code = rule.get("loinc_code")
                 if loinc_code:
@@ -43,6 +45,28 @@ def load_all_rules(rules_dir: Path | None = None) -> dict[str, dict]:
 
     logger.info("Loaded %d interpretation rules from %s", len(rules), directory)
     return rules
+
+
+_qualitative_rules: dict | None = None
+
+
+def load_qualitative_rules(rules_dir: Path | None = None) -> dict:
+    """Load qualitative test rules from YAML (separate from panel rules).
+
+    Returns: {"tests": {loinc: rule_dict}, "value_aliases": {str: str}}
+    """
+    global _qualitative_rules
+    if _qualitative_rules is not None:
+        return _qualitative_rules
+    directory = rules_dir or RULES_DIR
+    path = directory / "qualitative.yaml"
+    if not path.exists():
+        logger.warning("Qualitative rules not found: %s", path)
+        return {"tests": {}, "value_aliases": {}}
+    data = yaml.safe_load(path.read_text())
+    _qualitative_rules = data or {"tests": {}, "value_aliases": {}}
+    logger.info("Loaded %d qualitative rules", len(_qualitative_rules.get("tests", {})))
+    return _qualitative_rules
 
 
 def get_rule(loinc_code: str, rules: dict[str, dict]) -> dict | None:

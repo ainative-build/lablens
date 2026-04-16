@@ -69,9 +69,13 @@ class HPLCBlockParser:
             elif analyte_type == "eag":
                 block.eag = hplc_analyte
                 block.eag_unit = (row.get("unit") or "mg/dL").strip()
+                block.eag.unit = block.eag_unit
 
         # Post-parse plausibility: detect misidentified analytes
         self._fix_misidentified_analytes(block)
+
+        # Derive missing values from present ones using NGSP.org formulas
+        self._derive_missing_values(block)
 
         block.completeness = sum(
             1
@@ -176,9 +180,9 @@ class HPLCBlockParser:
                     "but fits NGSP range — reclassifying as NGSP",
                     block.ifcc.value, IFCC_PLAUSIBLE_MIN,
                 )
-                # Move IFCC → NGSP, fix unit
+                # Move IFCC → NGSP, fix unit and canonical name
                 block.ngsp = HPLCAnalyte(
-                    test_name=block.ifcc.test_name,
+                    test_name="HbA1c (NGSP)",
                     value=block.ifcc.value,
                     unit="%",
                     reference_range_low=None,
@@ -201,7 +205,7 @@ class HPLCBlockParser:
                     block.ngsp.value, NGSP_PLAUSIBLE_MAX,
                 )
                 block.ifcc = HPLCAnalyte(
-                    test_name=block.ngsp.test_name,
+                    test_name="HbA1c (IFCC)",
                     value=block.ngsp.value,
                     unit="mmol/mol",
                     reference_range_low=None,
@@ -224,6 +228,104 @@ class HPLCBlockParser:
                     block.eag.value,
                 )
                 block.eag_unit = "mmol/L"
+                block.eag.unit = "mmol/L"
+
+    def _derive_missing_values(self, block: HPLCBlock) -> None:
+        """Derive missing HPLC values from present ones using NGSP.org formulas.
+
+        Handles two scenarios:
+        1. Reclassified NGSP doesn't match eAG → re-derive NGSP from eAG
+        2. IFCC or eAG missing → derive from NGSP (or NGSP from IFCC/eAG)
+
+        Only fires when values are missing. Never overwrites OCR-sourced values
+        unless they were from plausibility reclassification (lower confidence).
+        """
+        ngsp_val = block.ngsp.value if block.ngsp else None
+        ifcc_val = block.ifcc.value if block.ifcc else None
+        eag_val = block.eag.value if block.eag else None
+
+        # Convert eAG to mg/dL for formula calculations
+        eag_mgdl = None
+        if eag_val is not None:
+            if block.eag_unit.lower() in ("mmol/l",):
+                eag_mgdl = eag_val * MMOL_TO_MGDL
+            else:
+                eag_mgdl = eag_val
+
+        # Recovery: reclassified NGSP doesn't match eAG → re-derive from eAG
+        if (
+            ngsp_val is not None
+            and eag_mgdl is not None
+            and block.ngsp
+            and block.ngsp.source == "plausibility-reclassified"
+        ):
+            expected_eag = EAG_MGDL_SLOPE * ngsp_val + EAG_MGDL_INTERCEPT
+            if abs(eag_mgdl - expected_eag) > EAG_MGDL_TOLERANCE:
+                derived = (eag_mgdl - EAG_MGDL_INTERCEPT) / EAG_MGDL_SLOPE
+                if NGSP_PLAUSIBLE_MIN <= derived <= NGSP_PLAUSIBLE_MAX:
+                    logger.warning(
+                        "HPLC recovery: reclassified NGSP=%.2f doesn't match "
+                        "eAG=%.1f (expected %.1f) — re-deriving NGSP=%.1f",
+                        ngsp_val, eag_mgdl, expected_eag, derived,
+                    )
+                    block.ngsp = HPLCAnalyte(
+                        test_name="HbA1c (NGSP)",
+                        value=round(derived, 1),
+                        unit="%",
+                        source="derived-from-eag",
+                    )
+                    ngsp_val = block.ngsp.value
+
+        # Derive NGSP from IFCC when NGSP is missing
+        if ngsp_val is None and ifcc_val is not None:
+            derived = (ifcc_val - IFCC_INTERCEPT) / IFCC_SLOPE
+            if NGSP_PLAUSIBLE_MIN <= derived <= NGSP_PLAUSIBLE_MAX:
+                logger.info("HPLC: deriving NGSP=%.1f from IFCC=%.1f", derived, ifcc_val)
+                block.ngsp = HPLCAnalyte(
+                    test_name="HbA1c (NGSP)",
+                    value=round(derived, 1),
+                    unit="%",
+                    source="derived-from-ifcc",
+                )
+                ngsp_val = block.ngsp.value
+
+        # Derive NGSP from eAG when both NGSP and IFCC are missing
+        if ngsp_val is None and eag_mgdl is not None:
+            derived = (eag_mgdl - EAG_MGDL_INTERCEPT) / EAG_MGDL_SLOPE
+            if NGSP_PLAUSIBLE_MIN <= derived <= NGSP_PLAUSIBLE_MAX:
+                logger.info("HPLC: deriving NGSP=%.1f from eAG=%.1f", derived, eag_mgdl)
+                block.ngsp = HPLCAnalyte(
+                    test_name="HbA1c (NGSP)",
+                    value=round(derived, 1),
+                    unit="%",
+                    source="derived-from-eag",
+                )
+                ngsp_val = block.ngsp.value
+
+        # Derive IFCC from NGSP when IFCC is missing
+        if ifcc_val is None and ngsp_val is not None:
+            derived = IFCC_SLOPE * ngsp_val + IFCC_INTERCEPT
+            if IFCC_PLAUSIBLE_MIN <= derived <= IFCC_PLAUSIBLE_MAX:
+                logger.info("HPLC: deriving IFCC=%.1f from NGSP=%.1f", derived, ngsp_val)
+                block.ifcc = HPLCAnalyte(
+                    test_name="HbA1c (IFCC)",
+                    value=round(derived, 1),
+                    unit="mmol/mol",
+                    source="derived-from-ngsp",
+                )
+
+        # Derive eAG from NGSP when eAG is missing
+        if eag_val is None and ngsp_val is not None:
+            derived_mgdl = EAG_MGDL_SLOPE * ngsp_val + EAG_MGDL_INTERCEPT
+            if EAG_MGDL_PLAUSIBLE_MIN <= derived_mgdl <= EAG_MGDL_PLAUSIBLE_MAX:
+                logger.info("HPLC: deriving eAG=%.1f from NGSP=%.1f", derived_mgdl, ngsp_val)
+                block.eag = HPLCAnalyte(
+                    test_name="Estimated Average Glucose (eAG)",
+                    value=round(derived_mgdl, 1),
+                    unit="mg/dL",
+                    source="derived-from-ngsp",
+                )
+                block.eag_unit = "mg/dL"
 
     def _cross_check(self, block: HPLCBlock) -> bool:
         """Cross-validate NGSP/IFCC/eAG using conversion formulas.

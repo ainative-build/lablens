@@ -1289,13 +1289,18 @@ class TestDirectionConsistencyEnforcement:
         assert v.direction == "indeterminate"
 
     def test_range_text_direction_preserved(self, engine):
-        """HBsAb with range-text direction is NOT downgraded."""
+        """Range-text direction is NOT downgraded for non-qualitative analytes.
+
+        NOTE: Previously used HBsAb, but HBsAb now correctly routes through
+        titer-aware qualitative logic (916.89 >= 10 = immune = in-range).
+        Using CRP instead to test range-text preservation.
+        """
         values = [{
-            "test_name": "HBsAb",
-            "value": 916.89,
-            "unit": "mIU/mL",
+            "test_name": "CRP",
+            "value": 15.0,
+            "unit": "mg/L",
             "loinc_code": None,
-            "reference_range_text": "< 10",
+            "reference_range_text": "< 5",
         }]
         report = engine.interpret_report(values)
         # range-text is not in _WEAK_DIRECTION_SOURCES → preserved

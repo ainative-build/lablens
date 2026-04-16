@@ -501,6 +501,62 @@ aliases:
       ar: ["أجسام مضادة لفيروس الكبد سي"]
       vn: ["HCV Ab", "Kháng thể viêm gan C"]
 
+  - canonical: "HIV Ab/Ag"
+    loinc: "75622-1"
+    aliases:
+      en: ["HIV Ab/Ag", "HIV", "HIV Ag/Ab", "HIV 1/2 Ab/Ag", "HIV Combo", "HIV Antigen/Antibody"]
+      fr: ["VIH Ag/Ac"]
+      ar: ["فحص فيروس نقص المناعة"]
+      vn: ["HIV", "Xét nghiệm HIV"]
+
+  - canonical: "RPR"
+    loinc: "5291-0"
+    aliases:
+      en: ["RPR", "RPR Qualitative", "Rapid Plasma Reagin"]
+      fr: ["RPR"]
+      ar: ["RPR"]
+      vn: ["RPR"]
+
+  - canonical: "VDRL"
+    loinc: "5292-8"
+    aliases:
+      en: ["VDRL", "VDRL Qualitative"]
+      fr: ["VDRL"]
+      ar: ["VDRL"]
+      vn: ["VDRL"]
+
+  - canonical: "ANA"
+    loinc: "14677-9"
+    aliases:
+      en: ["ANA", "Antinuclear Antibody", "ANA Screen"]
+      fr: ["AAN", "Anticorps antinucléaires"]
+      ar: ["الأجسام المضادة للنواة"]
+      vn: ["ANA", "Kháng thể kháng nhân"]
+
+  - canonical: "H. pylori"
+    loinc: "13335-5"
+    aliases:
+      en: ["H. pylori", "Helicobacter pylori", "H. pylori Ag", "H pylori Antigen"]
+      fr: ["Helicobacter pylori"]
+      ar: ["جرثومة المعدة"]
+      vn: ["H. pylori", "Vi khuẩn HP"]
+
+  - canonical: "TB IGRA"
+    loinc: "73963-7"
+    aliases:
+      en: ["TB IGRA", "QuantiFERON", "T-SPOT", "IGRA", "TB Interferon Gamma"]
+      fr: ["IGRA", "QuantiFERON"]
+      ar: ["اختبار السل"]
+      vn: ["IGRA", "Xét nghiệm lao"]
+
+  - canonical: "Stool Occult Blood"
+    loinc: "2335-8"
+    aliases:
+      en: ["Stool Occult Blood", "FOBT", "Fecal Occult Blood", "Stool OB", "FOB"]
+      fr: ["Sang occulte dans les selles"]
+      ar: ["دم خفي في البراز"]
+      vn: ["Máu ẩn trong phân"]
+
   # --- Tumor markers ---
   - canonical: "CA 19-9"
     loinc: "24108-3"
@@ -543,6 +599,102 @@ aliases:
       fr: ["pH urinaire"]
       ar: ["درجة الحموضة"]
       vn: ["pH nước tiểu"]
+
+  - canonical: "Urine Protein"
+    loinc: "20454-5"
+    aliases:
+      en: ["Urine Protein", "Protein (Urine)", "UA Protein", "Urine Protein Qualitative"]
+      fr: ["Protéines urinaires"]
+      ar: ["بروتين البول"]
+      vn: ["Protein nước tiểu", "Đạm niệu"]
+
+  - canonical: "Urine Glucose"
+    loinc: "25428-4"
+    aliases:
+      en: ["Urine Glucose", "Glucose (Urine)", "UA Glucose", "Urine Sugar"]
+      fr: ["Glucose urinaire"]
+      ar: ["سكر البول"]
+      vn: ["Glucose nước tiểu", "Đường niệu"]
+
+  - canonical: "Urine Ketones"
+    loinc: "2514-9"
+    aliases:
+      en: ["Urine Ketones", "Ketones (Urine)", "UA Ketones"]
+      fr: ["Corps cétoniques urinaires"]
+      ar: ["كيتونات البول"]
+      vn: ["Ketone nước tiểu", "Xeton niệu"]
+
+  - canonical: "Urine Blood"
+    loinc: "5794-3"
+    aliases:
+      en: ["Urine Blood", "Blood (Urine)", "UA Blood", "Urine RBC", "Occult Blood (Urine)"]
+      fr: ["Sang urinaire"]
+      ar: ["دم في البول"]
+      vn: ["Máu nước tiểu", "Hồng cầu niệu"]
+
+  - canonical: "Leukocyte Esterase"
+    loinc: "5799-2"
+    aliases:
+      en: ["Leukocyte Esterase", "WBC Esterase", "LE", "Leukocytes (Urine)"]
+      fr: ["Estérase leucocytaire"]
+      ar: ["إنزيم الكريات البيضاء"]
+      vn: ["Bạch cầu esterase"]
+
+  - canonical: "Urine Nitrite"
+    loinc: "5802-4"
+    aliases:
+      en: ["Urine Nitrite", "Nitrite (Urine)", "UA Nitrite"]
+      fr: ["Nitrites urinaires"]
+      ar: ["نتريت البول"]
+      vn: ["Nitrit nước tiểu"]
+
+  - canonical: "Urine Bilirubin"
+    loinc: "1990-1"
+    aliases:
+      en: ["Urine Bilirubin", "Bilirubin (Urine)", "UA Bilirubin"]
+      fr: ["Bilirubine urinaire"]
+      ar: ["بيليروبين البول"]
+      vn: ["Bilirubin nước tiểu"]
+
+  - canonical: "Urobilinogen"
+    loinc: "13658-0"
+    aliases:
+      en: ["Urobilinogen", "Urine Urobilinogen", "UBG"]
+      fr: ["Urobilinogène"]
+      ar: ["يوروبيلينوجين"]
+      vn: ["Urobilinogen"]
+
+  - canonical: "ABO Blood Group"
+    loinc: "883-9"
+    aliases:
+      en: ["ABO Blood Group", "ABO", "Blood Group", "Blood Type ABO"]
+      fr: ["Groupe sanguin ABO"]
+      ar: ["فصيلة الدم ABO"]
+      vn: ["Nhóm máu ABO"]
+
+  - canonical: "Rh Type"
+    loinc: "10331-7"
+    aliases:
+      en: ["Rh Type", "Rh Factor", "Rh", "Rhesus Factor"]
+      fr: ["Facteur Rhésus"]
+      ar: ["عامل الريسوس"]
+      vn: ["Yếu tố Rh"]
+
+  - canonical: "Blood Type"
+    loinc: "34532-2"
+    aliases:
+      en: ["Blood Type", "Blood Group and Type", "ABO & Rh"]
+      fr: ["Groupe sanguin et Rhésus"]
+      ar: ["فصيلة الدم"]
+      vn: ["Nhóm máu"]
+
+  - canonical: "Urine hCG"
+    loinc: "2106-3"
+    aliases:
+      en: ["Urine hCG", "Pregnancy Test", "Urine Pregnancy", "hCG Qualitative"]
+      fr: ["Test de grossesse urinaire"]
+      ar: ["اختبار الحمل"]
+      vn: ["Xét nghiệm thai", "hCG nước tiểu"]
 
   # --- Other CBC ---
   - canonical: "Plateletcrit"
