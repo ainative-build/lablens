@@ -33,6 +33,17 @@ IFCC_TOLERANCE = 2.0  # mmol/mol
 EAG_MGDL_TOLERANCE = 5.0  # mg/dL
 EAG_MMOL_TOLERANCE = 0.3  # mmol/L
 
+# --- Value-range plausibility bounds ---
+# Used to detect misidentified analytes (e.g. NGSP value labeled as IFCC)
+NGSP_PLAUSIBLE_MIN = 3.0    # % — lowest clinically meaningful HbA1c
+NGSP_PLAUSIBLE_MAX = 20.0   # %
+IFCC_PLAUSIBLE_MIN = 10.0   # mmol/mol — corresponds to ~3.1% NGSP
+IFCC_PLAUSIBLE_MAX = 195.0  # mmol/mol — corresponds to ~20% NGSP
+EAG_MGDL_PLAUSIBLE_MIN = 50.0   # mg/dL
+EAG_MGDL_PLAUSIBLE_MAX = 500.0  # mg/dL
+EAG_MMOL_PLAUSIBLE_MIN = 2.5    # mmol/L
+EAG_MMOL_PLAUSIBLE_MAX = 28.0   # mmol/L
+
 # --- ADA clinical cutpoints (NGSP scale) ---
 ADA_NORMAL_MAX = 5.7
 ADA_PREDIABETES_MAX = 6.5
@@ -58,6 +69,9 @@ class HPLCBlockParser:
             elif analyte_type == "eag":
                 block.eag = hplc_analyte
                 block.eag_unit = (row.get("unit") or "mg/dL").strip()
+
+        # Post-parse plausibility: detect misidentified analytes
+        self._fix_misidentified_analytes(block)
 
         block.completeness = sum(
             1
@@ -134,6 +148,82 @@ class HPLCBlockParser:
             reference_range_high=ref_high,
             source="ocr",
         )
+
+    def _fix_misidentified_analytes(self, block: HPLCBlock) -> None:
+        """Detect and correct misidentified HPLC analytes via value plausibility.
+
+        Common OCR error: labeling a 5.1% NGSP value as "IFCC" because
+        OCR misreads the row header. A real IFCC value in mmol/mol should
+        be 10-195; a value <10 in the IFCC slot is almost certainly NGSP.
+
+        Rules applied:
+        - IFCC value < IFCC_PLAUSIBLE_MIN and NGSP is empty → move to NGSP
+        - NGSP value > NGSP_PLAUSIBLE_MAX and IFCC is empty → move to IFCC
+        - eAG value < EAG_MGDL_PLAUSIBLE_MIN (and unit looks like mg/dL)
+          but fits mmol/L range → correct eAG unit to mmol/L
+        """
+        # Case 1: IFCC slot has value that looks like NGSP (e.g., 5.53)
+        if (
+            block.ifcc
+            and block.ifcc.value is not None
+            and block.ifcc.value < IFCC_PLAUSIBLE_MIN
+            and block.ngsp is None
+        ):
+            # Check if value fits NGSP range
+            if NGSP_PLAUSIBLE_MIN <= block.ifcc.value <= NGSP_PLAUSIBLE_MAX:
+                logger.warning(
+                    "HPLC plausibility: IFCC=%.2f is below min %.0f mmol/mol "
+                    "but fits NGSP range — reclassifying as NGSP",
+                    block.ifcc.value, IFCC_PLAUSIBLE_MIN,
+                )
+                # Move IFCC → NGSP, fix unit
+                block.ngsp = HPLCAnalyte(
+                    test_name=block.ifcc.test_name,
+                    value=block.ifcc.value,
+                    unit="%",
+                    reference_range_low=None,
+                    reference_range_high=None,
+                    source="plausibility-reclassified",
+                )
+                block.ifcc = None
+
+        # Case 2: NGSP slot has value that looks like IFCC (>20%)
+        if (
+            block.ngsp
+            and block.ngsp.value is not None
+            and block.ngsp.value > NGSP_PLAUSIBLE_MAX
+            and block.ifcc is None
+        ):
+            if IFCC_PLAUSIBLE_MIN <= block.ngsp.value <= IFCC_PLAUSIBLE_MAX:
+                logger.warning(
+                    "HPLC plausibility: NGSP=%.2f exceeds max %.0f%% "
+                    "but fits IFCC range — reclassifying as IFCC",
+                    block.ngsp.value, NGSP_PLAUSIBLE_MAX,
+                )
+                block.ifcc = HPLCAnalyte(
+                    test_name=block.ngsp.test_name,
+                    value=block.ngsp.value,
+                    unit="mmol/mol",
+                    reference_range_low=None,
+                    reference_range_high=None,
+                    source="plausibility-reclassified",
+                )
+                block.ngsp = None
+
+        # Case 3: eAG value implausibly low for mg/dL but fits mmol/L
+        if (
+            block.eag
+            and block.eag.value is not None
+            and block.eag_unit.lower() not in ("mmol/l",)
+            and block.eag.value < EAG_MGDL_PLAUSIBLE_MIN
+        ):
+            if EAG_MMOL_PLAUSIBLE_MIN <= block.eag.value <= EAG_MMOL_PLAUSIBLE_MAX:
+                logger.warning(
+                    "HPLC plausibility: eAG=%.2f too low for mg/dL "
+                    "but fits mmol/L range — correcting unit",
+                    block.eag.value,
+                )
+                block.eag_unit = "mmol/L"
 
     def _cross_check(self, block: HPLCBlock) -> bool:
         """Cross-validate NGSP/IFCC/eAG using conversion formulas.

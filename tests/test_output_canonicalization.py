@@ -202,6 +202,33 @@ class TestDedupeAnalytes:
         assert len(canonical) == 1
         assert len(alternates) == 1
 
+    def test_hplc_values_exempt_from_dedup(self):
+        """HPLC NGSP/IFCC/eAG must never be deduplicated even with same LOINC."""
+        from lablens.orchestration.pipeline import PlainPipeline
+        values = [
+            InterpretedResult(
+                test_name="HbA1c (NGSP)", loinc_code="4548-4", value=5.1,
+                unit="%", confidence="high", range_source="hplc-cross-check",
+                section_type="hplc_diabetes_block",
+            ),
+            InterpretedResult(
+                test_name="HbA1c (IFCC)", loinc_code="4548-4", value=33.0,
+                unit="mmol/mol", confidence="high",
+                range_source="hplc-cross-check",
+                section_type="hplc_diabetes_block",
+            ),
+            InterpretedResult(
+                test_name="Estimated Average Glucose (eAG)",
+                loinc_code="53553-4", value=5.53, unit="mmol/L",
+                confidence="high", range_source="hplc-cross-check",
+                section_type="hplc_diabetes_block",
+            ),
+        ]
+        canonical, alternates = PlainPipeline._dedupe_analytes(values)
+        # ALL 3 HPLC values must survive — no deduplication
+        assert len(canonical) == 3
+        assert len(alternates) == 0
+
     def test_different_loinc_not_deduped(self):
         from lablens.orchestration.pipeline import PlainPipeline
         values = [

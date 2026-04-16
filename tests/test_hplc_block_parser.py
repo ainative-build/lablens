@@ -253,6 +253,102 @@ class TestCompleteness:
         assert block.ngsp.value == 5.8
 
 
+# ── Value-range plausibility reclassification ──
+
+
+class TestPlausibilityReclassification:
+    """Verify _fix_misidentified_analytes corrects OCR misclassification."""
+
+    def test_ifcc_slot_with_ngsp_value_reclassified(self, parser):
+        """IFCC=5.1 (clearly NGSP %) → should be moved to NGSP slot."""
+        rows = [
+            {"test_name": "HbA1c (IFCC)", "value": 5.1, "unit": "mmol/mol"},
+            {"test_name": "eAG", "value": 100.0, "unit": "mg/dL"},
+        ]
+        block = parser.parse_rows(rows)
+        # Value should have been reclassified to NGSP
+        assert block.ngsp is not None
+        assert block.ngsp.value == 5.1
+        assert block.ngsp.unit == "%"
+        assert block.ngsp.source == "plausibility-reclassified"
+        # IFCC slot should now be empty
+        assert block.ifcc is None
+        # Should still categorize correctly as normal (<5.7%)
+        assert block.diabetes_category == DiabetesCategory.NORMAL
+
+    def test_ifcc_slot_with_5_53_reclassified(self, parser):
+        """The exact regression case: IFCC=5.53 is actually NGSP.
+
+        Without a matching eAG, cross-check is vacuous (1 analyte),
+        so category depends only on the reclassified NGSP value.
+        """
+        rows = [
+            {"test_name": "HbA1c (IFCC)", "value": 5.53, "unit": "mmol/mol"},
+        ]
+        block = parser.parse_rows(rows)
+        assert block.ngsp is not None
+        assert block.ngsp.value == 5.53
+        assert block.ifcc is None
+        assert block.diabetes_category == DiabetesCategory.NORMAL
+
+    def test_ifcc_reclassified_with_consistent_eag(self, parser):
+        """Reclassified NGSP=5.53 with consistent eAG → cross-check passes."""
+        from lablens.extraction.hplc_block_parser import (
+            EAG_MGDL_INTERCEPT,
+            EAG_MGDL_SLOPE,
+        )
+        expected_eag = round(EAG_MGDL_SLOPE * 5.53 + EAG_MGDL_INTERCEPT, 1)
+        rows = [
+            {"test_name": "HbA1c (IFCC)", "value": 5.53, "unit": "mmol/mol"},
+            {"test_name": "eAG", "value": expected_eag, "unit": "mg/dL"},
+        ]
+        block = parser.parse_rows(rows)
+        assert block.ngsp is not None
+        assert block.ngsp.value == 5.53
+        assert block.cross_check_passed is True
+        assert block.diabetes_category == DiabetesCategory.NORMAL
+
+    def test_valid_ifcc_not_reclassified(self, parser):
+        """Real IFCC value (33.0 mmol/mol) should NOT be reclassified."""
+        rows = [
+            {"test_name": "HbA1c (IFCC)", "value": 33.0, "unit": "mmol/mol"},
+        ]
+        block = parser.parse_rows(rows)
+        assert block.ifcc is not None
+        assert block.ifcc.value == 33.0
+        assert block.ngsp is None  # No reclassification
+
+    def test_ngsp_slot_with_ifcc_value_reclassified(self, parser):
+        """NGSP=42.0 (clearly IFCC mmol/mol) → should move to IFCC slot."""
+        rows = [
+            {"test_name": "HbA1c (NGSP)", "value": 42.0, "unit": "%"},
+        ]
+        block = parser.parse_rows(rows)
+        assert block.ifcc is not None
+        assert block.ifcc.value == 42.0
+        assert block.ifcc.unit == "mmol/mol"
+        assert block.ngsp is None
+
+    def test_eag_low_mgdl_corrected_to_mmol(self, parser):
+        """eAG=5.53 in mg/dL is implausible → correct to mmol/L."""
+        rows = [
+            {"test_name": "HbA1c (NGSP)", "value": 5.1, "unit": "%"},
+            {"test_name": "eAG", "value": 5.53, "unit": "mg/dL"},
+        ]
+        block = parser.parse_rows(rows)
+        assert block.eag_unit == "mmol/L"
+
+    def test_both_ngsp_and_ifcc_present_no_reclassification(self, parser):
+        """When both slots are filled, no reclassification should occur."""
+        rows = [
+            {"test_name": "HbA1c (NGSP)", "value": 5.1, "unit": "%"},
+            {"test_name": "HbA1c (IFCC)", "value": 33.0, "unit": "mmol/mol"},
+        ]
+        block = parser.parse_rows(rows)
+        assert block.ngsp.value == 5.1
+        assert block.ifcc.value == 33.0
+
+
 # ── Integration: HPLC interpretation routing ──
 
 

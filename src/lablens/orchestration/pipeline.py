@@ -79,13 +79,18 @@ class PlainPipeline:
         conf_rank = {"high": 3, "medium": 2, "low": 1}
 
         # Group by normalized name + loinc_code
-        groups: dict[str, list] = {}
-        for v in values:
-            key = f"{norm_key(v)}|{v.loinc_code or ''}"
-            groups.setdefault(key, []).append(v)
-
+        # Exempt HPLC values — NGSP/IFCC/eAG are intentionally different
+        # representations and must never be collapsed
         canonical = []
         alternates = []
+        groups: dict[str, list] = {}
+        for v in values:
+            section = getattr(v, "section_type", None) or ""
+            if section == "hplc_diabetes_block":
+                canonical.append(v)  # bypass grouping entirely
+                continue
+            key = f"{norm_key(v)}|{v.loinc_code or ''}"
+            groups.setdefault(key, []).append(v)
         for key, group in groups.items():
             if len(group) == 1:
                 canonical.append(group[0])
