@@ -98,11 +98,16 @@ class OCRExtractor:
                     continue
 
                 if block.section_type == SectionType.SCREENING_ATTACHMENT:
-                    # Route to ctDNA parser with page IMAGE (not rows)
-                    # Phase 3 will implement ScreeningParser here
+                    # PHASE 1 STUB: Screening pages are detected and logged
+                    # but NOT parsed yet. Phase 3 will implement a dedicated
+                    # ScreeningParser that extracts signal_value, result_status,
+                    # and follow-up guidance into screening_results[].
+                    # Until then, these pages are intentionally skipped to
+                    # prevent the generic row extractor from misinterpreting
+                    # non-tabular screening content as analyte rows.
                     logger.info(
-                        "Screening attachment on page %d — routing to "
-                        "ctDNA parser (stub: skipping until Phase 3)",
+                        "Screening attachment on page %d — detected but "
+                        "skipped (Phase 3 will add ScreeningParser)",
                         page_num,
                     )
                     continue
@@ -175,8 +180,15 @@ class OCRExtractor:
     ) -> tuple[dict | None, str]:
         """Extract lab values from a single page image using primary OCR model.
 
-        Returns (parsed_result, raw_text) — raw_text preserved for
-        section classification (two-pass: pre-filter scan on full text).
+        Returns (parsed_result, raw_text) where:
+        - parsed_result: structured JSON from _parse_json_response()
+        - raw_text: the model's full response string before JSON parsing
+
+        raw_text is used by the section classifier (Pass 1) to scan for
+        page-level keywords. For qwen-vl-ocr, the response IS the full
+        OCR transcript of the page (the model outputs complete text even
+        under structured extraction prompts), so Pass 1 operates on
+        genuine page content — not just the structured JSON fields.
         """
         system_prompt = EXTRACTION_PROMPTS.get(language, EXTRACTION_PROMPTS["auto"])
         messages = [
@@ -203,6 +215,14 @@ class OCRExtractor:
 
         Qwen3-VL handles complex layouts, footnote-style ranges, and mixed
         table formats better than the OCR-specialized model.
+
+        KNOWN LIMITATION: This reparses the full page image, not individual
+        sub-blocks. On mixed pages (e.g., standard table + HPLC block),
+        _merge_row_level may introduce rows from outside the target block's
+        scope. The len(block_raw) >= 3 guard in extract_from_pdf reduces
+        this risk by skipping reparse for small sub-blocks, but does not
+        eliminate it for larger blocks on mixed pages. Phase 2 should scope
+        reparse to block-level regions using bounding-box coordinates.
         """
         messages = [
             {"role": "system", "content": [{"text": REPARSE_SYSTEM_PROMPT}]},
