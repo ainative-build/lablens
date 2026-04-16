@@ -66,6 +66,20 @@ class InterpretationEngine:
             total_explained=len(abnormal),
         )
 
+    @staticmethod
+    def _sanitize_flag(raw_flag: str | None) -> str | None:
+        """Normalize OCR flag to allowlist {H, L, A} or None.
+
+        OCR sometimes grabs unit-column text ("UNIT", "%") or empty strings.
+        Only H (high), L (low), A (abnormal) are valid lab-report flags.
+        """
+        if not raw_flag:
+            return None
+        cleaned = raw_flag.strip().upper()
+        if cleaned in ("H", "L", "A"):
+            return cleaned
+        return None
+
     def _interpret_single(self, v: dict, match_confidence: str) -> InterpretedResult:
         """Apply 8-step decision order to a single lab value."""
         result = InterpretedResult(
@@ -76,7 +90,7 @@ class InterpretationEngine:
             section_type=v.get("section_type"),
             verification_verdict=v.get("verification_verdict", "accepted"),
             unit_confidence=v.get("unit_confidence", "high"),
-            flag=v.get("flag"),
+            flag=self._sanitize_flag(v.get("flag")),
         )
 
         # Non-numeric: interpret qualitative values

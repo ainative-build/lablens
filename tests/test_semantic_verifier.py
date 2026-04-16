@@ -155,6 +155,120 @@ class TestDeterministicChecks:
         assert result.verdict == Verdict.ACCEPT
 
 
+# ── Extraction-quality escalation (Checks 6-8) ──
+
+
+class TestExtractionQualityEscalation:
+    """Verifier must escalate rows with known extraction quality issues."""
+
+    def test_low_unit_confidence_fails_check(self):
+        v = {
+            "test_name": "Creatinine",
+            "value": 108.0,
+            "unit": "μmol/L",
+            "unit_confidence": "low",
+        }
+        result = deterministic_checks(v)
+        assert result.checks_failed >= 1
+        assert any("unit_confidence=low" in r for r in result.reasons)
+
+    def test_medium_unit_confidence_passes(self):
+        v = {
+            "test_name": "Free T4",
+            "value": 13.59,
+            "unit": "pmol/L",
+            "unit_confidence": "medium",
+        }
+        result = deterministic_checks(v)
+        unit_fail = [r for r in result.reasons if "unit_confidence" in r]
+        assert len(unit_fail) == 0
+
+    def test_no_range_source_fails_check(self):
+        v = {
+            "test_name": "Calcium",
+            "value": 2.26,
+            "unit": "mmol/L",
+            "range_source": "no-range",
+        }
+        result = deterministic_checks(v)
+        assert result.checks_failed >= 1
+        assert any("no-range" in r for r in result.reasons)
+
+    def test_ocr_flag_fallback_fails_check(self):
+        v = {
+            "test_name": "NRBC",
+            "value": 0.0,
+            "unit": "",
+            "range_source": "ocr-flag-fallback",
+        }
+        result = deterministic_checks(v)
+        assert result.checks_failed >= 1
+        assert any("ocr-flag-fallback" in r for r in result.reasons)
+
+    def test_lab_provided_suspicious_does_not_fail(self):
+        """Suspicious source is noted but should not fail the check."""
+        v = {
+            "test_name": "TSH",
+            "value": 1.5,
+            "unit": "μIU/mL",
+            "range_source": "lab-provided-suspicious",
+        }
+        result = deterministic_checks(v)
+        # Should not have a failure for suspicious (only a note)
+        suspicious_fails = [
+            r for r in result.reasons
+            if "suspicious" in r and "fail" in r.lower()
+        ]
+        assert len(suspicious_fails) == 0
+
+    def test_lab_validated_passes(self):
+        v = {
+            "test_name": "WBC",
+            "value": 6.4,
+            "unit": "10^3/μL",
+            "range_source": "lab-provided-validated",
+        }
+        result = deterministic_checks(v)
+        range_fails = [r for r in result.reasons if "range_source" in r]
+        assert len(range_fails) == 0
+
+    def test_double_low_confidence_escalates(self):
+        """Both unit_confidence=low AND confidence=low → extra failure."""
+        v = {
+            "test_name": "HDL-C",
+            "value": 0.92,
+            "unit": "mg/dL",
+            "unit_confidence": "low",
+            "confidence": "low",
+        }
+        result = deterministic_checks(v)
+        assert result.checks_failed >= 2  # unit_confidence + double-low
+        assert any("Both" in r for r in result.reasons)
+
+    def test_low_unit_conf_downgrades_previously_accepted(self):
+        """A value that would be ACCEPT now gets DOWNGRADE with low unit conf."""
+        v = {
+            "test_name": "Glucose",
+            "value": 100.0,
+            "unit": "mg/dL",
+            "unit_confidence": "low",
+            "range_source": "lab-provided-validated",
+        }
+        result = deterministic_checks(v)
+        assert result.verdict in (Verdict.DOWNGRADE, Verdict.RETRY)
+
+    def test_no_range_downgrades_previously_accepted(self):
+        """A value that would be ACCEPT now gets DOWNGRADE with no-range."""
+        v = {
+            "test_name": "RBC",
+            "value": 4.5,
+            "unit": "10^12/L",
+            "range_source": "no-range",
+        }
+        result = deterministic_checks(v)
+        assert result.verdict in (Verdict.DOWNGRADE, Verdict.RETRY)
+
+
 # ── Verdict merging ──
 
 

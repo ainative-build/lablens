@@ -374,6 +374,42 @@ class PlainPipeline:
 
         logger.info("Mapped %d values to LOINC codes", len(enriched_values))
 
+        # Stage 2.5: Post-enrichment verdict refinement
+        # The Stage 1.5 verifier runs on raw OCR output, before quality
+        # metadata (unit_confidence, range_source) is computed in Stage 2.
+        # Now re-evaluate verdicts using the enriched metadata.
+        from lablens.extraction.semantic_verifier import (
+            deterministic_checks as det_checks_fn,
+        )
+
+        downgraded_count = 0
+        for i, vdict in enumerate(enriched_values):
+            # Re-run deterministic checks with quality metadata now available
+            recheck = det_checks_fn(vdict, vdict.get("section_type", "standard_lab_table"))
+            vr = verification_verdicts[i] if i < len(verification_verdicts) else None
+            if vr and recheck.verdict != Verdict.ACCEPT:
+                # Quality metadata triggered a non-accept verdict
+                if recheck.verdict == Verdict.MARK_INDETERMINATE:
+                    vdict["verification_verdict"] = "indeterminate"
+                    vdict["unit_confidence"] = "low"
+                    vr.verdict = Verdict.MARK_INDETERMINATE
+                    vr.reasons.extend(recheck.reasons)
+                elif recheck.verdict in (Verdict.DOWNGRADE, Verdict.RETRY):
+                    cur_verdict = vdict.get("verification_verdict", "accepted")
+                    if cur_verdict == "accepted":
+                        vdict["verification_verdict"] = "downgraded"
+                        vr.verdict = Verdict.DOWNGRADE
+                    vr.reasons.extend(recheck.reasons)
+                vr.checks_passed = recheck.checks_passed
+                vr.checks_failed = recheck.checks_failed
+                downgraded_count += 1
+
+        if downgraded_count > 0:
+            logger.info(
+                "Post-enrichment quality check: %d verdicts refined",
+                downgraded_count,
+            )
+
         # Stage 3: Interpret
         from lablens.interpretation.engine import InterpretationEngine
 

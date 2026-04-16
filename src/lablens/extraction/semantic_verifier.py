@@ -151,6 +151,43 @@ def deterministic_checks(
     if section_type == "hplc_diabetes_block":
         passed += 1
 
+    # Check 6: Extraction-quality metadata — unit_confidence
+    unit_conf = (v.get("unit_confidence") or "high").lower()
+    if unit_conf == "low":
+        result.reasons.append(
+            f"unit_confidence=low for {v.get('test_name', '?')}"
+        )
+        failed += 1
+    elif unit_conf == "medium":
+        passed += 1  # Acceptable but noted
+    else:
+        passed += 1
+
+    # Check 7: Range source reliability
+    range_src = (v.get("range_source") or "").lower()
+    _WEAK_SOURCES = {"no-range", "ocr-flag-fallback"}
+    _SUSPICIOUS_SOURCES = {"lab-provided-suspicious"}
+    if range_src in _WEAK_SOURCES:
+        result.reasons.append(
+            f"range_source={range_src} — no reliable reference range"
+        )
+        failed += 1
+    elif range_src in _SUSPICIOUS_SOURCES:
+        result.reasons.append(
+            f"range_source={range_src} — lab range may be unreliable"
+        )
+        # Count as passed but note concern (doesn't fail)
+        passed += 1
+    elif range_src:
+        passed += 1
+
+    # Check 8: Overall row confidence
+    row_conf = (v.get("confidence") or "high").lower()
+    if row_conf == "low" and unit_conf == "low":
+        # Double-low: both unit and overall confidence are low
+        result.reasons.append("Both unit_confidence and confidence are low")
+        failed += 1
+
     result.checks_passed = passed
     result.checks_failed = failed
 

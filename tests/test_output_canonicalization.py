@@ -68,6 +68,72 @@ class TestInterpretedResultFields:
         assert d["flag"] == "L"
 
 
+# --- Flag sanitization ---
+
+
+class TestFlagSanitization:
+    """Engine must clean raw OCR flag values before storing on InterpretedResult."""
+
+    def test_valid_h_flag_preserved(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag("H") == "H"
+
+    def test_valid_l_flag_preserved(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag("L") == "L"
+
+    def test_valid_a_flag_preserved(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag("A") == "A"
+
+    def test_lowercase_normalized(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag("h") == "H"
+
+    def test_bogus_unit_flag_cleared(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag("UNIT") is None
+
+    def test_percent_flag_cleared(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag("%") is None
+
+    def test_empty_string_to_none(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag("") is None
+
+    def test_none_stays_none(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        assert InterpretationEngine._sanitize_flag(None) is None
+
+    def test_flag_sanitized_in_interpret_single(self):
+        """End-to-end: bogus flag in input dict → None on InterpretedResult."""
+        from lablens.interpretation.engine import InterpretationEngine
+        engine = InterpretationEngine()
+        v = {
+            "test_name": "WBC",
+            "value": 6.4,
+            "unit": "10^3/μL",
+            "loinc_code": "6690-2",
+            "flag": "UNIT",
+        }
+        result = engine._interpret_single(v, "medium")
+        assert result.flag is None
+
+    def test_valid_flag_preserved_in_interpret_single(self):
+        from lablens.interpretation.engine import InterpretationEngine
+        engine = InterpretationEngine()
+        v = {
+            "test_name": "WBC",
+            "value": 12.0,
+            "unit": "10^3/μL",
+            "loinc_code": "6690-2",
+            "flag": "H",
+        }
+        result = engine._interpret_single(v, "medium")
+        assert result.flag == "H"
+
+
 # --- Coverage score ---
 
 
@@ -124,6 +190,48 @@ class TestExplanationQuality:
         assert q["total"] == 2
         assert q["llm_generated"] == 2
         assert q["fallback_used"] == 0
+
+    def test_call_llm_skips_on_empty_api_key(self):
+        """_call_llm must skip LLM call and return fallback when API key empty."""
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from lablens.retrieval.explanation_generator import ExplanationGenerator
+
+        settings = MagicMock()
+        settings.dashscope_api_key = ""  # Empty key
+        settings.dashscope_chat_model = "qwen3.5-plus"
+        gen = ExplanationGenerator(settings, assembler=MagicMock())
+
+        # Create a mock abnormal value with needed attributes
+        mock_value = MagicMock()
+        mock_value.test_name = "WBC"
+        mock_value.direction = "high"
+        mock_value.value = 12.0
+        mock_value.unit = "10^9/L"
+
+        result = asyncio.get_event_loop().run_until_complete(
+            gen._call_llm("sys", "user", [mock_value], "en")
+        )
+        assert len(result) == 1
+        assert result[0].is_fallback is True
+
+    def test_call_llm_returns_empty_on_no_key_no_fallback(self):
+        """_call_llm with no API key and no fallback values → empty list."""
+        import asyncio
+        from unittest.mock import MagicMock
+
+        from lablens.retrieval.explanation_generator import ExplanationGenerator
+
+        settings = MagicMock()
+        settings.dashscope_api_key = ""
+        settings.dashscope_chat_model = "qwen3.5-plus"
+        gen = ExplanationGenerator(settings, assembler=MagicMock())
+
+        result = asyncio.get_event_loop().run_until_complete(
+            gen._call_llm("sys", "user", [], "en")
+        )
+        assert result == []
 
     def test_final_report_quality_mixed(self):
         explanations = [

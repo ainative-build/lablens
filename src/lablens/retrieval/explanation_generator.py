@@ -235,7 +235,23 @@ class ExplanationGenerator:
         fallback_values: list,
         language: str,
     ) -> list[ExplanationResult]:
-        """Call LLM with given prompts, parse response, fallback on error."""
+        """Call LLM with given prompts, parse response, fallback on error.
+
+        Resilience layers:
+        1. API key validation — skip call if key is missing
+        2. Response null-guard — check resp.output before accessing .choices
+        3. Diagnostic logging — log resp.code/message for API-side errors
+        4. Graceful fallback — always return usable ExplanationResult list
+        """
+        if not self.api_key:
+            logger.warning(
+                "Explanation LLM skipped: no API key configured "
+                "(set LABLENS_DASHSCOPE_API_KEY)"
+            )
+            if fallback_values:
+                return self._fallback_explanations(fallback_values, language)
+            return []
+
         try:
             from dashscope import Generation
 
@@ -253,7 +269,31 @@ class ExplanationGenerator:
                     result_format="message",
                 ),
             )
-            raw = resp.output.choices[0].message.content
+
+            # Null-guard: DashScope returns output=None on auth/model errors
+            if not resp or not getattr(resp, "output", None):
+                code = getattr(resp, "code", "unknown")
+                msg = getattr(resp, "message", "no details")
+                logger.warning(
+                    "Explanation LLM returned empty output "
+                    "(code=%s, message=%s, model=%s)",
+                    code, msg, self.model,
+                )
+                if fallback_values:
+                    return self._fallback_explanations(fallback_values, language)
+                return []
+
+            choices = getattr(resp.output, "choices", None)
+            if not choices:
+                logger.warning(
+                    "Explanation LLM returned no choices (model=%s)",
+                    self.model,
+                )
+                if fallback_values:
+                    return self._fallback_explanations(fallback_values, language)
+                return []
+
+            raw = choices[0].message.content
             explanations = self._parse_explanations(raw, language)
             if not explanations and fallback_values:
                 logger.warning(
@@ -261,6 +301,7 @@ class ExplanationGenerator:
                 )
                 return self._fallback_explanations(fallback_values, language)
             return explanations
+
         except Exception as e:
             logger.error("Explanation generation failed: %s", e)
             if fallback_values:
