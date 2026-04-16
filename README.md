@@ -22,13 +22,13 @@ PDF → Page Classification → Qwen-VL-OCR → Noise Filter → Range Preproces
 | PDF → Images | `pdf_processor` | Convert pages to base64 PNG |
 | OCR | `ocr_extractor` | Qwen-VL-OCR primary, Qwen3-VL reparse for suspicious pages |
 | Noise Filter | `response_parser` | Remove non-test rows (headers, metadata, schema leaks) |
-| Range Fix | `ocr_range_preprocessor` | Parse range strings, detect threshold-style ranges |
+| Range Fix | `ocr_range_preprocessor` | Parse range strings (incl. comma-decimal), detect threshold-style ranges |
 | **Section Classifier** | `section_classifier` | Detect page sections: standard table, HPLC block, screening attachment |
 | **HPLC Parser** | `hplc_block_parser` | Dedicated HbA1c/IFCC/eAG parser with NGSP.org cross-validation |
 | **Screening Parser** | `screening_parser` | ctDNA multi-cancer screening attachment parser + canonicalization |
 | **Semantic Verifier** | `semantic_verifier` | 8 deterministic checks + optional model verification (5-verdict) |
 | Terminology | `terminology_mapper` | Map test names → LOINC codes via exact/alias/normalized/fuzzy cascade |
-| Unit Normalization | `unit_normalizer` | Convert to canonical units for curated range comparison |
+| Unit Normalization | `unit_normalizer` | Convert to canonical units (case-insensitive aliases) + post-conversion plausibility guard |
 | **Unit Misreport Correction** | `pipeline` (stage 2.5) | Detect and correct OCR unit errors (e.g., mmol/L reported as mg/dL) |
 | Plausibility | `range_plausibility_checker` | Curated cross-check + analyte-family validation for range trust scoring |
 
@@ -79,13 +79,17 @@ Checks cover: missing fields, unit-value plausibility, flag-range consistency (a
 
 ### Safety Guards
 
+- **Two-tier plausibility bounds**: unit-level hard-impossible ceilings (30 units) + analyte-specific LOINC-keyed physiological limits (31 LOINCs); LOINC bounds override generic when available
 - **Range trust scoring**: lab ranges cross-checked against curated midpoints; unit-system differences detected
+- **Cross-unit mismatch detection**: value/range ratio >20x clears range and flags low trust (catches value in mmol/L with range in mg/dL)
+- **Post-conversion plausibility guard**: converted values re-checked against bounds; reverted if conversion produces implausible result
 - **Decision-threshold gating**: HbA1c, LDL, HDL use clinical cut-points, not reference intervals
 - **Unit misreport correction**: detects AND corrects OCR unit errors (e.g., 0.41 mmol/L→6.89 mg/dL for Uric Acid)
 - **Severity caps**: never critical without curated bands; low-trust ranges capped at mild
 - **Restricted flag categories**: hormones, tumor markers, infectious tests can't use OCR flags for direction
 - **Row-level merge**: suspicious page reparse only patches incomplete rows, preserves known-good rows
 - **Flag sanitization**: raw OCR flags allowlisted to {H, L, A}; bogus grabs ("UNIT", "%") discarded
+- **Zero-width range guard**: `[0,0]` and equal-bound ranges caught and cleared with type coercion
 - **Pre-explanation consistency**: OCR-flag-only directions without numeric ranges downgraded to indeterminate before explanation
 - **3-tier canonical dedup**: confidence → range-source trust (5 levels) → unit_confidence; HPLC values exempt
 - **Explanation guardrails**: no clinical staging language; hedged framing ("suggests", "may indicate")
@@ -199,11 +203,11 @@ data/
 │   └── vitamins.yaml            # Vitamin D, B12, Folate, Iron, Ferritin
 ├── aliases/
 │   ├── common-aliases.yaml      # 200+ test name aliases
-│   ├── analyte-families.yaml    # Family ranges + categories
-│   └── unit-conversions.yaml    # Unit conversion factors (incl. Vitamin D, B12, Uric Acid)
+│   ├── analyte-families.yaml    # 20 analyte families (split CBC/thyroid, iron, inflammatory)
+│   └── unit-conversions.yaml    # Unit conversion factors + case-insensitive aliases
 └── loinc/                   # LOINC reference data
 
-tests/                       # 25 test modules
+tests/                       # 26 test modules, 500+ tests
 frontend/                    # Next.js app (upload, results, evidence)
 ```
 
