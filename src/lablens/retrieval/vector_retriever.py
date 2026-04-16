@@ -19,14 +19,15 @@ class VectorRetriever:
         self.dv = dv_client
 
     async def get_education(
-        self, test_name: str, loinc_code: str | None
+        self, test_name: str, loinc_code: str | None,
+        query_override: str | None = None,
     ) -> VectorContext:
         """Search DashVector for patient education content."""
         if not self.dv.is_configured:
             return VectorContext()
 
         try:
-            query = f"What does {test_name} lab test result mean for patients?"
+            query = query_override or f"What does {test_name} lab test result mean for patients?"
             results = await self.dv.search(query, limit=3)
             snippets = []
             if results and hasattr(results, "output"):
@@ -47,6 +48,7 @@ class NullVectorRetriever:
     """Explicit null implementation when DashVector is unavailable."""
 
     async def get_education(
-        self, test_name: str, loinc_code: str | None
+        self, test_name: str, loinc_code: str | None,
+        query_override: str | None = None,
     ) -> VectorContext:
         return VectorContext()

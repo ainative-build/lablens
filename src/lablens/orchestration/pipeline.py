@@ -333,7 +333,11 @@ class PlainPipeline:
 
         assembler = ContextAssembler(NullGraphRetriever(), NullVectorRetriever())
         generator = ExplanationGenerator(self.settings, assembler)
-        final = await generator.generate_report(interpreted, language)
+        final = await generator.generate_report(
+            interpreted, language,
+            hplc_blocks=hplc_blocks,
+            screening_results=screening_results,
+        )
 
         # Build screening output (bypass interpretation — Contract D)
         screening_output = [

@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     dashscope_api_key: str = ""
     dashscope_api_base: str = "https://dashscope-intl.aliyuncs.com/api/v1"
     dashscope_ocr_model: str = "qwen-vl-ocr"
-    dashscope_chat_model: str = "qwen-plus"
+    dashscope_chat_model: str = "qwen3.5-plus"
     dashscope_structure_model: str = "qwen3-vl-plus"   # Section-aware re-extraction
     dashscope_verify_model: str = "qwen3.5-plus"       # Semantic verifier (Phase 4)
     dashscope_embedding_model: str = "text-embedding-v3"

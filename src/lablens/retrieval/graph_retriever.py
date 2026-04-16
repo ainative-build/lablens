@@ -64,3 +64,9 @@ class NullGraphRetriever:
 
     async def get_context(self, loinc_code: str) -> GraphContext:
         return GraphContext()
+
+    async def get_glycemic_context(self, loinc_code: str) -> GraphContext:
+        return GraphContext()
+
+    async def get_screening_context(self, loinc_code: str) -> GraphContext:
+        return GraphContext()

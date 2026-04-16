@@ -34,6 +34,75 @@ Return JSON array:
 [{{"test_name": "...", "summary": "...", "what_it_means": "...", "next_steps": "...", "sources": [...]}}]
 """
 
+HPLC_EXPLANATION_SYSTEM_PROMPT = """You are a patient health education assistant \
+specializing in diabetes monitoring and HbA1c results.
+
+Rules:
+- Explain what HbA1c measures (average blood sugar over 2-3 months)
+- Reference ADA categories: Normal (<5.7%), Prediabetes (5.7-6.4%), Diabetes (>=6.5%)
+- Explain the relationship between NGSP (%), IFCC (mmol/mol), and eAG values
+- Do NOT diagnose diabetes — only explain what the numbers indicate
+- Include that HbA1c should be interpreted alongside fasting glucose and symptoms
+- Respond in the requested language
+"""
+
+HPLC_USER_TEMPLATE = """Explain these HbA1c/diabetes monitoring results for a patient.
+Language: {language}
+
+Results:
+{results_json}
+
+Diabetes category: {diabetes_category}
+
+Additional context:
+{context_json}
+
+Patient education references:
+{education_snippets}
+
+Provide:
+1. A brief summary of the HbA1c result and what category it falls in
+2. What this means for their blood sugar management (2-3 sentences)
+3. Suggested next steps (monitoring frequency, lifestyle, follow-up tests)
+
+Return JSON array:
+[{{"test_name": "...", "summary": "...", "what_it_means": "...", "next_steps": "...", "sources": [...]}}]
+"""
+
+SCREENING_EXPLANATION_SYSTEM_PROMPT = """You are a patient health education assistant \
+specializing in cancer screening test results.
+
+Rules:
+- Explain that screening tests look for early cancer signals, not diagnose cancer
+- For "Not Detected" results: explain this is reassuring but not a guarantee
+- Clearly state the test's limitations (sensitivity, specificity)
+- For "Detected" results: emphasize this requires diagnostic confirmation
+- Include that a negative result does not replace regular cancer screening
+- Do NOT provide false reassurance or cause unnecessary alarm
+- Respond in the requested language
+"""
+
+SCREENING_USER_TEMPLATE = """Explain this cancer screening result for a patient.
+Language: {language}
+
+Screening result:
+{screening_json}
+
+Additional context:
+{context_json}
+
+Patient education references:
+{education_snippets}
+
+Provide:
+1. A brief summary of the screening result
+2. What this means in plain language, including limitations
+3. Recommended next steps
+
+Return JSON array:
+[{{"test_name": "...", "summary": "...", "what_it_means": "...", "next_steps": "...", "sources": [...]}}]
+"""
+
 DISCLAIMER = {
     "en": (
         "This information is for educational purposes only and does not replace "
