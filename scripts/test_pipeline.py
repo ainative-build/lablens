@@ -1,14 +1,19 @@
 """Manual pipeline test — run against PDF and export CSV."""
 import asyncio
 import csv
+import os
 import sys
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Ensure working directory is project root
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+os.chdir(PROJECT_ROOT)
 
-from lablens.config import Settings
-from lablens.orchestration.pipeline import PlainPipeline
+# Add src to path
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+from lablens.config import Settings  # noqa: E402
+from lablens.orchestration.pipeline import PlainPipeline  # noqa: E402
 
 
 async def main():
@@ -75,7 +80,7 @@ async def main():
             print(f"  {name:50s} val={str(v.get('value', '?')):>10s}")
 
     # Export CSV
-    csv_path = Path(__file__).parent.parent / "resources" / "pipeline-test-round4.csv"
+    csv_path = Path(__file__).parent.parent / "resources" / "pipeline-test-ocr-upgrade.csv"
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([

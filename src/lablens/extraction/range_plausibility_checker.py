@@ -86,14 +86,28 @@ class RangePlausibilityChecker:
         if ref_low is None or ref_high is None:
             return "high"  # No range to validate
 
-        # Curated cross-check: if lab range midpoint differs from curated by >5x,
-        # the lab range is likely from a different unit system or adjacent row
+        # Curated cross-check: compare lab range midpoint against curated midpoint.
+        # This is the strongest signal — curated ranges are authoritative.
         if curated_ref_low is not None and curated_ref_high is not None:
             lab_mid = (ref_low + ref_high) / 2
             cur_mid = (curated_ref_low + curated_ref_high) / 2
             if lab_mid > 0 and cur_mid > 0:
                 ratio = max(lab_mid / cur_mid, cur_mid / lab_mid)
                 if ratio > 5.0:
+                    # High ratio could be a genuine row-swap OR a unit conversion
+                    # difference (e.g. g/L vs g/dL = 10x, μmol/L vs mg/dL = 88x).
+                    # If value falls within the lab range, the range is likely
+                    # self-consistent (just in a different unit system).
+                    value_in_lab_range = ref_low <= value <= ref_high
+                    if value_in_lab_range:
+                        logger.info(
+                            "Lab range [%s-%s] differs from curated [%s-%s] by "
+                            "%.1fx for %s, but value %s is in-range — likely "
+                            "unit system difference",
+                            ref_low, ref_high, curated_ref_low, curated_ref_high,
+                            ratio, loinc_code, value,
+                        )
+                        return "medium"
                     logger.info(
                         "Lab range [%s-%s] midpoint differs from curated [%s-%s] "
                         "by %.1fx — suspicious for %s",
@@ -101,6 +115,8 @@ class RangePlausibilityChecker:
                         ratio, loinc_code,
                     )
                     return "low"
+                # Curated match confirms lab range is plausible — skip family check
+                return "high"
 
         if not loinc_code:
             # No LOINC — can't do family-specific check, use generic

@@ -7,9 +7,9 @@ heuristic severity, and noise filtering.
 
 import pytest
 
-from lablens.extraction.ocr_extractor import (
-    _fix_range_fields,
-    _validate_range_plausibility,
+from lablens.extraction.ocr_range_preprocessor import (
+    fix_range_fields,
+    validate_range_plausibility,
 )
 from lablens.extraction.response_parser import filter_noise_values
 from lablens.extraction.terminology_mapper import TerminologyMapper, normalize_test_name
@@ -23,38 +23,38 @@ from lablens.models.lab_report import LabValue
 class TestFixRangeFields:
     def test_simple_range_string(self):
         v = {"reference_range_low": "3.2 - 7.4", "reference_range_high": None}
-        result = _fix_range_fields(v)
+        result = fix_range_fields(v)
         assert result["reference_range_low"] == 3.2
         assert result["reference_range_high"] == 7.4
 
     def test_upper_bound_only(self):
         v = {"reference_range_low": "< 200", "reference_range_high": None}
-        result = _fix_range_fields(v)
+        result = fix_range_fields(v)
         assert result["reference_range_low"] is None
         assert result["reference_range_high"] == 200.0
 
     def test_lower_bound_only(self):
         v = {"reference_range_low": "> 60", "reference_range_high": None}
-        result = _fix_range_fields(v)
+        result = fix_range_fields(v)
         assert result["reference_range_low"] == 60.0
         assert result["reference_range_high"] is None
 
     def test_embedded_range_in_text(self):
         v = {"reference_range_low": "Normal: 3.2 - 7.4", "reference_range_high": None}
-        result = _fix_range_fields(v)
+        result = fix_range_fields(v)
         assert result["reference_range_low"] == 3.2
         assert result["reference_range_high"] == 7.4
         assert result["reference_range_text"] == "Normal: 3.2 - 7.4"
 
     def test_numeric_passthrough(self):
         v = {"reference_range_low": 4.0, "reference_range_high": 10.0}
-        result = _fix_range_fields(v)
+        result = fix_range_fields(v)
         assert result["reference_range_low"] == 4.0
         assert result["reference_range_high"] == 10.0
 
     def test_unparseable_saved_as_text(self):
         v = {"reference_range_low": "See footnote", "reference_range_high": None}
-        result = _fix_range_fields(v)
+        result = fix_range_fields(v)
         assert result["reference_range_low"] is None
         assert result["reference_range_text"] == "See footnote"
 
@@ -71,7 +71,7 @@ class TestRangePlausibility:
             "reference_range_low": 9.04,
             "reference_range_high": 12.79,
         }
-        result = _validate_range_plausibility(v)
+        result = validate_range_plausibility(v)
         assert result["reference_range_low"] is None
         assert result["reference_range_high"] is None
 
@@ -82,7 +82,7 @@ class TestRangePlausibility:
             "reference_range_low": 150,
             "reference_range_high": 400,
         }
-        result = _validate_range_plausibility(v)
+        result = validate_range_plausibility(v)
         assert result["reference_range_low"] == 150
         assert result["reference_range_high"] == 400
 
@@ -93,7 +93,7 @@ class TestRangePlausibility:
             "reference_range_low": 11.0,
             "reference_range_high": 4.0,
         }
-        result = _validate_range_plausibility(v)
+        result = validate_range_plausibility(v)
         assert result["reference_range_low"] is None
         assert result["reference_range_high"] is None
 
@@ -334,7 +334,7 @@ class TestThresholdRangeDetection:
             "reference_range_high": 2.25,
             "reference_range_text": "Desirable: < 1.7",
         }
-        result = _validate_range_plausibility(v)
+        result = validate_range_plausibility(v)
         assert result["reference_range_low"] is None
         assert result["reference_range_high"] is None
 
@@ -346,7 +346,7 @@ class TestThresholdRangeDetection:
             "reference_range_high": 6.21,
             "reference_range_text": "Borderline High: 5.18-6.21",
         }
-        result = _validate_range_plausibility(v)
+        result = validate_range_plausibility(v)
         assert result["reference_range_low"] is None
 
     def test_normal_range_text_kept(self):
@@ -357,7 +357,7 @@ class TestThresholdRangeDetection:
             "reference_range_high": 11.0,
             "reference_range_text": "4.0 - 11.0",
         }
-        result = _validate_range_plausibility(v)
+        result = validate_range_plausibility(v)
         assert result["reference_range_low"] == 4.0
         assert result["reference_range_high"] == 11.0
 
@@ -812,3 +812,159 @@ class TestPlausibilityChecker:
             curated_ref_low=70.0, curated_ref_high=100.0,
         )
         assert trust == "high"
+
+
+class TestSuspiciousPageDetection:
+    def test_page_with_many_missing_units_is_suspicious(self):
+        from lablens.extraction.ocr_range_preprocessor import is_page_suspicious
+        values = [
+            {"test_name": "A", "value": 1, "unit": None},
+            {"test_name": "B", "value": 2, "unit": None},
+            {"test_name": "C", "value": 3, "unit": None},
+            {"test_name": "D", "value": 4, "unit": "mg/dL"},
+        ]
+        assert is_page_suspicious(values) is True
+
+    def test_page_with_units_and_ranges_is_not_suspicious(self):
+        from lablens.extraction.ocr_range_preprocessor import is_page_suspicious
+        values = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+            {"test_name": "B", "value": 2, "unit": "g/L",
+             "reference_range_low": 1.0, "reference_range_high": 3.0},
+            {"test_name": "C", "value": 3, "unit": "mmol/L",
+             "reference_range_low": 2.0, "reference_range_high": 4.0},
+        ]
+        assert is_page_suspicious(values) is False
+
+    def test_very_few_values_is_suspicious(self):
+        from lablens.extraction.ocr_range_preprocessor import is_page_suspicious
+        values = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+        ]
+        assert is_page_suspicious(values) is True
+
+    def test_empty_values_is_not_suspicious(self):
+        from lablens.extraction.ocr_range_preprocessor import is_page_suspicious
+        assert is_page_suspicious([]) is False
+
+
+class TestRowLevelMerge:
+    def test_incomplete_rows_patched_from_reparse(self):
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [
+            {"test_name": "A", "value": 1, "unit": None},
+            {"test_name": "B", "value": 2, "unit": None},
+        ]
+        reparsed = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+            {"test_name": "B", "value": 2, "unit": "g/L",
+             "reference_range_low": 1.0, "reference_range_high": 3.0},
+        ]
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 2
+        assert merged[0]["unit"] == "mg/dL"
+        assert merged[1]["unit"] == "g/L"
+
+    def test_complete_rows_preserved(self):
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+            {"test_name": "B", "value": 2, "unit": "g/L",
+             "reference_range_low": 1.0, "reference_range_high": 3.0},
+        ]
+        reparsed = [
+            {"test_name": "A", "value": 1, "unit": None},
+        ]
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 0
+        assert merged[0]["unit"] == "mg/dL"
+        assert merged[1]["unit"] == "g/L"
+
+    def test_empty_reparse_returns_original(self):
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [{"test_name": "A", "value": 1, "unit": "mg/dL"}]
+        merged, patched = OCRExtractor._merge_row_level(original, [])
+        assert patched == 0
+        assert len(merged) == 1
+
+    def test_unit_regression_blocked(self):
+        """If original has unit X and reparse has unit Y, keep original."""
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [
+            {"test_name": "A", "value": 1, "unit": "mmol/L"},
+        ]
+        reparsed = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+        ]
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 0
+        assert merged[0]["unit"] == "mmol/L"
+
+    def test_new_values_from_reparse_added(self):
+        from lablens.extraction.ocr_extractor import OCRExtractor
+        original = [
+            {"test_name": "A", "value": 1, "unit": "mg/dL",
+             "reference_range_low": 0.5, "reference_range_high": 1.5},
+        ]
+        reparsed = [
+            {"test_name": "B", "value": 2, "unit": "g/L",
+             "reference_range_low": 1.0, "reference_range_high": 3.0},
+        ]
+        merged, patched = OCRExtractor._merge_row_level(original, reparsed)
+        assert patched == 1
+        assert len(merged) == 2
+
+
+# ── HPLC semantic validation ──
+
+
+class TestHPLCSemanticValidation:
+    def test_hba1c_prediabetes_range_cleared(self):
+        from lablens.extraction.ocr_range_preprocessor import (
+            validate_range_plausibility,
+        )
+        v = {
+            "test_name": "HbA1c [Whole blood]",
+            "value": "5.1", "unit": "%",
+            "reference_range_low": 5.1, "reference_range_high": 6.4,
+            "reference_range_text": "Prediabetes: 5.7 - 6.4",
+        }
+        result = validate_range_plausibility(v)
+        assert result["reference_range_low"] is None
+
+    def test_hba1c_ifcc_threshold_cleared(self):
+        from lablens.extraction.ocr_range_preprocessor import validate_range_plausibility
+        v = {
+            "test_name": "HbA1c (IFCC)",
+            "value": "33.00", "unit": "mmol/mol",
+            "reference_range_low": 39.0, "reference_range_high": 48.0,
+            "reference_range_text": "Normal: < 39",
+        }
+        result = validate_range_plausibility(v)
+        assert result["reference_range_low"] is None
+
+    def test_eag_implausible_range_cleared(self):
+        from lablens.extraction.hplc_semantic_validator import validate_hplc_semantics
+        v = {
+            "test_name": "Estimated Average Glucose (eAG)",
+            "value": "5.53", "unit": "mmol/L",
+            "reference_range_low": 100.0, "reference_range_high": 100.0,
+        }
+        result = validate_hplc_semantics(v)
+        assert result["reference_range_low"] is None
+
+    def test_hba1c_ngsp_unit_mismatch_cleared(self):
+        """If NGSP gets mmol/mol unit, clear ranges."""
+        from lablens.extraction.hplc_semantic_validator import validate_hplc_semantics
+        v = {
+            "test_name": "HbA1c [Whole blood]",
+            "value": "5.1", "unit": "mmol/mol",
+            "reference_range_low": 39.0, "reference_range_high": 48.0,
+        }
+        result = validate_hplc_semantics(v)
+        assert result["reference_range_low"] is None

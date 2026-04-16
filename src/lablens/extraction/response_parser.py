@@ -28,6 +28,7 @@ _METADATA_NAME_PATTERNS = [
     re.compile(r":\s*$"),  # Ends with colon ("Loại mẫu:", "Sample type:")
     re.compile(r"exact name as printed", re.I),  # JSON schema leakage
     re.compile(r"^\d{2}[-/]\d{2}[-/]\d{4}"),  # Date as test name
+    re.compile(r"^interpretation$", re.I),  # Summary/interpretation label, not a test
 ]
 
 # Patterns that indicate a value is a date, not a measurement

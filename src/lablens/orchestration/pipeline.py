@@ -53,10 +53,10 @@ class PlainPipeline:
         cur_high = ranges[0]["high"]
         value = float(vdict["value"])
 
-        # Only check if value is wildly outside curated range (>10x from bounds)
-        if cur_low > 0 and value < cur_low / 10:
+        # Check if value is implausibly outside curated range (>5x from bounds)
+        if cur_low > 0 and value < cur_low / 5:
             pass  # Implausibly low — try conversion
-        elif cur_high > 0 and value > cur_high * 10:
+        elif cur_high > 0 and value > cur_high * 5:
             pass  # Implausibly high — try conversion
         else:
             return vdict  # Value is in plausible range for reported unit
