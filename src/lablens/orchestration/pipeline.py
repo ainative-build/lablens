@@ -124,10 +124,49 @@ class PlainPipeline:
             "Extracted %d values, %d screening from %d pages",
             len(report.values), len(screening_results), report.page_count,
         )
-        # page_images kept for Phase 4 semantic verifier (not used yet)
 
         # Build HPLC category lookup for interpretation routing
         hplc_category_map = self._build_hplc_category_map(hplc_blocks)
+
+        # Stage 1.5: Semantic verification (deterministic checks)
+        from lablens.extraction.semantic_verifier import (
+            SemanticVerifier,
+            Verdict,
+        )
+
+        verifier = SemanticVerifier(
+            api_key=self.settings.dashscope_api_key,
+            verify_model=self.settings.dashscope_verify_model,
+        )
+        value_dicts = [v.model_dump() for v in report.values]
+        verdicts = verifier.verify_batch(value_dicts)
+        verification_verdicts = []
+        for i, (vdict, vr) in enumerate(zip(value_dicts, verdicts)):
+            vr.index = i
+            vr.value_id = f"v{i}"
+            verification_verdicts.append(vr)
+            if vr.verdict == Verdict.MARK_INDETERMINATE:
+                vdict["verification_verdict"] = "indeterminate"
+                vdict["unit_confidence"] = "low"
+            elif vr.verdict == Verdict.DOWNGRADE:
+                vdict["verification_verdict"] = "downgraded"
+                cur = vdict.get("unit_confidence", "high")
+                if cur == "high":
+                    vdict["unit_confidence"] = "medium"
+            elif vr.verdict == Verdict.RETRY:
+                # Deterministic RETRY: downgrade since no inline re-extraction
+                vdict["verification_verdict"] = "retry_exhausted"
+                vdict["unit_confidence"] = "low"
+            else:
+                vdict["verification_verdict"] = "accepted"
+
+        logger.info(
+            "Verified %d values: %d accepted, %d downgraded, %d indeterminate",
+            len(verdicts),
+            sum(1 for v in verdicts if v.verdict == Verdict.ACCEPT),
+            sum(1 for v in verdicts if v.verdict == Verdict.DOWNGRADE),
+            sum(1 for v in verdicts if v.verdict == Verdict.MARK_INDETERMINATE),
+        )
 
         # Stage 2: Map terminology + normalize units
         from lablens.extraction.alias_registry import AliasRegistry
@@ -149,9 +188,8 @@ class PlainPipeline:
 
         enriched_values = []
         confidences = {}
-        for i, v in enumerate(report.values):
-            loinc_code, match_conf = mapper.match(v.test_name)
-            vdict = v.model_dump()
+        for i, vdict in enumerate(value_dicts):
+            loinc_code, match_conf = mapper.match(vdict["test_name"])
             vdict["loinc_code"] = loinc_code
 
             # Convert numeric string values to float (OCR returns strings)
@@ -167,15 +205,16 @@ class PlainPipeline:
                 vdict.get("reference_range_low") is not None
                 and vdict.get("reference_range_high") is not None
             )
-            unit_present = v.unit and v.unit.strip()
+            unit_str = (vdict.get("unit") or "").strip()
+            unit_present = bool(unit_str)
             if isinstance(vdict["value"], (int, float)) and unit_present:
                 if has_lab_range:
                     # Keep original units — value and ranges are already consistent
-                    vdict["unit_confidence"] = "high"
+                    vdict.setdefault("unit_confidence", "high")
                 else:
                     # Convert to canonical unit for curated fallback comparison
                     norm = normalizer.normalize(
-                        loinc_code or "", float(vdict["value"]), v.unit
+                        loinc_code or "", float(vdict["value"]), unit_str
                     )
                     vdict["value"] = norm.value
                     vdict["unit"] = norm.unit
@@ -186,7 +225,7 @@ class PlainPipeline:
                         logger.warning(
                             "Unit mismatch for %s: %s not convertible to canonical. "
                             "Clearing LOINC to prevent curated range mismatch.",
-                            v.test_name, v.unit,
+                            vdict["test_name"], unit_str,
                         )
                         vdict["loinc_code"] = None
 
@@ -202,7 +241,7 @@ class PlainPipeline:
                 logger.warning(
                     "No unit and no lab range for %s — clearing LOINC to "
                     "prevent curated fallback with unknown unit system.",
-                    v.test_name,
+                    vdict["test_name"],
                 )
                 vdict["loinc_code"] = None
 
@@ -249,7 +288,7 @@ class PlainPipeline:
             # decision_threshold_loinc_codes). Blanket section_type fallback
             # would over-degrade non-HbA1c rows in the HPLC block.
             if not vdict["is_decision_threshold"]:
-                name_lower = (v.test_name or "").lower()
+                name_lower = (vdict.get("test_name") or "").lower()
                 if any(kw in name_lower for kw in (
                     "hba1c", "hb a1c", "hemoglobin a1c",
                     "glycated hemoglobin", "glycosylated hemoglobin",
@@ -265,7 +304,7 @@ class PlainPipeline:
             if vdict.get("section_type") == "hplc_diabetes_block":
                 vdict["is_decision_threshold"] = True
                 cat = hplc_category_map.get(
-                    (v.test_name or "").lower().strip()
+                    (vdict.get("test_name") or "").lower().strip()
                 )
                 if cat:
                     vdict["hplc_diabetes_category"] = cat
@@ -331,6 +370,23 @@ class PlainPipeline:
             "disclaimer": final.disclaimer,
             "language": final.language,
         }
+        # Audit: HPLC + verification verdicts
+        audit: dict = {}
         if audit_hplc:
-            result.setdefault("audit", {})["hplc_blocks"] = audit_hplc
+            audit["hplc_blocks"] = audit_hplc
+        if verification_verdicts:
+            audit["verification_verdicts"] = [
+                {
+                    "index": vr.index,
+                    "value_id": vr.value_id,
+                    "verdict": vr.verdict.value,
+                    "provenance": vr.provenance,
+                    "reasons": vr.reasons,
+                    "checks_passed": vr.checks_passed,
+                    "checks_failed": vr.checks_failed,
+                }
+                for vr in verification_verdicts
+            ]
+        if audit:
+            result["audit"] = audit
         return result
