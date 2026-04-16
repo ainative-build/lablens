@@ -10,10 +10,12 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 
 export const translations: Record<Language, Record<string, string>> = {
   en: {
+    // Upload
     "upload.title": "Upload Lab Report",
     "upload.dropzone": "Drop your lab report PDF here",
     "upload.browse": "or click to browse",
     "upload.analyzing": "Analyzing your report...",
+    // Results header
     "results.title": "Lab Report Analysis",
     "results.coverage": "Coverage Score",
     "results.normal": "Normal",
@@ -28,8 +30,83 @@ export const translations: Record<Language, Record<string, string>> = {
     "results.range": "Reference Range",
     "results.source": "Range Source",
     "results.back": "Analyze Another Report",
+    "results.export_csv": "Export CSV",
+    // Summary card (L1)
+    "summary.status.green": "All normal",
+    "summary.status.yellow": "Mostly normal",
+    "summary.status.orange": "Needs attention",
+    "summary.status.red": "Important findings",
+    "summary.headline.green": "Most results are within expected range.",
+    "summary.next_steps.green":
+      "Routine follow-up; no action needed.",
+    "summary.next_steps.yellow":
+      "Discuss with your clinician at your next visit.",
+    "summary.next_steps.orange":
+      "Schedule a follow-up within a few weeks.",
+    "summary.next_steps.red":
+      "Contact a healthcare provider promptly.",
+    "summary.indeterminate.note":
+      "{count} result(s) need closer review.",
+    "summary.top_findings": "Top findings",
+    // Direction labels (used by TopFinding plain_language_key)
+    "direction.high": "high",
+    "direction.low": "low",
+    "direction.needs_review": "needs review",
+    // Topic labels (10 buckets + other)
+    "topic.blood_sugar": "Blood sugar",
+    "topic.heart_lipids": "Heart & cholesterol",
+    "topic.kidney": "Kidney",
+    "topic.liver": "Liver",
+    "topic.blood_count": "Blood count",
+    "topic.thyroid_hormones": "Thyroid & hormones",
+    "topic.vitamins_minerals": "Vitamins & nutrition",
+    "topic.electrolytes": "Electrolytes",
+    "topic.inflammation": "Inflammation",
+    "topic.urinalysis_other": "Urine & other",
+    "topic.other": "Other tests",
+    // Group header summaries
+    "group.abnormal_count": "{abnormal} of {total} need attention",
+    "group.indeterminate_count":
+      "{abnormal} of {total} need attention; {indeterminate} unclear",
+    "group.all_normal": "All normal ({total})",
+    "group.expand": "Show details",
+    "group.collapse": "Hide details",
+    "group.normal_collapsed": "{count} normal results",
+    // L4 audit panel
+    "audit.show": "Show technical details",
+    "audit.hide": "Hide technical details",
+    "audit.range_source": "Range source",
+    "audit.range_trust": "Range trust",
+    "audit.verifier": "Verification",
+    "audit.unit_confidence": "Unit confidence",
+    "audit.section_type": "Section",
+    "audit.loinc": "LOINC",
+    // Panic banner
+    "panic.banner": "Important findings need prompt medical attention.",
+    "panic.view": "View finding",
+    "panic.dismiss": "Hide",
+    // Errors
     "error.upload": "Upload failed. Please try again.",
     "error.analysis": "Analysis failed.",
+    "error.session_expired": "Your report session has ended. Upload again to continue.",
+    "error.try_again": "Try Again",
+    // Chat (Phase 4)
+    "chat.title": "Ask about your results",
+    "chat.placeholder": "What should I focus on first?",
+    "chat.send": "Ask",
+    "chat.thinking": "Thinking...",
+    "chat.starter.focus": "What should I focus on first?",
+    "chat.starter.out_of_range": "Which results are out of range?",
+    "chat.starter.see_doctor": "Do I need to see a doctor?",
+    "chat.starter.questions_for_doctor": "What should I ask my doctor?",
+    "chat.starter.retest": "When should I retest?",
+    "chat.refused": "I can only help with this report.",
+    "chat.error": "Something went wrong. Try again.",
+    "chat.doctor_routing":
+      "These results suggest you should contact a healthcare provider.",
+    "chat.character_limit": "{count}/500",
+    "chat.try_these": "Try one of these:",
+    "chat.cta_open": "Ask about your results",
   },
   fr: {
     "upload.title": "Télécharger le rapport de laboratoire",
@@ -50,8 +127,77 @@ export const translations: Record<Language, Record<string, string>> = {
     "results.range": "Plage de référence",
     "results.source": "Source de la plage",
     "results.back": "Analyser un autre rapport",
+    "results.export_csv": "Exporter CSV",
+    "summary.status.green": "Tout normal",
+    "summary.status.yellow": "Majoritairement normal",
+    "summary.status.orange": "Attention requise",
+    "summary.status.red": "Constatations importantes",
+    "summary.headline.green":
+      "La plupart des résultats sont dans la plage attendue.",
+    "summary.next_steps.green":
+      "Suivi de routine; aucune action requise.",
+    "summary.next_steps.yellow":
+      "Discutez avec votre médecin lors de votre prochaine visite.",
+    "summary.next_steps.orange":
+      "Planifiez un suivi dans les semaines à venir.",
+    "summary.next_steps.red":
+      "Contactez rapidement un professionnel de santé.",
+    "summary.indeterminate.note":
+      "{count} résultat(s) à examiner de plus près.",
+    "summary.top_findings": "Constatations principales",
+    "direction.high": "élevé",
+    "direction.low": "bas",
+    "direction.needs_review": "à examiner",
+    "topic.blood_sugar": "Glycémie",
+    "topic.heart_lipids": "Cœur & cholestérol",
+    "topic.kidney": "Reins",
+    "topic.liver": "Foie",
+    "topic.blood_count": "Numération sanguine",
+    "topic.thyroid_hormones": "Thyroïde & hormones",
+    "topic.vitamins_minerals": "Vitamines & nutrition",
+    "topic.electrolytes": "Électrolytes",
+    "topic.inflammation": "Inflammation",
+    "topic.urinalysis_other": "Urine & autres",
+    "topic.other": "Autres tests",
+    "group.abnormal_count": "{abnormal} sur {total} à surveiller",
+    "group.indeterminate_count":
+      "{abnormal} sur {total} à surveiller; {indeterminate} incertain(s)",
+    "group.all_normal": "Tout normal ({total})",
+    "group.expand": "Voir les détails",
+    "group.collapse": "Masquer les détails",
+    "group.normal_collapsed": "{count} résultats normaux",
+    "audit.show": "Afficher les détails techniques",
+    "audit.hide": "Masquer les détails techniques",
+    "audit.range_source": "Source de la plage",
+    "audit.range_trust": "Fiabilité",
+    "audit.verifier": "Vérification",
+    "audit.unit_confidence": "Confiance unité",
+    "audit.section_type": "Section",
+    "audit.loinc": "LOINC",
+    "panic.banner": "Des constatations importantes nécessitent une attention médicale rapide.",
+    "panic.view": "Voir",
+    "panic.dismiss": "Masquer",
     "error.upload": "Échec du téléchargement. Veuillez réessayer.",
     "error.analysis": "Échec de l'analyse.",
+    "error.session_expired":
+      "Votre session de rapport est terminée. Téléchargez à nouveau pour continuer.",
+    "error.try_again": "Réessayer",
+    "chat.title": "Posez des questions sur vos résultats",
+    "chat.placeholder": "Sur quoi me concentrer en premier ?",
+    "chat.send": "Demander",
+    "chat.thinking": "Réflexion...",
+    "chat.starter.focus": "Sur quoi me concentrer en premier ?",
+    "chat.starter.out_of_range": "Quels résultats sont hors plage ?",
+    "chat.starter.see_doctor": "Dois-je consulter un médecin ?",
+    "chat.starter.questions_for_doctor": "Quelles questions poser à mon médecin ?",
+    "chat.starter.retest": "Quand devrais-je refaire le test ?",
+    "chat.refused": "Je peux seulement aider avec ce rapport.",
+    "chat.error": "Une erreur s'est produite. Réessayez.",
+    "chat.doctor_routing":
+      "Ces résultats suggèrent de contacter un professionnel de santé.",
+    "chat.character_limit": "{count}/500",
+    "chat.try_these": "Essayez l'une de ces questions :",
+    "chat.cta_open": "Posez des questions sur vos résultats",
   },
   ar: {
     "upload.title": "تحميل تقرير المختبر",
@@ -72,8 +218,76 @@ export const translations: Record<Language, Record<string, string>> = {
     "results.range": "النطاق المرجعي",
     "results.source": "مصدر النطاق",
     "results.back": "تحليل تقرير آخر",
+    "results.export_csv": "تصدير CSV",
+    "summary.status.green": "كل شيء طبيعي",
+    "summary.status.yellow": "أغلب النتائج طبيعية",
+    "summary.status.orange": "يحتاج اهتماماً",
+    "summary.status.red": "نتائج مهمة",
+    "summary.headline.green": "معظم النتائج ضمن المعدل المتوقع.",
+    "summary.next_steps.green":
+      "متابعة روتينية؛ لا حاجة لإجراء.",
+    "summary.next_steps.yellow":
+      "ناقش مع طبيبك في الزيارة القادمة.",
+    "summary.next_steps.orange":
+      "حدد موعداً للمتابعة خلال أسابيع قليلة.",
+    "summary.next_steps.red":
+      "اتصل بمقدم الرعاية الصحية فوراً.",
+    "summary.indeterminate.note":
+      "{count} نتيجة بحاجة إلى مراجعة أوثق.",
+    "summary.top_findings": "أهم النتائج",
+    "direction.high": "مرتفع",
+    "direction.low": "منخفض",
+    "direction.needs_review": "بحاجة لمراجعة",
+    "topic.blood_sugar": "سكر الدم",
+    "topic.heart_lipids": "القلب والكوليسترول",
+    "topic.kidney": "الكلى",
+    "topic.liver": "الكبد",
+    "topic.blood_count": "تعداد الدم",
+    "topic.thyroid_hormones": "الغدة الدرقية والهرمونات",
+    "topic.vitamins_minerals": "الفيتامينات والتغذية",
+    "topic.electrolytes": "الأملاح",
+    "topic.inflammation": "الالتهاب",
+    "topic.urinalysis_other": "البول وأخرى",
+    "topic.other": "اختبارات أخرى",
+    "group.abnormal_count": "{abnormal} من {total} بحاجة للانتباه",
+    "group.indeterminate_count":
+      "{abnormal} من {total} بحاجة للانتباه؛ {indeterminate} غير واضح",
+    "group.all_normal": "كل شيء طبيعي ({total})",
+    "group.expand": "عرض التفاصيل",
+    "group.collapse": "إخفاء التفاصيل",
+    "group.normal_collapsed": "{count} نتيجة طبيعية",
+    "audit.show": "عرض التفاصيل التقنية",
+    "audit.hide": "إخفاء التفاصيل التقنية",
+    "audit.range_source": "مصدر النطاق",
+    "audit.range_trust": "الموثوقية",
+    "audit.verifier": "التحقق",
+    "audit.unit_confidence": "موثوقية الوحدة",
+    "audit.section_type": "القسم",
+    "audit.loinc": "LOINC",
+    "panic.banner": "نتائج مهمة تتطلب اهتماماً طبياً فورياً.",
+    "panic.view": "عرض",
+    "panic.dismiss": "إخفاء",
     "error.upload": "فشل التحميل. يرجى المحاولة مرة أخرى.",
     "error.analysis": "فشل التحليل.",
+    "error.session_expired":
+      "انتهت جلسة التقرير الخاصة بك. حمل مرة أخرى للاستمرار.",
+    "error.try_again": "حاول مرة أخرى",
+    "chat.title": "اسأل عن نتائجك",
+    "chat.placeholder": "بماذا أبدأ التركيز؟",
+    "chat.send": "اسأل",
+    "chat.thinking": "جاري التفكير...",
+    "chat.starter.focus": "بماذا أبدأ التركيز؟",
+    "chat.starter.out_of_range": "أي النتائج خارج النطاق؟",
+    "chat.starter.see_doctor": "هل أحتاج لرؤية طبيب؟",
+    "chat.starter.questions_for_doctor": "ما الأسئلة التي يجب أن أطرحها على طبيبي؟",
+    "chat.starter.retest": "متى أعيد الفحص؟",
+    "chat.refused": "أستطيع المساعدة فقط في هذا التقرير.",
+    "chat.error": "حدث خطأ. حاول مرة أخرى.",
+    "chat.doctor_routing":
+      "تشير هذه النتائج إلى ضرورة الاتصال بمقدم الرعاية الصحية.",
+    "chat.character_limit": "{count}/500",
+    "chat.try_these": "جرب أحد هذه:",
+    "chat.cta_open": "اسأل عن نتائجك",
   },
   vn: {
     "upload.title": "Tải lên báo cáo xét nghiệm",
@@ -94,11 +308,90 @@ export const translations: Record<Language, Record<string, string>> = {
     "results.range": "Khoảng tham chiếu",
     "results.source": "Nguồn khoảng tham chiếu",
     "results.back": "Phân tích báo cáo khác",
+    "results.export_csv": "Xuất CSV",
+    "summary.status.green": "Tất cả bình thường",
+    "summary.status.yellow": "Chủ yếu bình thường",
+    "summary.status.orange": "Cần chú ý",
+    "summary.status.red": "Phát hiện quan trọng",
+    "summary.headline.green":
+      "Phần lớn kết quả nằm trong khoảng mong đợi.",
+    "summary.next_steps.green":
+      "Theo dõi định kỳ; không cần hành động.",
+    "summary.next_steps.yellow":
+      "Trao đổi với bác sĩ trong lần khám tới.",
+    "summary.next_steps.orange":
+      "Lên lịch tái khám trong vài tuần tới.",
+    "summary.next_steps.red":
+      "Hãy liên hệ với cơ sở y tế ngay.",
+    "summary.indeterminate.note":
+      "{count} kết quả cần xem xét kỹ hơn.",
+    "summary.top_findings": "Phát hiện chính",
+    "direction.high": "cao",
+    "direction.low": "thấp",
+    "direction.needs_review": "cần xem xét",
+    "topic.blood_sugar": "Đường huyết",
+    "topic.heart_lipids": "Tim & cholesterol",
+    "topic.kidney": "Thận",
+    "topic.liver": "Gan",
+    "topic.blood_count": "Công thức máu",
+    "topic.thyroid_hormones": "Tuyến giáp & nội tiết",
+    "topic.vitamins_minerals": "Vitamin & dinh dưỡng",
+    "topic.electrolytes": "Điện giải",
+    "topic.inflammation": "Viêm",
+    "topic.urinalysis_other": "Nước tiểu & khác",
+    "topic.other": "Xét nghiệm khác",
+    "group.abnormal_count": "{abnormal} trên {total} cần chú ý",
+    "group.indeterminate_count":
+      "{abnormal} trên {total} cần chú ý; {indeterminate} chưa rõ",
+    "group.all_normal": "Tất cả bình thường ({total})",
+    "group.expand": "Xem chi tiết",
+    "group.collapse": "Ẩn chi tiết",
+    "group.normal_collapsed": "{count} kết quả bình thường",
+    "audit.show": "Hiện chi tiết kỹ thuật",
+    "audit.hide": "Ẩn chi tiết kỹ thuật",
+    "audit.range_source": "Nguồn khoảng",
+    "audit.range_trust": "Độ tin cậy",
+    "audit.verifier": "Xác minh",
+    "audit.unit_confidence": "Độ tin cậy đơn vị",
+    "audit.section_type": "Phần",
+    "audit.loinc": "LOINC",
+    "panic.banner": "Có phát hiện quan trọng cần được chăm sóc y tế ngay.",
+    "panic.view": "Xem",
+    "panic.dismiss": "Ẩn",
     "error.upload": "Tải lên thất bại. Vui lòng thử lại.",
     "error.analysis": "Phân tích thất bại.",
+    "error.session_expired":
+      "Phiên báo cáo đã kết thúc. Tải lên lại để tiếp tục.",
+    "error.try_again": "Thử lại",
+    "chat.title": "Hỏi về kết quả của bạn",
+    "chat.placeholder": "Tôi nên tập trung vào điều gì trước?",
+    "chat.send": "Hỏi",
+    "chat.thinking": "Đang suy nghĩ...",
+    "chat.starter.focus": "Tôi nên tập trung vào điều gì trước?",
+    "chat.starter.out_of_range": "Kết quả nào nằm ngoài khoảng?",
+    "chat.starter.see_doctor": "Tôi có cần đi khám bác sĩ không?",
+    "chat.starter.questions_for_doctor": "Tôi nên hỏi bác sĩ điều gì?",
+    "chat.starter.retest": "Khi nào nên xét nghiệm lại?",
+    "chat.refused": "Tôi chỉ có thể hỗ trợ với báo cáo này.",
+    "chat.error": "Có lỗi xảy ra. Hãy thử lại.",
+    "chat.doctor_routing":
+      "Kết quả này gợi ý bạn nên liên hệ cơ sở y tế.",
+    "chat.character_limit": "{count}/500",
+    "chat.try_these": "Hãy thử một trong các câu hỏi sau:",
+    "chat.cta_open": "Hỏi về kết quả của bạn",
   },
 };
 
-export function t(key: string, lang: Language = "en"): string {
-  return translations[lang]?.[key] || translations.en[key] || key;
+export function t(
+  key: string,
+  lang: Language = "en",
+  vars?: Record<string, string | number>
+): string {
+  let text = translations[lang]?.[key] || translations.en[key] || key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+    }
+  }
+  return text;
 }

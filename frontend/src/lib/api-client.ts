@@ -18,16 +18,55 @@ export async function uploadReport(
   return data.job_id;
 }
 
+// ─── Locked Phase 1 contract — see plans/260417-0010-summary-first-report-ux ───
+export type Status = "green" | "yellow" | "orange" | "red";
+export type Severity = "normal" | "mild" | "moderate" | "critical";
+export type Direction = "high" | "low" | "in-range" | "indeterminate";
+
+export interface TopFinding {
+  test_name: string;
+  value: number | string;
+  unit: string | null;
+  direction: "high" | "low" | "indeterminate";
+  severity: "mild" | "moderate" | "critical";
+  is_panic: boolean;
+  health_topic: string;
+  plain_language_key: string;
+}
+
+export interface ReportSummary {
+  overall_status: Status;
+  headline: string;
+  top_findings: TopFinding[];
+  next_steps_key: Status;
+  indeterminate_count: number;
+  uncertainty_note_key: string | null;
+}
+
+export interface TopicGroup {
+  topic: string;
+  topic_label_key: string;
+  status: Status;
+  summary: string;
+  abnormal_count: number;
+  indeterminate_count: number;
+  total_count: number;
+  results: InterpretedValue[];
+}
+
 export interface AnalysisResult {
   job_id: string;
   status: "queued" | "processing" | "completed" | "failed";
   result?: {
+    summary?: ReportSummary;
+    topic_groups?: TopicGroup[];
     values: InterpretedValue[];
     explanations: Explanation[];
     panels: Panel[];
     coverage_score: string;
     disclaimer: string;
     language: string;
+    audit?: Record<string, unknown>;
   };
   error?: string;
 }
@@ -45,7 +84,12 @@ export interface InterpretedValue {
   reference_range_low: number | null;
   reference_range_high: number | null;
   range_source: string;
+  range_trust?: string;
   evidence_trace: Record<string, unknown>;
+  section_type?: string | null;
+  verification_verdict?: string;
+  unit_confidence?: string;
+  health_topic?: string | null;
 }
 
 export interface Explanation {
@@ -72,4 +116,56 @@ export async function pollResult(jobId: string): Promise<AnalysisResult> {
 
 export function getExportUrl(jobId: string): string {
   return `${API_BASE}/analysis/${jobId}/export`;
+}
+
+// ─── Phase 3: Q&A endpoint client ───
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatCitation {
+  test_name: string;
+  value: string | number;
+  unit: string | null;
+  health_topic: string | null;
+}
+
+export interface ChatResponse {
+  answer: string;
+  citations: ChatCitation[];
+  follow_ups: string[];
+  doctor_routing: boolean;
+  refused: boolean;
+  refusal_reason: string | null;
+}
+
+export class SessionExpiredError extends Error {
+  constructor() {
+    super("session_expired");
+  }
+}
+
+export async function askQuestion(
+  jobId: string,
+  question: string,
+  history: ChatTurn[] = [],
+  language: string = "en"
+): Promise<ChatResponse> {
+  const resp = await fetch(`${API_BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      job_id: jobId,
+      question,
+      history: history.slice(-6),
+      language,
+    }),
+  });
+  if (resp.status === 410) throw new SessionExpiredError();
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.detail || `Chat failed: ${resp.status}`);
+  }
+  return resp.json();
 }
