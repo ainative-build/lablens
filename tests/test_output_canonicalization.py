@@ -36,12 +36,12 @@ class TestInterpretedResultFields:
         )
         assert r.unit_confidence == "low"
 
-    def test_has_flag(self):
+    def test_has_source_flag(self):
         r = InterpretedResult(
             test_name="WBC", loinc_code="6690-2", value=12.0, unit="10^9/L",
-            flag="H",
+            source_flag="H",
         )
-        assert r.flag == "H"
+        assert r.source_flag == "H"
 
     def test_defaults(self):
         r = InterpretedResult(
@@ -50,7 +50,7 @@ class TestInterpretedResultFields:
         assert r.section_type is None
         assert r.verification_verdict == "accepted"
         assert r.unit_confidence == "high"
-        assert r.flag is None
+        assert r.source_flag is None
 
     def test_fields_in_vars(self):
         """New fields must appear in vars() for JSON serialization."""
@@ -59,13 +59,13 @@ class TestInterpretedResultFields:
             section_type="standard_lab_table",
             verification_verdict="accepted",
             unit_confidence="medium",
-            flag="L",
+            source_flag="L",
         )
         d = vars(r)
         assert d["section_type"] == "standard_lab_table"
         assert d["verification_verdict"] == "accepted"
         assert d["unit_confidence"] == "medium"
-        assert d["flag"] == "L"
+        assert d["source_flag"] == "L"
 
 
 # --- Flag sanitization ---
@@ -118,7 +118,7 @@ class TestFlagSanitization:
             "flag": "UNIT",
         }
         result = engine._interpret_single(v, "medium")
-        assert result.flag is None
+        assert result.source_flag is None
 
     def test_valid_flag_preserved_in_interpret_single(self):
         from lablens.interpretation.engine import InterpretationEngine
@@ -131,7 +131,7 @@ class TestFlagSanitization:
             "flag": "H",
         }
         result = engine._interpret_single(v, "medium")
-        assert result.flag == "H"
+        assert result.source_flag == "H"
 
 
 # --- Coverage score ---

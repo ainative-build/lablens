@@ -33,7 +33,7 @@ class InterpretedResult:
     section_type: str | None = None
     verification_verdict: str = "accepted"
     unit_confidence: str = "high"
-    flag: str | None = None
+    source_flag: str | None = None  # Raw OCR flag (audit-only, not semantic)
 
 
 @dataclass

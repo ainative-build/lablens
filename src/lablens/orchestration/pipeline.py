@@ -467,7 +467,7 @@ class PlainPipeline:
                 and v.reference_range_high is None
                 and v.direction not in ("in-range", "indeterminate")
             ):
-                v.flag = v.direction[0].upper() if v.direction else None
+                v.source_flag = v.direction[0].upper() if v.direction else None
                 v.direction = "indeterminate"
                 v.severity = "normal"
                 v.confidence = "low"
@@ -557,8 +557,16 @@ class PlainPipeline:
                 "consistency_flags": hb.consistency_flags,
             })
 
+        # Build value output — source_flag is audit-only, not semantic
+        def _value_dict(v):
+            d = vars(v)
+            sf = d.pop("source_flag", None)
+            if sf:
+                d.setdefault("evidence_trace", {})["source_flag"] = sf
+            return d
+
         result = {
-            "values": [vars(v) for v in final.interpreted_values],
+            "values": [_value_dict(v) for v in final.interpreted_values],
             "screening_results": screening_output,
             "explanations": [vars(e) for e in final.explanations],
             "panels": [vars(p) for p in final.panels] if final.panels else [],

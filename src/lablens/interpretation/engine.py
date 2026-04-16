@@ -90,7 +90,7 @@ class InterpretationEngine:
             section_type=v.get("section_type"),
             verification_verdict=v.get("verification_verdict", "accepted"),
             unit_confidence=v.get("unit_confidence", "high"),
-            flag=self._sanitize_flag(v.get("flag")),
+            source_flag=self._sanitize_flag(v.get("flag")),
         )
 
         # Non-numeric: interpret qualitative values
