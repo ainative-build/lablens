@@ -76,8 +76,8 @@ class TestDeterministicChecks:
         assert result.checks_failed >= 1
         assert any("implausible" in r for r in result.reasons)
 
-    def test_flag_range_inconsistency_h_in_range(self):
-        """Flag=H but value within range → inconsistency detected."""
+    def test_flag_range_inconsistency_h_in_range_audit_only(self):
+        """Flag=H but value within range → audit note only, NO failure."""
         v = {
             "test_name": "Glucose",
             "value": 4.0,
@@ -87,11 +87,16 @@ class TestDeterministicChecks:
             "reference_range_high": 5.0,
         }
         result = deterministic_checks(v)
-        assert result.checks_failed >= 1
-        assert any("Flag=H" in r for r in result.reasons)
+        # Audit-only: should NOT increment failed
+        flag_failures = [
+            r for r in result.reasons if "Flag=" in r and "[audit]" not in r
+        ]
+        assert len(flag_failures) == 0
+        # But the audit note should be present
+        assert any("[audit]" in r and "Flag=H" in r for r in result.reasons)
 
-    def test_flag_range_inconsistency_l_above_low(self):
-        """Flag=L but value >= range_low → inconsistency."""
+    def test_flag_range_inconsistency_l_above_low_audit_only(self):
+        """Flag=L but value >= range_low → audit note only, NO failure."""
         v = {
             "test_name": "Glucose",
             "value": 4.0,
@@ -101,8 +106,11 @@ class TestDeterministicChecks:
             "reference_range_high": 5.0,
         }
         result = deterministic_checks(v)
-        assert result.checks_failed >= 1
-        assert any("Flag=L" in r for r in result.reasons)
+        flag_failures = [
+            r for r in result.reasons if "Flag=" in r and "[audit]" not in r
+        ]
+        assert len(flag_failures) == 0
+        assert any("[audit]" in r and "Flag=L" in r for r in result.reasons)
 
     def test_flag_range_consistent_h_above_range(self):
         """Flag=H with value above range → consistent, no failure."""

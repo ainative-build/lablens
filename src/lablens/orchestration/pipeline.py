@@ -160,12 +160,19 @@ class PlainPipeline:
                 logger.warning(
                     "Unit misreport detected for %s: value=%s '%s' is "
                     "implausible for curated [%s-%s] %s, but converting "
-                    "from '%s' gives %s — flagging low confidence.",
+                    "from '%s' gives %s — applying correction.",
                     vdict.get("test_name", "?"), value, reported_unit,
                     cur_low, cur_high, canonical_unit,
                     conv["from"], converted,
                 )
-                vdict["unit_confidence"] = "low"
+                # Apply the correction: convert to canonical unit
+                vdict["value"] = converted
+                vdict["unit"] = canonical_unit
+                vdict["unit_confidence"] = "medium"
+                # Clear lab range — it was for the wrong unit system
+                vdict["reference_range_low"] = None
+                vdict["reference_range_high"] = None
+                vdict["range_source"] = "unit-corrected"
                 return vdict
 
         return vdict

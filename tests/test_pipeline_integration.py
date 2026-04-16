@@ -515,8 +515,8 @@ class TestEmptyUnitGuards:
 
 
 class TestUnitMisreportDetection:
-    def test_implausibly_low_value_flags_low_confidence(self):
-        """HDL-C=0.92 'mg/dL' is implausible for curated [40-999] mg/dL."""
+    def test_implausibly_low_value_gets_corrected(self):
+        """HDL-C=0.92 'mg/dL' is implausible → correct to 35.58 mg/dL."""
         from lablens.extraction.unit_normalizer import UnitNormalizer
         from lablens.orchestration.pipeline import PlainPipeline
 
@@ -528,7 +528,11 @@ class TestUnitMisreportDetection:
             "unit_confidence": "high",
         }
         result = PlainPipeline._check_unit_misreport(vdict, "2085-9", normalizer)
-        assert result["unit_confidence"] == "low"
+        # Now applies correction instead of just flagging
+        assert result["value"] == pytest.approx(35.5764, abs=0.01)
+        assert result["unit"] == "mg/dL"
+        assert result["unit_confidence"] == "medium"
+        assert result.get("reference_range_low") is None
 
     def test_plausible_value_keeps_high_confidence(self):
         """HDL-C=45 mg/dL is plausible for curated [40-999] → keep high confidence."""

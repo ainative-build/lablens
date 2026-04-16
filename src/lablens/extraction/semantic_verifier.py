@@ -121,7 +121,11 @@ def deterministic_checks(
             )
             failed += 1
 
-    # Check 4: Flag-range consistency
+    # Check 4: Flag-range consistency (AUDIT-ONLY)
+    # OCR flag columns are frequently misaligned in multi-column layouts
+    # (e.g., Vietnamese reports). A flag mismatch alone should NOT trigger
+    # a verdict downgrade — record for audit trail only. Real semantic
+    # conflicts are caught by range-source and unit-confidence checks.
     flag = (v.get("flag") or "").upper()
     if flag and isinstance(v.get("value"), (int, float)):
         ref_low = v.get("reference_range_low")
@@ -133,15 +137,17 @@ def deterministic_checks(
                 in_range = low_f <= val <= high_f
                 if flag in ("H", "A") and in_range:
                     result.reasons.append(
-                        f"Flag={flag} but value {val} within "
-                        f"range [{low_f}-{high_f}]"
+                        f"[audit] Flag={flag} but value {val} within "
+                        f"range [{low_f}-{high_f}] (OCR flag may be "
+                        f"misaligned)"
                     )
-                    failed += 1
+                    # Audit-only: do NOT increment failed
                 elif flag == "L" and val >= low_f:
                     result.reasons.append(
-                        f"Flag=L but value {val} >= range_low {low_f}"
+                        f"[audit] Flag=L but value {val} >= range_low "
+                        f"{low_f} (OCR flag may be misaligned)"
                     )
-                    failed += 1
+                    # Audit-only: do NOT increment failed
                 else:
                     passed += 1
             except (ValueError, TypeError):
