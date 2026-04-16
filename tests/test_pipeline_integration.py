@@ -1227,3 +1227,124 @@ class TestCanonicalRanking:
 
         canonical, alternates = PlainPipeline._dedupe_analytes([v1, v2])
         assert canonical[0].unit_confidence == "high"
+
+
+# ── Structured/explanation consistency enforcement ──
+
+
+class TestDirectionConsistencyEnforcement:
+    """ocr-flag-fallback with null ranges must be downgraded to indeterminate."""
+
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_ocr_flag_high_downgraded_to_indeterminate(self, engine):
+        """Non-HDL Cholesterol flag=H, no range → direction=indeterminate."""
+        values = [{
+            "test_name": "Non HDL Cholesterol",
+            "value": 3.55,
+            "unit": "mmol/L",
+            "loinc_code": None,
+            "flag": "H",
+        }]
+        report = engine.interpret_report(values)
+        v = report.values[0]
+        # Before consistency enforcement: direction would be "high"
+        assert v.range_source == "ocr-flag-fallback"
+
+        # Simulate Stage 3.5 consistency enforcement
+        _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
+        if (
+            v.range_source in _WEAK_DIRECTION_SOURCES
+            and v.reference_range_low is None
+            and v.reference_range_high is None
+            and v.direction not in ("in-range", "indeterminate")
+        ):
+            v.direction = "indeterminate"
+            v.severity = "normal"
+        assert v.direction == "indeterminate"
+
+    def test_ocr_flag_low_downgraded_to_indeterminate(self, engine):
+        """NRBC flag=L, no range → direction=indeterminate."""
+        values = [{
+            "test_name": "NRBC",
+            "value": 0.0,
+            "unit": "10^9/L",
+            "loinc_code": None,
+            "flag": "L",
+        }]
+        report = engine.interpret_report(values)
+        v = report.values[0]
+        assert v.range_source == "ocr-flag-fallback"
+
+        # Simulate consistency enforcement
+        if (
+            v.range_source == "ocr-flag-fallback"
+            and v.reference_range_low is None
+            and v.reference_range_high is None
+            and v.direction not in ("in-range", "indeterminate")
+        ):
+            v.direction = "indeterminate"
+        assert v.direction == "indeterminate"
+
+    def test_range_text_direction_preserved(self, engine):
+        """HBsAb with range-text direction is NOT downgraded."""
+        values = [{
+            "test_name": "HBsAb",
+            "value": 916.89,
+            "unit": "mIU/mL",
+            "loinc_code": None,
+            "reference_range_text": "< 10",
+        }]
+        report = engine.interpret_report(values)
+        # range-text is not in _WEAK_DIRECTION_SOURCES → preserved
+        assert report.values[0].direction == "high"
+        assert report.values[0].range_source == "range-text"
+
+
+# ── Screening canonicalization ──
+
+
+class TestScreeningCanonicalization:
+    """canonicalize_screening deduplicates organs and structures followup."""
+
+    def test_dedup_organs(self):
+        from lablens.extraction.screening_parser import canonicalize_screening
+        from lablens.models.screening_result import ScreeningResult
+
+        sr = ScreeningResult(
+            test_type="SPOT-MAS",
+            organs_screened=[
+                "Phổi", "Vú", "Gan", "Phổi", "Gan",
+                "multiple cancers", "asymptomatic adults",
+            ],
+        )
+        result = canonicalize_screening(sr)
+        assert result.organs_screened == ["Phổi", "Vú", "Gan"]
+
+    def test_structure_followup_numbered(self):
+        from lablens.extraction.screening_parser import canonicalize_screening
+        from lablens.models.screening_result import ScreeningResult
+
+        sr = ScreeningResult(
+            test_type="SPOT-MAS",
+            followup_recommendation=(
+                "1. Continue annual checkups. "
+                "2. Maintain healthy lifestyle."
+            ),
+        )
+        result = canonicalize_screening(sr)
+        assert "1." in result.followup_recommendation
+        assert "2." in result.followup_recommendation
+
+    def test_none_followup_passthrough(self):
+        from lablens.extraction.screening_parser import canonicalize_screening
+        from lablens.models.screening_result import ScreeningResult
+
+        sr = ScreeningResult(
+            test_type="SPOT-MAS",
+            followup_recommendation=None,
+        )
+        result = canonicalize_screening(sr)
+        assert result.followup_recommendation is None

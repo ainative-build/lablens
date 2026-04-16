@@ -213,8 +213,8 @@ class TestExtractionQualityEscalation:
         assert result.checks_failed >= 1
         assert any("ocr-flag-fallback" in r for r in result.reasons)
 
-    def test_lab_provided_suspicious_is_neutral(self):
-        """Suspicious source: audit note only, no pass OR fail increment."""
+    def test_lab_provided_suspicious_triggers_warning(self):
+        """Suspicious source → ACCEPT_WITH_WARNING (not ACCEPT, not fail)."""
         v = {
             "test_name": "TSH",
             "value": 1.5,
@@ -222,14 +222,12 @@ class TestExtractionQualityEscalation:
             "range_source": "lab-provided-suspicious",
         }
         result = deterministic_checks(v)
-        # Should not have a failure
-        suspicious_fails = [
-            r for r in result.reasons
-            if "suspicious" in r and "[audit]" not in r
-        ]
-        assert len(suspicious_fails) == 0
-        # Should have an audit note
-        assert any("[audit]" in r and "suspicious" in r for r in result.reasons)
+        # Should not have a hard failure
+        assert result.checks_failed == 0
+        # Should have a warning note
+        assert any("[warn]" in r and "suspicious" in r for r in result.reasons)
+        # Verdict should be ACCEPT_WITH_WARNING
+        assert result.verdict == Verdict.ACCEPT_WITH_WARNING
 
     def test_lab_validated_passes(self):
         v = {
@@ -255,8 +253,8 @@ class TestExtractionQualityEscalation:
         assert result.checks_failed >= 2  # unit_confidence + double-low
         assert any("Both" in r for r in result.reasons)
 
-    def test_standalone_low_confidence_audit_note(self):
-        """confidence=low alone → audit note, not a failure."""
+    def test_standalone_low_confidence_triggers_warning(self):
+        """confidence=low alone → warning, ACCEPT_WITH_WARNING verdict."""
         v = {
             "test_name": "Testosterone",
             "value": 642.0,
@@ -265,10 +263,12 @@ class TestExtractionQualityEscalation:
             "range_source": "lab-provided-validated",
         }
         result = deterministic_checks(v)
-        # Should record audit note
-        assert any("[audit]" in r and "confidence=low" in r for r in result.reasons)
-        # Should NOT be a failure (standalone low conf is not severe)
+        # Should record warning
+        assert any("[warn]" in r and "confidence=low" in r for r in result.reasons)
+        # Should NOT be a hard failure
         assert result.checks_failed == 0
+        # Verdict should be ACCEPT_WITH_WARNING
+        assert result.verdict == Verdict.ACCEPT_WITH_WARNING
 
     def test_low_unit_conf_downgrades_previously_accepted(self):
         """A value that would be ACCEPT now gets DOWNGRADE with low unit conf."""
@@ -292,6 +292,31 @@ class TestExtractionQualityEscalation:
         }
         result = deterministic_checks(v)
         assert result.verdict in (Verdict.DOWNGRADE, Verdict.RETRY)
+
+    def test_range_text_triggers_warning(self):
+        """range-text source → ACCEPT_WITH_WARNING."""
+        v = {
+            "test_name": "HBsAb",
+            "value": 916.89,
+            "unit": "mIU/mL",
+            "range_source": "range-text",
+        }
+        result = deterministic_checks(v)
+        assert result.checks_failed == 0
+        assert any("[warn]" in r and "range-text" in r for r in result.reasons)
+        assert result.verdict == Verdict.ACCEPT_WITH_WARNING
+
+    def test_clean_row_still_fully_accepted(self):
+        """No warnings, no failures → plain ACCEPT."""
+        v = {
+            "test_name": "WBC",
+            "value": 6.4,
+            "unit": "10^3/μL",
+            "range_source": "lab-provided-validated",
+            "confidence": "high",
+        }
+        result = deterministic_checks(v)
+        assert result.verdict == Verdict.ACCEPT
 
 
 # ── Verdict merging ──

@@ -237,13 +237,18 @@ class PlainPipeline:
                 # Deterministic RETRY: downgrade since no inline re-extraction
                 vdict["verification_verdict"] = "retry_exhausted"
                 vdict["unit_confidence"] = "low"
+            elif vr.verdict == Verdict.ACCEPT_WITH_WARNING:
+                vdict["verification_verdict"] = "accepted_with_warning"
             else:
                 vdict["verification_verdict"] = "accepted"
 
         logger.info(
-            "Verified %d values: %d accepted, %d downgraded, %d indeterminate",
+            "Verified %d values: %d accepted, %d warned, "
+            "%d downgraded, %d indeterminate",
             len(verdicts),
             sum(1 for v in verdicts if v.verdict == Verdict.ACCEPT),
+            sum(1 for v in verdicts
+                if v.verdict == Verdict.ACCEPT_WITH_WARNING),
             sum(1 for v in verdicts if v.verdict == Verdict.DOWNGRADE),
             sum(1 for v in verdicts if v.verdict == Verdict.MARK_INDETERMINATE),
         )
@@ -407,7 +412,9 @@ class PlainPipeline:
             # Re-run deterministic checks with quality metadata now available
             recheck = det_checks_fn(vdict, vdict.get("section_type", "standard_lab_table"))
             vr = verification_verdicts[i] if i < len(verification_verdicts) else None
-            if vr and recheck.verdict != Verdict.ACCEPT:
+            if vr and recheck.verdict not in (
+                Verdict.ACCEPT, Verdict.ACCEPT_WITH_WARNING
+            ):
                 # Quality metadata triggered a non-accept verdict
                 if recheck.verdict == Verdict.MARK_INDETERMINATE:
                     vdict["verification_verdict"] = "indeterminate"
@@ -416,7 +423,7 @@ class PlainPipeline:
                     vr.reasons.extend(recheck.reasons)
                 elif recheck.verdict in (Verdict.DOWNGRADE, Verdict.RETRY):
                     cur_verdict = vdict.get("verification_verdict", "accepted")
-                    if cur_verdict == "accepted":
+                    if cur_verdict in ("accepted", "accepted_with_warning"):
                         vdict["verification_verdict"] = "downgraded"
                         vr.verdict = Verdict.DOWNGRADE
                     vr.reasons.extend(recheck.reasons)
@@ -441,7 +448,56 @@ class PlainPipeline:
             interpreted.total_abnormal,
         )
 
-        # Stage 3.5: Deduplicate analytes with same name in multiple units
+        # Stage 3.5: Pre-explanation consistency enforcement
+        # Values whose direction was derived from weak evidence (OCR flag
+        # fallback with no numeric range) produce contradictions: the
+        # structured row says "high" but the LLM explanation says "cannot
+        # classify." Resolve by downgrading direction to indeterminate
+        # while preserving the OCR flag hint for audit transparency.
+        #
+        # Also refine verification verdicts now that range_source is
+        # available (verifier ran before interpretation set this field).
+        _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
+        _CAUTION_RANGE_SOURCES = {"range-text", "lab-provided-suspicious"}
+        for idx, v in enumerate(interpreted.values):
+            # Direction consistency: weak source → indeterminate
+            if (
+                v.range_source in _WEAK_DIRECTION_SOURCES
+                and v.reference_range_low is None
+                and v.reference_range_high is None
+                and v.direction not in ("in-range", "indeterminate")
+            ):
+                v.flag = v.direction[0].upper() if v.direction else None
+                v.direction = "indeterminate"
+                v.severity = "normal"
+                v.confidence = "low"
+
+            # Post-interpretation verdict refinement: upgrade accepted
+            # to accepted_with_warning for caution-tier range sources
+            # or standalone low confidence
+            if v.verification_verdict == "accepted":
+                has_caution = (
+                    v.range_source in _CAUTION_RANGE_SOURCES
+                    or v.confidence == "low"
+                )
+                if has_caution:
+                    v.verification_verdict = "accepted_with_warning"
+                    # Update audit verdict too
+                    if idx < len(verification_verdicts):
+                        vr = verification_verdicts[idx]
+                        if vr.verdict == Verdict.ACCEPT:
+                            vr.verdict = Verdict.ACCEPT_WITH_WARNING
+                            if v.range_source in _CAUTION_RANGE_SOURCES:
+                                vr.reasons.append(
+                                    f"[warn] range_source="
+                                    f"{v.range_source}"
+                                )
+                            if v.confidence == "low":
+                                vr.reasons.append(
+                                    f"[warn] confidence=low"
+                                )
+
+        # Stage 3.6: Deduplicate analytes with same name in multiple units
         # Source PDFs sometimes list Free T4 in pmol/L AND ng/dL, or
         # TSH with µ vs μ micro symbols. Keep lab-validated row; move
         # alternate to audit.
@@ -466,6 +522,14 @@ class PlainPipeline:
             hplc_blocks=hplc_blocks,
             screening_results=screening_results,
         )
+
+        # Canonicalize screening results (dedup organs, structure followup)
+        from lablens.extraction.screening_parser import (
+            canonicalize_screening,
+        )
+
+        for sr in screening_results:
+            canonicalize_screening(sr)
 
         # Build screening output (bypass interpretation — Contract D)
         screening_output = [

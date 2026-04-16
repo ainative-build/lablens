@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 class Verdict(str, Enum):
     ACCEPT = "accept"
+    ACCEPT_WITH_WARNING = "accept_with_warning"
     DOWNGRADE = "downgrade"
     MARK_INDETERMINATE = "mark_indeterminate"
     RETRY = "retry"
@@ -96,6 +97,7 @@ def deterministic_checks(
     result = VerificationResult()
     passed = 0
     failed = 0
+    warnings = 0  # Soft caution signals (audit notes that affect verdict)
 
     # Check 1: Field completeness — test_name
     if not v.get("test_name"):
@@ -172,18 +174,18 @@ def deterministic_checks(
     # Check 7: Range source reliability
     range_src = (v.get("range_source") or "").lower()
     _WEAK_SOURCES = {"no-range", "ocr-flag-fallback"}
-    _SUSPICIOUS_SOURCES = {"lab-provided-suspicious"}
+    _CAUTION_SOURCES = {"range-text", "lab-provided-suspicious"}
     if range_src in _WEAK_SOURCES:
         result.reasons.append(
             f"range_source={range_src} — no reliable reference range"
         )
         failed += 1
-    elif range_src in _SUSPICIOUS_SOURCES:
+    elif range_src in _CAUTION_SOURCES:
         result.reasons.append(
-            f"[audit] range_source={range_src} — lab range may be "
-            f"unreliable"
+            f"[warn] range_source={range_src} — range has limited "
+            f"reliability"
         )
-        # Neutral: neither pass nor fail — noted for audit trail only
+        warnings += 1
     elif range_src:
         passed += 1
 
@@ -194,19 +196,22 @@ def deterministic_checks(
         result.reasons.append("Both unit_confidence and confidence are low")
         failed += 1
     elif row_conf == "low":
-        # Standalone low confidence — not severe enough to fail but
-        # reduces verification coverage (no pass increment)
+        # Standalone low confidence — soft caution, not a hard failure
         result.reasons.append(
-            f"[audit] confidence=low for {v.get('test_name', '?')}"
+            f"[warn] confidence=low for {v.get('test_name', '?')}"
         )
+        warnings += 1
 
     result.checks_passed = passed
     result.checks_failed = failed
 
-    # Decision logic
-    if failed == 0 and passed >= 2:
+    # Decision logic: 3-tier accept / warn / downgrade / retry
+    if failed == 0 and passed >= 2 and warnings == 0:
         result.verdict = Verdict.ACCEPT
         result.adjusted_confidence = "high"
+    elif failed == 0 and passed >= 2 and warnings > 0:
+        result.verdict = Verdict.ACCEPT_WITH_WARNING
+        result.adjusted_confidence = "medium"
     elif failed == 0 and passed < 2:
         result.verdict = Verdict.DOWNGRADE
         result.adjusted_confidence = "medium"

@@ -140,6 +140,47 @@ def parse_screening_json(raw: str) -> ScreeningResult | None:
     )
 
 
+def canonicalize_screening(sr: ScreeningResult) -> ScreeningResult:
+    """Post-process screening result into clean canonical form.
+
+    - Deduplicate organs_screened (case-insensitive)
+    - Filter out non-organ entries (descriptions, population terms)
+    - Structure followup_recommendation into concise action items
+    """
+    # Deduplicate organs (case-insensitive, preserve first occurrence)
+    _NON_ORGAN_TERMS = {
+        "multiple cancers", "asymptomatic adults", "multiple organs",
+        "general screening", "various cancers", "screening",
+    }
+    seen: set[str] = set()
+    clean_organs: list[str] = []
+    for organ in sr.organs_screened:
+        key = organ.strip().lower()
+        if key in seen or key in _NON_ORGAN_TERMS or len(key) < 2:
+            continue
+        seen.add(key)
+        clean_organs.append(organ.strip())
+    sr.organs_screened = clean_organs
+
+    # Structure followup_recommendation: split numbered items into list
+    if sr.followup_recommendation and isinstance(
+        sr.followup_recommendation, str
+    ):
+        import re
+
+        text = sr.followup_recommendation.strip()
+        # Split on numbered patterns like "1.", "2.", etc.
+        parts = re.split(r"(?:^|\n)\s*\d+\.\s*", text)
+        parts = [p.strip() for p in parts if p.strip()]
+        if len(parts) > 1:
+            # Reconstruct as clean numbered list
+            sr.followup_recommendation = "\n".join(
+                f"{i}. {p}" for i, p in enumerate(parts, 1)
+            )
+
+    return sr
+
+
 class ScreeningParser:
     """Parse ctDNA/MCED screening attachment pages."""
 
