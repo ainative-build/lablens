@@ -31,6 +31,7 @@ class UnitNormalizer:
     def __init__(self, conversions_path: Path | None = None):
         self._conversions: dict = {}
         self._unit_aliases: dict[str, str] = {}
+        self._unit_aliases_lower: dict[str, str] = {}
         self._load(conversions_path or CONVERSIONS_PATH)
 
     def _load(self, path: Path):
@@ -39,6 +40,8 @@ class UnitNormalizer:
             return
         data = yaml.safe_load(path.read_text())
         self._unit_aliases = data.get("unit_aliases", {})
+        # Case-insensitive fallback index
+        self._unit_aliases_lower = {k.lower(): v for k, v in self._unit_aliases.items()}
         conversions = data.get("conversions", {})
         # Filter out unit_aliases key from conversions dict
         self._conversions = {
@@ -46,8 +49,12 @@ class UnitNormalizer:
         }
 
     def normalize_unit(self, unit: str) -> str:
-        """Normalize unit alias to canonical form."""
-        return self._unit_aliases.get(unit, unit)
+        """Normalize unit alias to canonical form (case-insensitive)."""
+        return (
+            self._unit_aliases.get(unit)
+            or self._unit_aliases_lower.get(unit.lower().strip())
+            or unit
+        )
 
     def normalize(
         self, loinc_code: str, value: float, unit: str
