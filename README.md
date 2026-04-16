@@ -31,6 +31,7 @@ PDF → Page Classification → Qwen-VL-OCR → Noise Filter → Range Preproces
 | Unit Normalization | `unit_normalizer` | Convert to canonical units (case-insensitive aliases) + post-conversion plausibility guard |
 | **Unit Misreport Correction** | `pipeline` (stage 2.5) | Detect and correct OCR unit errors (e.g., mmol/L reported as mg/dL) |
 | Plausibility | `range_plausibility_checker` | Curated cross-check + analyte-family validation for range trust scoring |
+| **Qualitative Interpreter** | `qualitative` | LOINC-aware qualitative dispatch (4 categories, 22 assays) |
 
 ### Section-Aware Processing
 
@@ -93,6 +94,7 @@ Checks cover: missing fields, unit-value plausibility, flag-range consistency (a
 - **Pre-explanation consistency**: OCR-flag-only directions without numeric ranges downgraded to indeterminate before explanation
 - **3-tier canonical dedup**: confidence → range-source trust (5 levels) → unit_confidence; HPLC values exempt
 - **Explanation guardrails**: no clinical staging language; hedged framing ("suggests", "may indicate")
+- **Qualitative assay semantics**: LOINC-keyed dispatch with 4 categories (expected-negative, expected-positive, categorical, semi-quantitative); HBsAb inversion handled; blood type/Rh categorical bypass; urobilinogen trace/1+ normal
 
 ### Output Design
 
@@ -200,7 +202,8 @@ data/
 │   ├── thyroid.yaml             # Thyroid function
 │   ├── liver.yaml               # Liver function
 │   ├── kidney.yaml              # Kidney function (eGFR, creatinine, BUN)
-│   └── vitamins.yaml            # Vitamin D, B12, Folate, Iron, Ferritin
+│   ├── vitamins.yaml            # Vitamin D, B12, Folate, Iron, Ferritin
+│   └── qualitative.yaml             # Qualitative test rules (22 assays, 4 categories)
 ├── aliases/
 │   ├── common-aliases.yaml      # 200+ test name aliases
 │   ├── analyte-families.yaml    # 20 analyte families (split CBC/thyroid, iron, inflammatory)

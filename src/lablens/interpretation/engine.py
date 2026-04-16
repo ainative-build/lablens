@@ -95,10 +95,22 @@ class InterpretationEngine:
 
         # Non-numeric: interpret qualitative values
         if not isinstance(v["value"], (int, float)):
-            result.direction, result.confidence = interpret_qualitative(
-                v["value"], v.get("flag")
+            qr = interpret_qualitative(
+                str(v["value"]),
+                v.get("flag"),
+                loinc_code=v.get("loinc_code"),
+                test_name=v.get("test_name"),
             )
-            result.evidence_trace = {"note": "Qualitative interpretation", "raw": str(v["value"])}
+            result.direction = qr["direction"]
+            result.confidence = qr["confidence"]
+            result.severity = qr["severity"]
+            result.actionability = qr["actionability"]
+            result.is_panic = qr["is_panic"]
+            result.range_source = qr.get("range_source", "no-range")
+            result.evidence_trace = {
+                **qr.get("evidence_trace", {}),
+                "raw": str(v["value"]),
+            }
             return result
 
         value = float(v["value"])

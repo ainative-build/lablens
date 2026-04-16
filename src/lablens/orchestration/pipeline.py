@@ -567,6 +567,29 @@ class PlainPipeline:
                                     f"[warn] confidence=low"
                                 )
 
+        # Stage 3.55: Static notes for in-range qualitative results
+        # Categorical (blood type) and expected-positive in-range (HBsAb immune)
+        # get a brief patient-facing note without an LLM call.
+        for v in interpreted.values:
+            et = v.evidence_trace or {}
+            method = et.get("interpretation_method", "")
+            if not method.startswith("qualitative"):
+                continue
+            if v.direction != "in-range":
+                continue
+            hint = et.get("explanation_hint", "")
+            if not hint:
+                continue
+            # Expected-positive in-range: patient should know immunity is good
+            if any(w in hint.lower() for w in ("immunity", "immune")):
+                v.evidence_trace["qualitative_note"] = (
+                    "This result indicates protection/immunity — "
+                    "this is expected and reassuring."
+                )
+            # Categorical: informational only
+            elif "informational" in hint.lower():
+                v.evidence_trace["qualitative_note"] = hint
+
         # Stage 3.6: Deduplicate analytes with same name in multiple units
         # Source PDFs sometimes list Free T4 in pmol/L AND ng/dL, or
         # TSH with µ vs μ micro symbols. Keep lab-validated row; move
