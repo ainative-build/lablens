@@ -54,14 +54,6 @@ export default function ResultsPage() {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const poll = async () => {
-      // Pause polling when tab is hidden.
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState === "hidden"
-      ) {
-        timer = setTimeout(poll, 5000);
-        return;
-      }
       attemptRef.current += 1;
       if (attemptRef.current > MAX_POLL_ATTEMPTS) {
         if (!cancelled) setError("timeout");
