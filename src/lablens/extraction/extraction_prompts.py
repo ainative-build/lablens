@@ -109,3 +109,25 @@ REPARSE_USER_PROMPT = (
     "Extract all lab test results with their units and reference ranges.\n"
     "Return ONLY the JSON object, no other text."
 )
+
+# --- Section-specific prompt stubs (used by Phase 2 HPLC and Phase 3 ctDNA) ---
+
+HPLC_EXTRACTION_PROMPT = (
+    "You are extracting the HPLC / HbA1c diabetes section from a lab report.\n\n"
+    "This section contains exactly 3 linked analytes:\n"
+    "1. HbA1c (NGSP) — unit: %, normal range typically 4.0-6.0\n"
+    "2. HbA1c (IFCC) — unit: mmol/mol, normal range typically 20-42\n"
+    "3. Estimated Average Glucose (eAG) — unit: mg/dL (70-126) or mmol/L\n\n"
+    "CRITICAL: Do NOT swap ranges between rows. NGSP ranges are in %, "
+    "IFCC in mmol/mol.\n"
+    "If a range looks like it belongs to a different row, set it to null.\n\n"
+    f"Output ONLY valid JSON:\n{_JSON_SCHEMA}\nRules:{_BASE_RULES}"
+)
+
+SCREENING_EXTRACTION_PROMPT = (
+    "Extract screening test results from this attachment page.\n"
+    "Look for: test type, result status (Detected/Not Detected/Indeterminate), "
+    "signal origin, limitations, follow-up recommendations.\n"
+    "This is NOT a standard analyte table — it is a screening summary.\n"
+    "Output ONLY valid JSON with screening-specific schema."
+)

@@ -722,6 +722,54 @@ class TestDecisionThresholdGating:
         assert report.values[0].direction == "indeterminate"
         assert report.values[0].confidence == "low"
 
+    def test_hba1c_ngsp_suspicious_range_is_indeterminate(self, engine):
+        """HbA1c (NGSP) with OCR range 3.9-5.5 → indeterminate, not high/mild.
+
+        Regression test for: HbA1c threshold-style ranges should never produce
+        standard high/low from OCR-grabbed cutpoint intervals.
+        """
+        values = [{
+            "test_name": "HbA1c (NGSP)", "value": 6.1, "unit": "%",
+            "loinc_code": "4548-4",
+            "ref_range_low": 3.9, "ref_range_high": 5.5,
+            "range_trust": "high",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        # No curated HbA1c rule → must degrade to indeterminate
+        assert report.values[0].direction == "indeterminate"
+        assert report.values[0].confidence == "low"
+
+    def test_hba1c_ifcc_suspicious_range_is_indeterminate(self, engine):
+        """HbA1c (IFCC) with OCR range → indeterminate."""
+        values = [{
+            "test_name": "HbA1c (IFCC)", "value": 33.0, "unit": "mmol/mol",
+            "loinc_code": "4548-4",
+            "ref_range_low": 3.9, "ref_range_high": 5.5,
+            "range_trust": "medium",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "indeterminate"
+
+    def test_decision_threshold_curated_fallback_not_degraded(self, engine):
+        """Decision-threshold test with curated-fallback should NOT degrade.
+
+        When suspicious-override already replaced ranges with curated values,
+        the decision-threshold gate should trust the curated ranges.
+        """
+        values = [{
+            "test_name": "Total Cholesterol", "value": 180, "unit": "mg/dL",
+            "loinc_code": "2093-3",
+            "ref_range_low": 0, "ref_range_high": 200,
+            "range_trust": "low",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        # Curated rule exists → suspicious-override replaces with curated
+        # ranges → curated-fallback → should NOT degrade to indeterminate
+        assert report.values[0].direction != "indeterminate"
+
     def test_decision_threshold_with_curated_crosscheck_uses_range(self, engine):
         """Decision-threshold test with curated cross-check → normal interpretation.
 
@@ -736,6 +784,66 @@ class TestDecisionThresholdGating:
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "in-range"
+
+
+class TestDecisionThresholdNameFallback:
+    """Test name-based detection of decision-threshold tests in pipeline."""
+
+    def test_hba1c_ngsp_detected_by_name(self):
+        """HbA1c (NGSP) should be flagged as decision-threshold by name."""
+        name = "HbA1c (NGSP)"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_hba1c_ifcc_detected_by_name(self):
+        name = "HbA1c (IFCC)"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_hba1c_whole_blood_detected_by_name(self):
+        name = "HbA1c [Whole blood]"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_glycated_hemoglobin_detected_by_name(self):
+        name = "Glycated Hemoglobin"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_glucose_not_falsely_detected(self):
+        """Regular Glucose should NOT be flagged by name pattern."""
+        name = "Glucose"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is False
+
+    def test_wbc_not_falsely_detected(self):
+        name = "WBC"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is False
 
 
 class TestSeverityCap:

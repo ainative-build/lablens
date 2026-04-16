@@ -96,10 +96,13 @@ class PlainPipeline:
         from lablens.extraction.ocr_extractor import OCRExtractor
 
         extractor = OCRExtractor(self.settings)
-        report = await extractor.extract_from_pdf(pdf_bytes, language=language)
+        report, page_images = await extractor.extract_from_pdf(
+            pdf_bytes, language=language
+        )
         logger.info(
             "Extracted %d values from %d pages", len(report.values), report.page_count
         )
+        # page_images kept for Phase 4 semantic verifier (not used yet)
 
         # Stage 2: Map terminology + normalize units
         from lablens.extraction.alias_registry import AliasRegistry
@@ -208,6 +211,24 @@ class PlainPipeline:
             vdict["is_decision_threshold"] = (
                 plausibility_checker.is_decision_threshold(lc)
             )
+
+            # Fallback: detect decision-threshold tests by section_type or
+            # name pattern when LOINC mapping fails (e.g., HbA1c (NGSP) not
+            # in alias registry). Without this, the engine gate is bypassed
+            # and HbA1c gets standard-range interpretation with OCR-grabbed
+            # ranges — producing false "high/mild" from clinical cutpoints.
+            if not vdict["is_decision_threshold"]:
+                section = vdict.get("section_type", "")
+                if section == "hplc_diabetes_block":
+                    vdict["is_decision_threshold"] = True
+                else:
+                    name_lower = (v.test_name or "").lower()
+                    if any(kw in name_lower for kw in (
+                        "hba1c", "hb a1c", "hemoglobin a1c",
+                        "glycated hemoglobin", "glycosylated hemoglobin",
+                    )):
+                        vdict["is_decision_threshold"] = True
+
             vdict["restricted_flag"] = (
                 plausibility_checker.is_restricted_flag_category(lc)
             )

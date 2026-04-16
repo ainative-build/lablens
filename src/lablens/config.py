@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     dashscope_api_base: str = "https://dashscope-intl.aliyuncs.com/api/v1"
     dashscope_ocr_model: str = "qwen-vl-ocr"
     dashscope_chat_model: str = "qwen-plus"
+    dashscope_structure_model: str = "qwen3-vl-plus"   # Section-aware re-extraction
+    dashscope_verify_model: str = "qwen3.5-plus"       # Semantic verifier (Phase 4)
     dashscope_embedding_model: str = "text-embedding-v3"
 
     # Alibaba GDB (optional for Phases 1-5; required for Phase 6 graph enrichment)

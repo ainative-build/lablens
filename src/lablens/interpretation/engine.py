@@ -148,19 +148,27 @@ class InterpretationEngine:
                         )
                         return result
 
-        # Decision-threshold tests: lab-provided ranges are unreliable unless
-        # a curated rule can cross-validate. These tests use clinical cut-points
-        # (not reference intervals), so OCR-grabbed ranges from neighboring rows
-        # are especially dangerous.
+        # Decision-threshold tests: these use clinical cut-points (not
+        # population reference intervals), so OCR-grabbed ranges from
+        # neighboring rows are especially dangerous.
+        #   - No curated cross-check → always indeterminate (can't validate)
+        #   - Low-trust lab range not yet replaced by curated → indeterminate
+        #   - Curated-fallback already applied → trust it (ranges are curated)
+        #   - High-trust lab range with curated available → trust it
         is_decision_threshold = v.get("is_decision_threshold", False)
-        if is_decision_threshold and range_source == "lab-provided":
+        if is_decision_threshold:
             has_curated_crosscheck = rule and rule.get("reference_ranges")
-            if range_trust == "low" or not has_curated_crosscheck:
+            should_degrade = (
+                not has_curated_crosscheck
+                or (range_trust == "low" and range_source != "curated-fallback")
+            )
+            if should_degrade:
                 logger.info(
-                    "Decision-threshold test %s with unverifiable lab range "
-                    "(trust=%s, curated=%s) — degrading to indeterminate",
-                    v.get("test_name", "?"), range_trust,
+                    "Decision-threshold test %s — degrading to indeterminate "
+                    "(curated=%s, range_trust=%s, range_source=%s)",
+                    v.get("test_name", "?"),
                     "yes" if has_curated_crosscheck else "no",
+                    range_trust, range_source,
                 )
                 result.direction = "indeterminate"
                 result.range_source = "no-range"
