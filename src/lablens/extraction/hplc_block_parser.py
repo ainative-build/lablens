@@ -180,9 +180,9 @@ class HPLCBlockParser:
                     "but fits NGSP range — reclassifying as NGSP",
                     block.ifcc.value, IFCC_PLAUSIBLE_MIN,
                 )
-                # Move IFCC → NGSP, fix unit
+                # Move IFCC → NGSP, fix unit and canonical name
                 block.ngsp = HPLCAnalyte(
-                    test_name=block.ifcc.test_name,
+                    test_name="HbA1c (NGSP)",
                     value=block.ifcc.value,
                     unit="%",
                     reference_range_low=None,
@@ -205,7 +205,7 @@ class HPLCBlockParser:
                     block.ngsp.value, NGSP_PLAUSIBLE_MAX,
                 )
                 block.ifcc = HPLCAnalyte(
-                    test_name=block.ngsp.test_name,
+                    test_name="HbA1c (IFCC)",
                     value=block.ngsp.value,
                     unit="mmol/mol",
                     reference_range_low=None,
@@ -268,9 +268,8 @@ class HPLCBlockParser:
                         "eAG=%.1f (expected %.1f) — re-deriving NGSP=%.1f",
                         ngsp_val, eag_mgdl, expected_eag, derived,
                     )
-                    name = block.ngsp.test_name or "HbA1c (NGSP)"
                     block.ngsp = HPLCAnalyte(
-                        test_name=name,
+                        test_name="HbA1c (NGSP)",
                         value=round(derived, 1),
                         unit="%",
                         source="derived-from-eag",

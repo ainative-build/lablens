@@ -88,19 +88,32 @@ class PlainPipeline:
             "no-range": 0,
         }
 
-        # Group by normalized name + loinc_code
+        # Group by normalized name, then split by LOINC only when
+        # multiple distinct non-empty LOINCs exist (genuinely different tests).
         # Exempt HPLC values — NGSP/IFCC/eAG are intentionally different
-        # representations and must never be collapsed
+        # representations and must never be collapsed.
         canonical = []
         alternates = []
-        groups: dict[str, list] = {}
+        name_groups: dict[str, list] = {}
         for v in values:
             section = getattr(v, "section_type", None) or ""
             if section == "hplc_diabetes_block":
                 canonical.append(v)  # bypass grouping entirely
                 continue
-            key = f"{norm_key(v)}|{v.loinc_code or ''}"
-            groups.setdefault(key, []).append(v)
+            name_groups.setdefault(norm_key(v), []).append(v)
+
+        # Split name groups by distinct LOINCs when needed
+        groups: dict[str, list] = {}
+        for name, items in name_groups.items():
+            distinct = {v.loinc_code for v in items if v.loinc_code}
+            if len(distinct) > 1:
+                # Multiple distinct LOINCs → genuinely different tests
+                for v in items:
+                    loinc = v.loinc_code or ""
+                    groups.setdefault(f"{name}|{loinc}", []).append(v)
+            else:
+                # 0 or 1 distinct LOINC → same test, group for dedup
+                groups.setdefault(name, []).extend(items)
         for key, group in groups.items():
             if len(group) == 1:
                 canonical.append(group[0])
