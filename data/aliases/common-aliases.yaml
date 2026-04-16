@@ -5,6 +5,7 @@ aliases:
   # --- CBC ---
   - canonical: "Leukocytes"
     loinc: "6690-2"
+    topic: "blood_count"
     aliases:
       en: ["WBC", "White Blood Cells", "White Blood Cell Count", "Leucocytes", "Leukocyte Count"]
       fr: ["Leucocytes", "GB", "Globules blancs"]
@@ -13,6 +14,7 @@ aliases:
 
   - canonical: "Erythrocytes"
     loinc: "789-8"
+    topic: "blood_count"
     aliases:
       en: ["RBC", "Red Blood Cells", "Red Blood Cell Count", "Erythrocyte Count"]
       fr: ["Érythrocytes", "GR", "Globules rouges", "Hématies"]
@@ -21,6 +23,7 @@ aliases:
 
   - canonical: "Hemoglobin"
     loinc: "718-7"
+    topic: "blood_count"
     aliases:
       en: ["Hgb", "Hb", "Hemoglobin", "Haemoglobin"]
       fr: ["Hémoglobine", "Hb"]
@@ -29,6 +32,7 @@ aliases:
 
   - canonical: "Hematocrit"
     loinc: "4544-3"
+    topic: "blood_count"
     aliases:
       en: ["Hct", "HCT", "Hematocrit", "Haematocrit", "PCV", "Packed Cell Volume"]
       fr: ["Hématocrite", "Hte"]
@@ -37,6 +41,7 @@ aliases:
 
   - canonical: "Platelets"
     loinc: "777-3"
+    topic: "blood_count"
     aliases:
       en: ["PLT", "Platelet Count", "Thrombocytes"]
       fr: ["Plaquettes", "Thrombocytes", "PLQ"]
@@ -45,6 +50,7 @@ aliases:
 
   - canonical: "MCV"
     loinc: "787-2"
+    topic: "blood_count"
     aliases:
       en: ["MCV", "Mean Corpuscular Volume", "Mean Cell Volume"]
       fr: ["VGM", "Volume Globulaire Moyen"]
@@ -53,6 +59,7 @@ aliases:
 
   - canonical: "MCH"
     loinc: "785-6"
+    topic: "blood_count"
     aliases:
       en: ["MCH", "Mean Corpuscular Hemoglobin", "Mean Cell Hemoglobin"]
       fr: ["TCMH", "Teneur Corpusculaire Moyenne en Hémoglobine"]
@@ -61,6 +68,7 @@ aliases:
 
   - canonical: "MCHC"
     loinc: "786-4"
+    topic: "blood_count"
     aliases:
       en: ["MCHC", "Mean Corpuscular Hemoglobin Concentration"]
       fr: ["CCMH", "Concentration Corpusculaire Moyenne en Hémoglobine"]
@@ -69,6 +77,7 @@ aliases:
 
   - canonical: "RDW"
     loinc: "788-0"
+    topic: "blood_count"
     aliases:
       en: ["RDW", "Red Cell Distribution Width", "RDW-CV"]
       fr: ["IDR", "Indice de Distribution des Rouges"]
@@ -77,6 +86,7 @@ aliases:
 
   - canonical: "MPV"
     loinc: "32623-1"
+    topic: "blood_count"
     aliases:
       en: ["MPV", "Mean Platelet Volume"]
       fr: ["VPM", "Volume Plaquettaire Moyen"]
@@ -86,6 +96,7 @@ aliases:
   # --- BMP ---
   - canonical: "Glucose"
     loinc: "2345-7"
+    topic: "blood_sugar"
     aliases:
       en: ["Glucose", "Blood Glucose", "Fasting Glucose", "FBG", "Blood Sugar", "Glu", "Glucose Fasting"]
       fr: ["Glycémie", "Glucose sanguin", "Glycémie à jeun"]
@@ -94,6 +105,7 @@ aliases:
 
   - canonical: "BUN"
     loinc: "3094-0"
+    topic: "kidney"
     aliases:
       en: ["BUN", "Blood Urea Nitrogen", "Urea Nitrogen"]
       fr: ["Urée", "Azote uréique"]
@@ -102,6 +114,7 @@ aliases:
 
   - canonical: "Creatinine"
     loinc: "2160-0"
+    topic: "kidney"
     aliases:
       en: ["Creatinine", "Creat", "Cr", "Serum Creatinine"]
       fr: ["Créatinine", "Créat"]
@@ -110,6 +123,7 @@ aliases:
 
   - canonical: "Sodium"
     loinc: "2951-2"
+    topic: "electrolytes"
     aliases:
       en: ["Sodium", "Na", "Na+", "Serum Sodium"]
       fr: ["Sodium", "Na", "Natrémie"]
@@ -118,6 +132,7 @@ aliases:
 
   - canonical: "Potassium"
     loinc: "2823-3"
+    topic: "electrolytes"
     aliases:
       en: ["Potassium", "K", "K+", "Serum Potassium"]
       fr: ["Potassium", "K", "Kaliémie"]
@@ -126,6 +141,7 @@ aliases:
 
   - canonical: "Chloride"
     loinc: "2075-0"
+    topic: "electrolytes"
     aliases:
       en: ["Chloride", "Cl", "Cl-", "Serum Chloride"]
       fr: ["Chlore", "Cl", "Chlorémie"]
@@ -134,6 +150,7 @@ aliases:
 
   - canonical: "CO2"
     loinc: "2028-9"
+    topic: "electrolytes"
     aliases:
       en: ["CO2", "Bicarbonate", "HCO3", "Total CO2", "TCO2"]
       fr: ["CO2 total", "Bicarbonates", "HCO3"]
@@ -142,6 +159,7 @@ aliases:
 
   - canonical: "Calcium"
     loinc: "17861-6"
+    topic: "electrolytes"
     aliases:
       en: ["Calcium", "Ca", "Ca2+", "Total Calcium", "Serum Calcium"]
       fr: ["Calcium", "Ca", "Calcémie"]
@@ -151,6 +169,7 @@ aliases:
   # --- CMP additional ---
   - canonical: "Albumin"
     loinc: "1751-7"
+    topic: "liver"
     aliases:
       en: ["Albumin", "Alb", "Serum Albumin"]
       fr: ["Albumine", "Alb"]
@@ -159,6 +178,7 @@ aliases:
 
   - canonical: "Total Protein"
     loinc: "2885-2"
+    topic: "liver"
     aliases:
       en: ["Total Protein", "TP", "Serum Protein"]
       fr: ["Protéines totales", "PT"]
@@ -167,6 +187,7 @@ aliases:
 
   - canonical: "ALP"
     loinc: "6768-6"
+    topic: "liver"
     aliases:
       en: ["ALP", "Alkaline Phosphatase", "Alk Phos"]
       fr: ["PAL", "Phosphatase alcaline", "Phosphatases alcalines"]
@@ -175,6 +196,7 @@ aliases:
 
   - canonical: "ALT"
     loinc: "1742-6"
+    topic: "liver"
     aliases:
       en: ["ALT", "Alanine Aminotransferase", "SGPT", "GPT", "ALAT"]
       fr: ["ALAT", "Alanine aminotransférase", "GPT", "TGP"]
@@ -183,6 +205,7 @@ aliases:
 
   - canonical: "AST"
     loinc: "1920-8"
+    topic: "liver"
     aliases:
       en: ["AST", "Aspartate Aminotransferase", "SGOT", "GOT", "ASAT"]
       fr: ["ASAT", "Aspartate aminotransférase", "GOT", "TGO"]
@@ -191,6 +214,7 @@ aliases:
 
   - canonical: "Total Bilirubin"
     loinc: "1975-2"
+    topic: "liver"
     aliases:
       en: ["Total Bilirubin", "T. Bili", "TBili", "Bilirubin Total"]
       fr: ["Bilirubine totale", "BT"]
@@ -200,6 +224,7 @@ aliases:
   # --- Lipid panel ---
   - canonical: "Total Cholesterol"
     loinc: "2093-3"
+    topic: "heart_lipids"
     aliases:
       en: ["Total Cholesterol", "Cholesterol", "TC", "Chol"]
       fr: ["Cholestérol total", "CT"]
@@ -208,6 +233,7 @@ aliases:
 
   - canonical: "HDL Cholesterol"
     loinc: "2085-9"
+    topic: "heart_lipids"
     aliases:
       en: ["HDL", "HDL Cholesterol", "HDL-C", "Good Cholesterol"]
       fr: ["HDL-cholestérol", "HDL"]
@@ -216,6 +242,7 @@ aliases:
 
   - canonical: "LDL Cholesterol"
     loinc: "13457-7"
+    topic: "heart_lipids"
     aliases:
       en: ["LDL", "LDL Cholesterol", "LDL-C", "Bad Cholesterol", "LDL Calculated"]
       fr: ["LDL-cholestérol", "LDL"]
@@ -224,6 +251,7 @@ aliases:
 
   - canonical: "Triglycerides"
     loinc: "2571-8"
+    topic: "heart_lipids"
     aliases:
       en: ["Triglycerides", "TG", "Trig", "Trigs"]
       fr: ["Triglycérides", "TG"]
@@ -232,6 +260,7 @@ aliases:
 
   - canonical: "VLDL Cholesterol"
     loinc: "13458-5"
+    topic: "heart_lipids"
     aliases:
       en: ["VLDL", "VLDL Cholesterol", "VLDL-C"]
       fr: ["VLDL-cholestérol", "VLDL"]
@@ -241,6 +270,7 @@ aliases:
   # --- Thyroid ---
   - canonical: "TSH"
     loinc: "3016-3"
+    topic: "thyroid_hormones"
     aliases:
       en: ["TSH", "Thyroid Stimulating Hormone", "Thyrotropin"]
       fr: ["TSH", "Thyréostimuline"]
@@ -249,6 +279,7 @@ aliases:
 
   - canonical: "Free T4"
     loinc: "3024-7"
+    topic: "thyroid_hormones"
     aliases:
       en: ["Free T4", "FT4", "Free Thyroxine", "Thyroxine Free", "Free Thyroxine (Free T4)"]
       fr: ["T4 libre", "T4L", "Thyroxine libre"]
@@ -257,6 +288,7 @@ aliases:
 
   - canonical: "Free T3"
     loinc: "3051-0"
+    topic: "thyroid_hormones"
     aliases:
       en: ["Free T3", "FT3", "Free Triiodothyronine"]
       fr: ["T3 libre", "T3L"]
@@ -265,6 +297,7 @@ aliases:
 
   - canonical: "Total T4"
     loinc: "3026-2"
+    topic: "thyroid_hormones"
     aliases:
       en: ["Total T4", "T4", "Thyroxine"]
       fr: ["T4 totale", "T4"]
@@ -274,6 +307,7 @@ aliases:
   # --- Liver additional ---
   - canonical: "GGT"
     loinc: "2324-2"
+    topic: "liver"
     aliases:
       en: ["GGT", "Gamma-Glutamyl Transferase", "Gamma GT", "γ-GT", "GGTP"]
       fr: ["GGT", "Gamma GT", "γ-GT"]
@@ -282,6 +316,7 @@ aliases:
 
   - canonical: "Direct Bilirubin"
     loinc: "1968-7"
+    topic: "liver"
     aliases:
       en: ["Direct Bilirubin", "D. Bili", "Conjugated Bilirubin", "DBili"]
       fr: ["Bilirubine directe", "BD", "Bilirubine conjuguée"]
@@ -290,6 +325,7 @@ aliases:
 
   - canonical: "Indirect Bilirubin"
     loinc: "1971-1"
+    topic: "liver"
     aliases:
       en: ["Indirect Bilirubin", "I. Bili", "Unconjugated Bilirubin"]
       fr: ["Bilirubine indirecte", "BI", "Bilirubine non conjuguée"]
@@ -298,6 +334,7 @@ aliases:
 
   - canonical: "LDH"
     loinc: "2532-0"
+    topic: "liver"
     aliases:
       en: ["LDH", "Lactate Dehydrogenase", "LD"]
       fr: ["LDH", "Lactate déshydrogénase"]
@@ -307,6 +344,7 @@ aliases:
   # --- Kidney additional ---
   - canonical: "eGFR"
     loinc: "33914-3"
+    topic: "kidney"
     aliases:
       en: ["eGFR", "Estimated GFR", "Glomerular Filtration Rate", "GFR"]
       fr: ["DFGe", "Débit de filtration glomérulaire estimé"]
@@ -315,6 +353,7 @@ aliases:
 
   - canonical: "Uric Acid"
     loinc: "3084-1"
+    topic: "kidney"
     aliases:
       en: ["Uric Acid", "UA", "Urate"]
       fr: ["Acide urique", "AU"]
@@ -323,6 +362,7 @@ aliases:
 
   - canonical: "Microalbumin"
     loinc: "14959-1"
+    topic: "kidney"
     aliases:
       en: ["Microalbumin", "Urine Albumin", "Microalbuminuria", "MAU"]
       fr: ["Microalbumine", "Microalbuminurie"]
@@ -331,6 +371,7 @@ aliases:
 
   - canonical: "Phosphate"
     loinc: "2777-1"
+    topic: "electrolytes"
     aliases:
       en: ["Phosphate", "Phosphorus", "Phos", "PO4", "Inorganic Phosphorus"]
       fr: ["Phosphore", "Phosphates"]
@@ -339,6 +380,7 @@ aliases:
 
   - canonical: "Magnesium"
     loinc: "19123-9"
+    topic: "electrolytes"
     aliases:
       en: ["Magnesium", "Mg", "Mg2+", "Serum Magnesium"]
       fr: ["Magnésium", "Mg"]
@@ -348,6 +390,7 @@ aliases:
   # --- Additional common tests ---
   - canonical: "HbA1c"
     loinc: "4548-4"
+    topic: "blood_sugar"
     aliases:
       en: ["HbA1c", "A1C", "Hemoglobin A1c", "Glycated Hemoglobin", "Glycosylated Hemoglobin"]
       fr: ["HbA1c", "Hémoglobine glyquée"]
@@ -356,6 +399,7 @@ aliases:
 
   - canonical: "Iron"
     loinc: "2498-4"
+    topic: "vitamins_minerals"
     aliases:
       en: ["Iron", "Fe", "Serum Iron"]
       fr: ["Fer sérique", "Fe"]
@@ -364,6 +408,7 @@ aliases:
 
   - canonical: "Ferritin"
     loinc: "2276-4"
+    topic: "vitamins_minerals"
     aliases:
       en: ["Ferritin", "Serum Ferritin"]
       fr: ["Ferritine"]
@@ -372,6 +417,7 @@ aliases:
 
   - canonical: "Vitamin D"
     loinc: "1989-3"
+    topic: "vitamins_minerals"
     aliases:
       en: ["Vitamin D", "25-OH Vitamin D", "25-Hydroxyvitamin D", "Vit D"]
       fr: ["Vitamine D", "25-OH Vitamine D"]
@@ -380,6 +426,7 @@ aliases:
 
   - canonical: "CRP"
     loinc: "1988-5"
+    topic: "inflammation"
     aliases:
       en: ["CRP", "C-Reactive Protein", "C Reactive Protein"]
       fr: ["CRP", "Protéine C réactive", "PCR"]
@@ -388,6 +435,7 @@ aliases:
 
   - canonical: "ESR"
     loinc: "4537-7"
+    topic: "inflammation"
     aliases:
       en: ["ESR", "Sed Rate", "Erythrocyte Sedimentation Rate"]
       fr: ["VS", "Vitesse de sédimentation"]
@@ -397,6 +445,7 @@ aliases:
   # --- CBC differentials ---
   - canonical: "Neutrophils"
     loinc: "751-8"
+    topic: "blood_count"
     aliases:
       en: ["Neutrophils", "Neutrophil Count", "NEU", "Neut", "Absolute Neutrophils"]
       fr: ["Neutrophiles", "PNN"]
@@ -405,6 +454,7 @@ aliases:
 
   - canonical: "Lymphocytes"
     loinc: "731-0"
+    topic: "blood_count"
     aliases:
       en: ["Lymphocytes", "Lymphocyte Count", "Lymph", "Absolute Lymphocytes"]
       fr: ["Lymphocytes"]
@@ -413,6 +463,7 @@ aliases:
 
   - canonical: "Monocytes"
     loinc: "742-7"
+    topic: "blood_count"
     aliases:
       en: ["Monocytes", "Monocyte Count", "Mono", "Absolute Monocytes"]
       fr: ["Monocytes"]
@@ -421,6 +472,7 @@ aliases:
 
   - canonical: "Eosinophils"
     loinc: "711-2"
+    topic: "blood_count"
     aliases:
       en: ["Eosinophils", "Eosinophil Count", "EOS", "Eos", "Absolute Eosinophils"]
       fr: ["Éosinophiles", "PNE"]
@@ -429,6 +481,7 @@ aliases:
 
   - canonical: "Basophils"
     loinc: "704-7"
+    topic: "blood_count"
     aliases:
       en: ["Basophils", "Basophil Count", "Baso", "Absolute Basophils"]
       fr: ["Basophiles", "PNB"]
@@ -438,6 +491,7 @@ aliases:
   # --- Hormones & immunology ---
   - canonical: "Testosterone"
     loinc: "2986-8"
+    topic: "thyroid_hormones"
     aliases:
       en: ["Testosterone", "Total Testosterone", "Testosterone Total"]
       fr: ["Testostérone"]
@@ -446,6 +500,7 @@ aliases:
 
   - canonical: "Free Testosterone"
     loinc: "2991-8"
+    topic: "thyroid_hormones"
     aliases:
       en: ["Free Testosterone", "Free Testosterone Index", "FTI"]
       fr: ["Testostérone libre"]
@@ -454,6 +509,7 @@ aliases:
 
   - canonical: "SHBG"
     loinc: "13967-5"
+    topic: "thyroid_hormones"
     aliases:
       en: ["SHBG", "Sex Hormone Binding Globulin", "Sex Hormone-binding Globulin"]
       fr: ["SHBG", "Protéine de liaison des hormones sexuelles"]
@@ -462,6 +518,7 @@ aliases:
 
   - canonical: "Vitamin B12"
     loinc: "2132-9"
+    topic: "vitamins_minerals"
     aliases:
       en: ["Vitamin B12", "B12", "Cobalamin", "Cyanocobalamin"]
       fr: ["Vitamine B12", "Cobalamine"]
@@ -470,6 +527,7 @@ aliases:
 
   - canonical: "Homocysteine"
     loinc: "13965-9"
+    topic: "vitamins_minerals"
     aliases:
       en: ["Homocysteine", "Hcy", "Total Homocysteine"]
       fr: ["Homocystéine"]
@@ -479,6 +537,7 @@ aliases:
   # --- Hepatitis markers ---
   - canonical: "HBsAb"
     loinc: "22322-2"
+    topic: "urinalysis_other"
     aliases:
       en: ["HBsAb", "Hepatitis B Surface Antibody", "Anti-HBs", "HBs Ab"]
       fr: ["Anticorps anti-HBs"]
@@ -487,6 +546,7 @@ aliases:
 
   - canonical: "HBsAg"
     loinc: "5195-3"
+    topic: "urinalysis_other"
     aliases:
       en: ["HBsAg", "Hepatitis B Surface Antigen", "HBsAg Qualitative", "HBs Ag"]
       fr: ["Antigène HBs"]
@@ -495,6 +555,7 @@ aliases:
 
   - canonical: "HCV Ab"
     loinc: "16128-1"
+    topic: "urinalysis_other"
     aliases:
       en: ["HCV Ab", "Hepatitis C Antibody", "Anti-HCV", "HCV Antibody"]
       fr: ["Anticorps anti-VHC"]
@@ -503,6 +564,7 @@ aliases:
 
   - canonical: "HIV Ab/Ag"
     loinc: "75622-1"
+    topic: "urinalysis_other"
     aliases:
       en: ["HIV Ab/Ag", "HIV", "HIV Ag/Ab", "HIV 1/2 Ab/Ag", "HIV Combo", "HIV Antigen/Antibody"]
       fr: ["VIH Ag/Ac"]
@@ -511,6 +573,7 @@ aliases:
 
   - canonical: "RPR"
     loinc: "5291-0"
+    topic: "urinalysis_other"
     aliases:
       en: ["RPR", "RPR Qualitative", "Rapid Plasma Reagin"]
       fr: ["RPR"]
@@ -519,6 +582,7 @@ aliases:
 
   - canonical: "VDRL"
     loinc: "5292-8"
+    topic: "urinalysis_other"
     aliases:
       en: ["VDRL", "VDRL Qualitative"]
       fr: ["VDRL"]
@@ -527,6 +591,7 @@ aliases:
 
   - canonical: "ANA"
     loinc: "14677-9"
+    topic: "inflammation"
     aliases:
       en: ["ANA", "Antinuclear Antibody", "ANA Screen"]
       fr: ["AAN", "Anticorps antinucléaires"]
@@ -535,6 +600,7 @@ aliases:
 
   - canonical: "H. pylori"
     loinc: "13335-5"
+    topic: "urinalysis_other"
     aliases:
       en: ["H. pylori", "Helicobacter pylori", "H. pylori Ag", "H pylori Antigen"]
       fr: ["Helicobacter pylori"]
@@ -543,6 +609,7 @@ aliases:
 
   - canonical: "TB IGRA"
     loinc: "73963-7"
+    topic: "urinalysis_other"
     aliases:
       en: ["TB IGRA", "QuantiFERON", "T-SPOT", "IGRA", "TB Interferon Gamma"]
       fr: ["IGRA", "QuantiFERON"]
@@ -551,6 +618,7 @@ aliases:
 
   - canonical: "Stool Occult Blood"
     loinc: "2335-8"
+    topic: "urinalysis_other"
     aliases:
       en: ["Stool Occult Blood", "FOBT", "Fecal Occult Blood", "Stool OB", "FOB"]
       fr: ["Sang occulte dans les selles"]
@@ -560,6 +628,7 @@ aliases:
   # --- Tumor markers ---
   - canonical: "CA 19-9"
     loinc: "24108-3"
+    topic: "urinalysis_other"
     aliases:
       en: ["CA 19-9", "Carbohydrate Antigen 19-9", "CA19-9", "Cancer Antigen 19-9"]
       fr: ["CA 19-9", "Antigène carbohydrate 19-9"]
@@ -569,6 +638,7 @@ aliases:
   # --- Kidney / metabolic additional ---
   - canonical: "Urea"
     loinc: "3091-6"
+    topic: "kidney"
     aliases:
       en: ["Urea", "Blood Urea", "Serum Urea"]
       fr: ["Urée"]
@@ -577,6 +647,7 @@ aliases:
 
   - canonical: "Non-HDL Cholesterol"
     loinc: "43396-1"
+    topic: "heart_lipids"
     aliases:
       en: ["Non-HDL Cholesterol", "Non HDL Cholesterol", "Non-HDL-C"]
       fr: ["Cholestérol non-HDL"]
@@ -586,6 +657,7 @@ aliases:
   # --- Urinalysis ---
   - canonical: "Urine Specific Gravity"
     loinc: "2965-2"
+    topic: "urinalysis_other"
     aliases:
       en: ["Specific Gravity", "SG", "Urine SG", "Urine Specific Gravity"]
       fr: ["Densité urinaire"]
@@ -594,6 +666,7 @@ aliases:
 
   - canonical: "Urine pH"
     loinc: "2756-5"
+    topic: "urinalysis_other"
     aliases:
       en: ["pH", "Urine pH"]
       fr: ["pH urinaire"]
@@ -602,6 +675,7 @@ aliases:
 
   - canonical: "Urine Protein"
     loinc: "20454-5"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urine Protein", "Protein (Urine)", "UA Protein", "Urine Protein Qualitative"]
       fr: ["Protéines urinaires"]
@@ -610,6 +684,7 @@ aliases:
 
   - canonical: "Urine Glucose"
     loinc: "25428-4"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urine Glucose", "Glucose (Urine)", "UA Glucose", "Urine Sugar"]
       fr: ["Glucose urinaire"]
@@ -618,6 +693,7 @@ aliases:
 
   - canonical: "Urine Ketones"
     loinc: "2514-9"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urine Ketones", "Ketones (Urine)", "UA Ketones"]
       fr: ["Corps cétoniques urinaires"]
@@ -626,6 +702,7 @@ aliases:
 
   - canonical: "Urine Blood"
     loinc: "5794-3"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urine Blood", "Blood (Urine)", "UA Blood", "Urine RBC", "Occult Blood (Urine)"]
       fr: ["Sang urinaire"]
@@ -634,6 +711,7 @@ aliases:
 
   - canonical: "Leukocyte Esterase"
     loinc: "5799-2"
+    topic: "urinalysis_other"
     aliases:
       en: ["Leukocyte Esterase", "WBC Esterase", "LE", "Leukocytes (Urine)"]
       fr: ["Estérase leucocytaire"]
@@ -642,6 +720,7 @@ aliases:
 
   - canonical: "Urine Nitrite"
     loinc: "5802-4"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urine Nitrite", "Nitrite (Urine)", "UA Nitrite"]
       fr: ["Nitrites urinaires"]
@@ -650,6 +729,7 @@ aliases:
 
   - canonical: "Urine Bilirubin"
     loinc: "1990-1"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urine Bilirubin", "Bilirubin (Urine)", "UA Bilirubin"]
       fr: ["Bilirubine urinaire"]
@@ -658,6 +738,7 @@ aliases:
 
   - canonical: "Urobilinogen"
     loinc: "13658-0"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urobilinogen", "Urine Urobilinogen", "UBG"]
       fr: ["Urobilinogène"]
@@ -666,6 +747,7 @@ aliases:
 
   - canonical: "ABO Blood Group"
     loinc: "883-9"
+    topic: "urinalysis_other"
     aliases:
       en: ["ABO Blood Group", "ABO", "Blood Group", "Blood Type ABO"]
       fr: ["Groupe sanguin ABO"]
@@ -674,6 +756,7 @@ aliases:
 
   - canonical: "Rh Type"
     loinc: "10331-7"
+    topic: "urinalysis_other"
     aliases:
       en: ["Rh Type", "Rh Factor", "Rh", "Rhesus Factor"]
       fr: ["Facteur Rhésus"]
@@ -682,6 +765,7 @@ aliases:
 
   - canonical: "Blood Type"
     loinc: "34532-2"
+    topic: "urinalysis_other"
     aliases:
       en: ["Blood Type", "Blood Group and Type", "ABO & Rh"]
       fr: ["Groupe sanguin et Rhésus"]
@@ -690,6 +774,7 @@ aliases:
 
   - canonical: "Urine hCG"
     loinc: "2106-3"
+    topic: "urinalysis_other"
     aliases:
       en: ["Urine hCG", "Pregnancy Test", "Urine Pregnancy", "hCG Qualitative"]
       fr: ["Test de grossesse urinaire"]
@@ -699,6 +784,7 @@ aliases:
   # --- Other CBC ---
   - canonical: "Plateletcrit"
     loinc: "37874-4"
+    topic: "blood_count"
     aliases:
       en: ["Plateletcrit", "PCT"]
       fr: ["Plaquettocrite"]
@@ -707,6 +793,7 @@ aliases:
 
   - canonical: "PDW"
     loinc: "32207-3"
+    topic: "blood_count"
     aliases:
       en: ["PDW", "Platelet Distribution Width", "Platelets Distribution Width"]
       fr: ["IDT", "Indice de Distribution des Thrombocytes"]
@@ -715,6 +802,7 @@ aliases:
 
   - canonical: "Estimated Average Glucose"
     loinc: "53553-4"
+    topic: "blood_sugar"
     aliases:
       en: ["Estimated Average Glucose", "eAG", "EAG", "Average Glucose"]
       fr: ["Glucose moyen estimé"]
@@ -723,6 +811,7 @@ aliases:
 
   - canonical: "Immature Granulocytes"
     loinc: "53115-2"
+    topic: "blood_count"
     aliases:
       en: ["Immature Granulocytes", "IG", "Imature Granulocytes", "Immature Grans"]
       fr: ["Granulocytes immatures"]
@@ -731,6 +820,7 @@ aliases:
 
   - canonical: "NRBC"
     loinc: "58413-6"
+    topic: "blood_count"
     aliases:
       en: ["NRBC", "Nucleated Red Blood Cells", "Nucleated Red Blood Cell", "Nucleated RBC"]
       fr: ["Érythroblastes"]

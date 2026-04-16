@@ -181,6 +181,31 @@ families:
     unit: "varies"
     category: inflammatory
 
+  # ── Vitamins ──
+  vitamin_d:
+    loinc_codes: ["1989-3", "62292-8"]
+    tests: ["Vitamin D", "25-OH Vitamin D", "25-Hydroxyvitamin D"]
+    value_range: [0.1, 500]
+    ref_range: [0.1, 200]
+    unit: "ng/mL or nmol/L"
+    category: nutrition
+
+  vitamin_b12:
+    loinc_codes: ["2132-9"]
+    tests: ["Vitamin B12", "Cobalamin"]
+    value_range: [10, 5000]
+    ref_range: [50, 2000]
+    unit: "pg/mL or pmol/L"
+    category: nutrition
+
+  folate:
+    loinc_codes: ["2284-8", "20567-4"]
+    tests: ["Folate", "Folic Acid", "Vitamin B9"]
+    value_range: [0.1, 100]
+    ref_range: [0.5, 50]
+    unit: "ng/mL or nmol/L"
+    category: nutrition
+
 # Categories that should NOT use OCR-flag for severity escalation
 # OCR flag is directional only (high/low) — severity stays mild max
 restricted_flag_categories:
