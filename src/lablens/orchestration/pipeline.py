@@ -117,11 +117,12 @@ class PlainPipeline:
         from lablens.extraction.ocr_extractor import OCRExtractor
 
         extractor = OCRExtractor(self.settings)
-        report, page_images, hplc_blocks = await extractor.extract_from_pdf(
-            pdf_bytes, language=language
+        report, page_images, hplc_blocks, screening_results = (
+            await extractor.extract_from_pdf(pdf_bytes, language=language)
         )
         logger.info(
-            "Extracted %d values from %d pages", len(report.values), report.page_count
+            "Extracted %d values, %d screening from %d pages",
+            len(report.values), len(screening_results), report.page_count,
         )
         # page_images kept for Phase 4 semantic verifier (not used yet)
 
@@ -295,6 +296,20 @@ class PlainPipeline:
         generator = ExplanationGenerator(self.settings, assembler)
         final = await generator.generate_report(interpreted, language)
 
+        # Build screening output (bypass interpretation — Contract D)
+        screening_output = [
+            {
+                "test_type": s.test_type,
+                "result_status": s.result_status.value,
+                "signal_origin": s.signal_origin,
+                "organs_screened": s.organs_screened,
+                "limitations": s.limitations,
+                "followup_recommendation": s.followup_recommendation,
+                "confidence": s.confidence,
+            }
+            for s in screening_results
+        ]
+
         # Build audit HPLC block summaries
         audit_hplc = []
         for hb in hplc_blocks:
@@ -309,6 +324,7 @@ class PlainPipeline:
 
         result = {
             "values": [vars(v) for v in final.interpreted_values],
+            "screening_results": screening_output,
             "explanations": [vars(e) for e in final.explanations],
             "panels": [vars(p) for p in final.panels] if final.panels else [],
             "coverage_score": final.coverage_score,
@@ -316,5 +332,5 @@ class PlainPipeline:
             "language": final.language,
         }
         if audit_hplc:
-            result["audit"] = {"hplc_blocks": audit_hplc}
+            result.setdefault("audit", {})["hplc_blocks"] = audit_hplc
         return result

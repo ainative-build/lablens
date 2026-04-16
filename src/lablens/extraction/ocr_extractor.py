@@ -47,12 +47,13 @@ class OCRExtractor:
 
     async def extract_from_pdf(
         self, pdf_bytes: bytes, language: str = "auto"
-    ) -> tuple[LabReport, dict[int, str], list]:
+    ) -> tuple[LabReport, dict[int, str], list, list]:
         """Full extraction pipeline: PDF → images → OCR → classify → route → LabReport.
 
-        Returns (LabReport, page_images, hplc_blocks) where:
+        Returns (LabReport, page_images, hplc_blocks, screening_results) where:
         - page_images = {page_num: img_b64} for Phase 4 semantic verifier
         - hplc_blocks = list[HPLCBlock] for interpretation routing
+        - screening_results = list[ScreeningResult] for pipeline output
         """
         from lablens.models.hplc_block import HPLCBlock
 
@@ -102,17 +103,24 @@ class OCRExtractor:
                     continue
 
                 if block.section_type == SectionType.SCREENING_ATTACHMENT:
-                    # PHASE 1 STUB: Screening pages are detected and logged
-                    # but NOT parsed yet. Phase 3 will implement a dedicated
-                    # ScreeningParser that extracts signal_value, result_status,
-                    # and follow-up guidance into screening_results[].
-                    # Until then, these pages are intentionally skipped to
-                    # prevent the generic row extractor from misinterpreting
-                    # non-tabular screening content as analyte rows.
+                    from lablens.extraction.screening_parser import (
+                        ScreeningParser,
+                    )
+
+                    s_parser = ScreeningParser(
+                        api_key=self.api_key,
+                        model=self.structure_model,
+                    )
+                    s_result = await s_parser.parse_attachment(
+                        img_b64, raw_text, block.rows, page_num,
+                    )
+                    screening_results.append(s_result)
                     logger.info(
-                        "Screening attachment on page %d — detected but "
-                        "skipped (Phase 3 will add ScreeningParser)",
+                        "Screening on page %d: %s — %s (conf=%.2f)",
                         page_num,
+                        s_result.test_type,
+                        s_result.result_status.value,
+                        s_result.confidence,
                     )
                     continue
 
@@ -174,16 +182,27 @@ class OCRExtractor:
         all_values = filter_noise_values(all_values)
         all_values = deduplicate_values(all_values)
 
+        # Serialize ScreeningResult dataclasses to dicts for Pydantic
+        from dataclasses import asdict
+
+        screening_dicts = [asdict(s) for s in screening_results]
+        # Convert enum values to strings
+        for sd in screening_dicts:
+            if hasattr(sd.get("result_status"), "value"):
+                sd["result_status"] = sd["result_status"]
+            elif isinstance(sd.get("result_status"), str):
+                pass  # already string from asdict
+
         report = LabReport(
             source_language=metadata.get("source_language", "en"),
             lab_name=metadata.get("lab_name"),
             report_date=metadata.get("report_date"),
             patient_id=metadata.get("patient_id"),
             values=all_values,
-            screening_results=screening_results,
+            screening_results=screening_dicts,
             page_count=len(images),
         )
-        return report, page_images, hplc_blocks
+        return report, page_images, hplc_blocks, screening_results
 
     async def _extract_page(
         self, img_b64: str, language: str, page_num: int
