@@ -10,6 +10,7 @@ from lablens.interpretation.qualitative import (
     ABNORMAL_QUALITATIVE,
     NORMAL_QUALITATIVE,
     interpret_qualitative,
+    interpret_qualitative_titer,
 )
 from lablens.knowledge.rules_loader import load_all_rules, load_qualitative_rules
 
@@ -260,6 +261,121 @@ class TestTestNameFallback:
         )
         assert r["direction"] == "high"
         assert r["confidence"] == "medium"  # keyword fallback
+
+
+class TestTiterRouting:
+    """Numeric titers route through qualitative rules when titer_positive_threshold exists."""
+
+    def test_hbsab_high_titer_is_immune(self):
+        """HBsAb 916.89 mIU/mL >= 10 → positive → in-range (immune)."""
+        r = interpret_qualitative_titer(916.89, loinc_code="22322-2")
+        assert r is not None
+        assert r["direction"] == "in-range"
+        assert r["severity"] == "normal"
+        assert r["evidence_trace"]["titer_positive"] is True
+
+    def test_hbsab_low_titer_is_nonimmune(self):
+        """HBsAb 3.5 mIU/mL < 10 → negative → high (non-immune)."""
+        r = interpret_qualitative_titer(3.5, loinc_code="22322-2")
+        assert r is not None
+        assert r["direction"] == "high"
+        assert r["severity"] == "mild"
+        assert r["actionability"] == "follow-up"
+
+    def test_hbsab_at_threshold_is_immune(self):
+        """HBsAb exactly 10.0 → positive (>= threshold)."""
+        r = interpret_qualitative_titer(10.0, loinc_code="22322-2")
+        assert r is not None
+        assert r["direction"] == "in-range"
+
+    def test_hbsag_above_threshold_is_abnormal(self):
+        """HBsAg COI 2.5 >= 1.0 → positive → high (active infection)."""
+        r = interpret_qualitative_titer(2.5, loinc_code="5195-3")
+        assert r is not None
+        assert r["direction"] == "high"
+        assert r["severity"] == "moderate"
+
+    def test_hbsag_below_threshold_is_normal(self):
+        """HBsAg COI 0.3 < 1.0 → negative → in-range."""
+        r = interpret_qualitative_titer(0.3, loinc_code="5195-3")
+        assert r is not None
+        assert r["direction"] == "in-range"
+        assert r["severity"] == "normal"
+
+    def test_hcv_above_threshold(self):
+        """HCV Ab COI 1.5 >= 1.0 → high."""
+        r = interpret_qualitative_titer(1.5, loinc_code="16128-1")
+        assert r is not None
+        assert r["direction"] == "high"
+
+    def test_hcv_below_threshold(self):
+        """HCV Ab COI 0.1 < 1.0 → in-range."""
+        r = interpret_qualitative_titer(0.1, loinc_code="16128-1")
+        assert r is not None
+        assert r["direction"] == "in-range"
+
+    def test_no_titer_rule_returns_none(self):
+        """LOINC without titer_positive_threshold → None (quantitative path)."""
+        r = interpret_qualitative_titer(5.0, loinc_code="883-9")  # Blood type
+        assert r is None
+
+    def test_unknown_loinc_returns_none(self):
+        """Unknown LOINC → None."""
+        r = interpret_qualitative_titer(100.0, loinc_code="99999-9")
+        assert r is None
+
+    def test_titer_evidence_trace(self):
+        """Titer result includes threshold and value in evidence trace."""
+        r = interpret_qualitative_titer(916.89, loinc_code="22322-2")
+        assert r["evidence_trace"]["titer_value"] == 916.89
+        assert r["evidence_trace"]["titer_threshold"] == 10.0
+        assert r["evidence_trace"]["interpretation_method"] == "qualitative-loinc-titer"
+
+
+class TestEngineTiterIntegration:
+    """Numeric titers through engine use qualitative titer routing."""
+
+    def _interpret(self, test_name, value, loinc_code=None, unit=""):
+        from lablens.interpretation.engine import InterpretationEngine
+        engine = InterpretationEngine()
+        return engine._interpret_single(
+            {
+                "test_name": test_name,
+                "value": value,
+                "unit": unit,
+                "loinc_code": loinc_code,
+            },
+            match_confidence="high",
+        )
+
+    def test_hbsab_numeric_titer_through_engine(self):
+        """THE critical fix: HBsAb 916.89 mIU/mL through engine → in-range."""
+        result = self._interpret("HBsAb", 916.89, loinc_code="22322-2", unit="mIU/mL")
+        assert result.direction == "in-range"
+        assert result.severity == "normal"
+        assert result.range_source == "qualitative-rule"
+
+    def test_hbsag_numeric_above_threshold(self):
+        """HBsAg COI 2.5 through engine → high."""
+        result = self._interpret("HBsAg", 2.5, loinc_code="5195-3", unit="COI")
+        assert result.direction == "high"
+        assert result.severity == "moderate"
+
+    def test_hbsag_numeric_below_threshold(self):
+        """HBsAg COI 0.3 through engine → in-range."""
+        result = self._interpret("HBsAg", 0.3, loinc_code="5195-3", unit="COI")
+        assert result.direction == "in-range"
+
+    def test_hcv_numeric_through_engine(self):
+        """HCV Ab COI 0.08 through engine → in-range."""
+        result = self._interpret("HCV Ab", 0.08, loinc_code="16128-1", unit="COI")
+        assert result.direction == "in-range"
+
+    def test_non_titer_numeric_uses_quantitative(self):
+        """Numeric value for non-titer LOINC still takes quantitative path."""
+        result = self._interpret("Hemoglobin", 14.5, loinc_code="718-7", unit="g/dL")
+        # Should NOT route through qualitative — no titer rule for 718-7
+        assert result.range_source != "qualitative-rule"
 
 
 class TestEvidenceTrace:

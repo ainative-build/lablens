@@ -74,6 +74,52 @@ def _grade_gte(grade: str, threshold: str) -> bool:
         return False
 
 
+def interpret_qualitative_titer(
+    value: float,
+    loinc_code: str | None = None,
+    test_name: str | None = None,
+) -> dict | None:
+    """Interpret numeric titer using qualitative rules when titer_positive_threshold exists.
+
+    Returns dict (same shape as interpret_qualitative) or None if no titer rule applies.
+    Handles inversion: HBsAb 916.89 mIU/mL >= 10 → positive → in-range (immune).
+    """
+    global _test_name_index
+    rules = load_qualitative_rules()
+    tests = rules.get("tests", {})
+
+    rule = None
+    method = "qualitative-loinc-titer"
+    if loinc_code and loinc_code in tests:
+        rule = tests[loinc_code]
+    elif test_name:
+        if _test_name_index is None:
+            _test_name_index = _build_test_name_index(tests)
+        rule = _test_name_index.get(test_name.strip().lower())
+        if rule:
+            method = "qualitative-name-titer"
+
+    if not rule:
+        return None
+
+    threshold = rule.get("titer_positive_threshold")
+    if threshold is None:
+        return None
+
+    # Classify as positive/negative based on threshold
+    is_positive = value >= float(threshold)
+    val_canonical = "positive" if is_positive else "negative"
+
+    result = _interpret_with_rule(rule, val_canonical, None)
+    result["range_source"] = "qualitative-rule"
+    result["evidence_trace"]["interpretation_method"] = method
+    result["evidence_trace"]["loinc_code"] = loinc_code
+    result["evidence_trace"]["titer_value"] = value
+    result["evidence_trace"]["titer_threshold"] = threshold
+    result["evidence_trace"]["titer_positive"] = is_positive
+    return result
+
+
 def interpret_qualitative(
     value: str,
     flag: str | None,

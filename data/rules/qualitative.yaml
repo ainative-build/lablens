@@ -10,6 +10,7 @@ tests:
     negative_direction: "in-range"
     severity_when_positive: "moderate"
     actionability_when_positive: "follow-up"
+    titer_positive_threshold: 1.0  # COI; >= 1.0 = reactive (positive)
     explanation_context: "Hepatitis B surface antigen — indicates active or chronic HBV infection"
 
   "22322-2":  # HBsAb (Anti-HBs)
@@ -21,6 +22,7 @@ tests:
     abnormal_status: "non-immune"
     severity_when_abnormal: "mild"
     actionability_when_abnormal: "follow-up"
+    titer_positive_threshold: 10.0  # mIU/mL; >= 10 = immune (positive)
     explanation_context: "Hepatitis B surface antibody — positive indicates immunity (vaccine or prior infection)"
 
   "16128-1":  # HCV Ab
@@ -30,6 +32,7 @@ tests:
     negative_direction: "in-range"
     severity_when_positive: "moderate"
     actionability_when_positive: "follow-up"
+    titer_positive_threshold: 1.0  # COI; >= 1.0 = reactive (positive)
     explanation_context: "Hepatitis C antibody — positive indicates current or past HCV exposure"
 
   "75622-1":  # HIV Ab/Ag combo
@@ -39,6 +42,7 @@ tests:
     negative_direction: "in-range"
     severity_when_positive: "critical"
     actionability_when_positive: "urgent"
+    titer_positive_threshold: 1.0  # COI; >= 1.0 = reactive (positive)
     explanation_context: "HIV antigen/antibody combo — positive requires confirmatory testing"
 
   "5291-0":  # RPR
