@@ -37,6 +37,7 @@ class ExplanationResult:
     next_steps: str
     language: str
     sources: list[str] = field(default_factory=list)
+    is_fallback: bool = False  # True when LLM failed and template was used
 
 
 @dataclass
@@ -49,3 +50,14 @@ class FinalReport:
     coverage_score: str
     disclaimer: str
     language: str
+
+    @property
+    def explanation_quality(self) -> dict:
+        """Breakdown of explanation quality — real LLM vs fallback."""
+        total = len(self.explanations)
+        fallback = sum(1 for e in self.explanations if e.is_fallback)
+        return {
+            "total": total,
+            "llm_generated": total - fallback,
+            "fallback_used": fallback,
+        }

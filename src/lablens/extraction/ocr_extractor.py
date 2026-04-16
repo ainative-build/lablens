@@ -1,8 +1,9 @@
 """Qwen-OCR extraction via DashScope multimodal API.
 
 Converts PDF pages to images, sends to qwen-vl-ocr-latest with structured
-prompts, parses JSON responses into LabReport. Suspicious pages get a
-targeted retry with Qwen3-VL document parsing for better layout handling.
+prompts, parses JSON responses into LabReport. Section classifier routes
+pages/sub-blocks to specialized parsers. Suspicious pages get a targeted
+retry with Qwen3-VL document parsing for better layout handling.
 """
 
 import asyncio
@@ -14,6 +15,7 @@ from lablens.config import Settings
 from lablens.extraction.extraction_prompts import (
     EXTRACTION_PROMPTS,
     EXTRACTION_USER_PROMPT,
+    HPLC_EXTRACTION_PROMPT,
     REPARSE_SYSTEM_PROMPT,
     REPARSE_USER_PROMPT,
 )
@@ -25,7 +27,9 @@ from lablens.extraction.ocr_range_preprocessor import (
 )
 from lablens.extraction.pdf_processor import PDFProcessor
 from lablens.extraction.response_parser import deduplicate_values, filter_noise_values
+from lablens.extraction.section_classifier import SectionClassifier
 from lablens.models.lab_report import LabReport, LabValue
+from lablens.models.section_types import SectionType
 
 logger = logging.getLogger(__name__)
 
@@ -34,23 +38,41 @@ class OCRExtractor:
     """Extract lab values from PDF using Qwen vision models."""
 
     def __init__(self, settings: Settings):
+        self.settings = settings
         self.api_key = settings.dashscope_api_key
         self.model = settings.dashscope_ocr_model
+        self.structure_model = settings.dashscope_structure_model
         self.reparse_model = "qwen-vl-max-latest"
+        self._classifier = SectionClassifier()
 
     async def extract_from_pdf(
         self, pdf_bytes: bytes, language: str = "auto"
-    ) -> LabReport:
-        """Full extraction pipeline: PDF → images → OCR → LabReport."""
+    ) -> tuple[LabReport, dict[int, str], list, list]:
+        """Full extraction pipeline: PDF → images → OCR → classify → route → LabReport.
+
+        Returns (LabReport, page_images, hplc_blocks, screening_results) where:
+        - page_images = {page_num: img_b64} for Phase 4 semantic verifier
+        - hplc_blocks = list[HPLCBlock] for interpretation routing
+        - screening_results = list[ScreeningResult] for pipeline output
+        """
+        from lablens.models.hplc_block import HPLCBlock
+
         PDFProcessor.validate_pdf(pdf_bytes)
         images = PDFProcessor.pdf_to_base64_images(pdf_bytes)
 
         all_values: list[LabValue] = []
+        hplc_blocks: list[HPLCBlock] = []
+        screening_results: list[dict] = []
+        page_images: dict[int, str] = {}
         metadata: dict = {}
 
         for i, img_b64 in enumerate(images):
             page_num = i + 1
-            page_result = await self._extract_page(img_b64, language, page_num=page_num)
+            page_images[page_num] = img_b64
+
+            page_result, raw_text = await self._extract_page(
+                img_b64, language, page_num=page_num
+            )
             if not page_result:
                 continue
 
@@ -63,52 +85,204 @@ class OCRExtractor:
 
             raw_values = page_result.get("values", [])
 
-            # Check if page needs re-parsing with Qwen3-VL
-            if is_page_suspicious(raw_values):
-                logger.info(
-                    "Page %d flagged as suspicious — retrying with %s",
-                    page_num, self.reparse_model,
-                )
-                reparse_result = await self._reparse_page(
-                    img_b64, language, page_num
-                )
-                if reparse_result:
-                    reparse_values = reparse_result.get("values", [])
-                    merged, patched = self._merge_row_level(
-                        raw_values, reparse_values
-                    )
-                    if patched > 0:
-                        logger.info(
-                            "Row-level merge improved page %d: patched %d/%d rows",
-                            page_num, patched, len(merged),
-                        )
-                        raw_values = merged
+            # Classify BEFORE noise filtering (red-team fix #1 + #2)
+            blocks = self._classifier.classify_page(raw_text, raw_values)
 
-            for v in raw_values:
-                try:
-                    v = fix_range_fields(v)
-                    v = validate_range_plausibility(v)
-                    v = validate_hplc_semantics(v)
-                    all_values.append(LabValue(**v))
-                except Exception as e:
-                    logger.warning("Skipping invalid value on page %d: %s", page_num, e)
+            for block in blocks:
+                logger.debug(
+                    "Page %d block: %s (%d rows, conf=%.2f, kw=%s)",
+                    page_num, block.section_type.value,
+                    len(block.rows), block.confidence, block.trigger_keywords,
+                )
+
+                if block.section_type == SectionType.APPENDIX_TEXT:
+                    logger.debug(
+                        "Skipping appendix block on page %d: %d rows",
+                        page_num, len(block.rows),
+                    )
+                    continue
+
+                if block.section_type == SectionType.SCREENING_ATTACHMENT:
+                    from lablens.extraction.screening_parser import (
+                        ScreeningParser,
+                    )
+
+                    s_parser = ScreeningParser(
+                        api_key=self.api_key,
+                        model=self.structure_model,
+                    )
+                    s_result = await s_parser.parse_attachment(
+                        img_b64, raw_text, block.rows, page_num,
+                    )
+                    screening_results.append(s_result)
+                    logger.info(
+                        "Screening on page %d: %s — %s (conf=%.2f)",
+                        page_num,
+                        s_result.test_type,
+                        s_result.result_status.value,
+                        s_result.confidence,
+                    )
+                    continue
+
+                # Standard + HPLC + Hormone: suspicious-page retry, then validate
+                # Guard: skip suspicious check for sub-blocks < 3 rows —
+                # is_page_suspicious was designed for full pages; tiny blocks
+                # always trigger it, causing wasted API calls + cross-block
+                # contamination from full-page reparse merge.
+                block_raw = block.rows
+                if len(block_raw) >= 3 and is_page_suspicious(block_raw):
+                    logger.info(
+                        "Page %d block (%s) flagged suspicious — retrying",
+                        page_num, block.section_type.value,
+                    )
+                    reparse_result = await self._reparse_page(
+                        img_b64, language, page_num
+                    )
+                    if reparse_result:
+                        reparse_values = reparse_result.get("values", [])
+                        merged, patched = self._merge_row_level(
+                            block_raw, reparse_values
+                        )
+                        if patched > 0:
+                            logger.info(
+                                "Row-level merge: patched %d/%d rows",
+                                patched, len(merged),
+                            )
+                            block_raw = merged
+
+                if block.section_type == SectionType.HPLC_DIABETES_BLOCK:
+                    hplc_block = self._parse_hplc_block(
+                        block_raw, img_b64, language, page_num
+                    )
+                    if hplc_block is not None:
+                        hplc_block = await self._reparse_hplc_and_update(
+                            hplc_block, block_raw, img_b64,
+                            language, page_num,
+                        )
+                        hplc_blocks.append(hplc_block)
+                        self._emit_hplc_values(
+                            hplc_block, all_values, page_num
+                        )
+                        continue  # HPLC rows emitted — skip standard flow
+
+                for v in block_raw:
+                    try:
+                        v = fix_range_fields(v)
+                        v = validate_range_plausibility(v)
+                        v = validate_hplc_semantics(v)
+                        # Shallow copy to avoid mutating original block rows
+                        v = {**v, "section_type": block.section_type.value}
+                        all_values.append(LabValue(**v))
+                    except Exception as e:
+                        logger.warning(
+                            "Skipping invalid value on page %d: %s",
+                            page_num, e,
+                        )
 
         all_values = filter_noise_values(all_values)
         all_values = deduplicate_values(all_values)
 
-        return LabReport(
+        # Deduplicate screening results: keep highest-confidence per test_type
+        screening_results = self._dedupe_screening(screening_results)
+
+        # Serialize ScreeningResult dataclasses to dicts for Pydantic
+        from dataclasses import asdict
+
+        screening_dicts = [asdict(s) for s in screening_results]
+        # Convert enum values to strings
+        for sd in screening_dicts:
+            if hasattr(sd.get("result_status"), "value"):
+                sd["result_status"] = sd["result_status"]
+            elif isinstance(sd.get("result_status"), str):
+                pass  # already string from asdict
+
+        report = LabReport(
             source_language=metadata.get("source_language", "en"),
             lab_name=metadata.get("lab_name"),
             report_date=metadata.get("report_date"),
             patient_id=metadata.get("patient_id"),
             values=all_values,
+            screening_results=screening_dicts,
             page_count=len(images),
         )
+        return report, page_images, hplc_blocks, screening_results
+
+    @staticmethod
+    def _dedupe_screening(results: list) -> list:
+        """Deduplicate screening results, keeping highest-confidence per test_type.
+
+        Multiple pages of the same screening report (cover, result,
+        methodology, limitations) each produce a ScreeningResult. Merge
+        into one canonical result per test_type with the richest content.
+        """
+        if len(results) <= 1:
+            return results
+
+        best: dict = {}  # test_type → ScreeningResult
+        for sr in results:
+            key = sr.test_type.lower().strip()
+            existing = best.get(key)
+            if existing is None:
+                best[key] = sr
+                continue
+            # Keep higher confidence, or merge richer content
+            if sr.confidence > existing.confidence:
+                # Merge organs from both into the winner
+                merged_organs = list(dict.fromkeys(
+                    existing.organs_screened + sr.organs_screened
+                ))
+                sr.organs_screened = merged_organs
+                # Keep longer limitations/followup text
+                if existing.limitations and (
+                    not sr.limitations
+                    or len(str(existing.limitations)) > len(str(sr.limitations))
+                ):
+                    sr.limitations = existing.limitations
+                if existing.followup_recommendation and (
+                    not sr.followup_recommendation
+                    or len(str(existing.followup_recommendation))
+                    > len(str(sr.followup_recommendation))
+                ):
+                    sr.followup_recommendation = existing.followup_recommendation
+                best[key] = sr
+            else:
+                # Existing wins — merge new organs in
+                merged_organs = list(dict.fromkeys(
+                    existing.organs_screened + sr.organs_screened
+                ))
+                existing.organs_screened = merged_organs
+                if sr.limitations and (
+                    not existing.limitations
+                    or len(str(sr.limitations)) > len(str(existing.limitations))
+                ):
+                    existing.limitations = sr.limitations
+                if sr.followup_recommendation and (
+                    not existing.followup_recommendation
+                    or len(str(sr.followup_recommendation))
+                    > len(str(existing.followup_recommendation))
+                ):
+                    existing.followup_recommendation = sr.followup_recommendation
+
+        logger.info(
+            "Screening dedup: %d → %d results", len(results), len(best)
+        )
+        return list(best.values())
 
     async def _extract_page(
         self, img_b64: str, language: str, page_num: int
-    ) -> dict | None:
-        """Extract lab values from a single page image using primary OCR model."""
+    ) -> tuple[dict | None, str]:
+        """Extract lab values from a single page image using primary OCR model.
+
+        Returns (parsed_result, raw_text) where:
+        - parsed_result: structured JSON from _parse_json_response()
+        - raw_text: the model's full response string before JSON parsing
+
+        raw_text is used by the section classifier (Pass 1) to scan for
+        page-level keywords. For qwen-vl-ocr, the response IS the full
+        OCR transcript of the page (the model outputs complete text even
+        under structured extraction prompts), so Pass 1 operates on
+        genuine page content — not just the structured JSON fields.
+        """
         system_prompt = EXTRACTION_PROMPTS.get(language, EXTRACTION_PROMPTS["auto"])
         messages = [
             {"role": "system", "content": [{"text": system_prompt}]},
@@ -122,10 +296,10 @@ class OCRExtractor:
         ]
         try:
             raw = await self._call_dashscope_ocr(self.model, messages)
-            return self._parse_json_response(raw)
+            return self._parse_json_response(raw), raw
         except Exception as e:
             logger.warning("OCR failed on page %d: %s", page_num, e)
-            return None
+            return None, ""
 
     async def _reparse_page(
         self, img_b64: str, language: str, page_num: int
@@ -134,6 +308,14 @@ class OCRExtractor:
 
         Qwen3-VL handles complex layouts, footnote-style ranges, and mixed
         table formats better than the OCR-specialized model.
+
+        KNOWN LIMITATION: This reparses the full page image, not individual
+        sub-blocks. On mixed pages (e.g., standard table + HPLC block),
+        _merge_row_level may introduce rows from outside the target block's
+        scope. The len(block_raw) >= 3 guard in extract_from_pdf reduces
+        this risk by skipping reparse for small sub-blocks, but does not
+        eliminate it for larger blocks on mixed pages. Phase 2 should scope
+        reparse to block-level regions using bounding-box coordinates.
         """
         messages = [
             {"role": "system", "content": [{"text": REPARSE_SYSTEM_PROMPT}]},
@@ -153,6 +335,120 @@ class OCRExtractor:
                 "Qwen3-VL reparse failed on page %d: %s", page_num, e
             )
             return None
+
+    def _parse_hplc_block(
+        self, block_raw: list[dict], img_b64: str, language: str, page_num: int
+    ):
+        """Parse HPLC block rows, re-extract if incomplete.
+
+        Returns HPLCBlock or None if parsing fails entirely.
+        This is a sync-looking wrapper; _reparse_hplc is async but
+        called from the already-async extract_from_pdf loop.
+        """
+        from lablens.extraction.hplc_block_parser import HPLCBlockParser
+
+        parser = HPLCBlockParser()
+        hplc_block = parser.parse_rows(block_raw)
+
+        logger.info(
+            "HPLC block on page %d: completeness=%d/3, cross_check=%s, "
+            "category=%s",
+            page_num,
+            hplc_block.completeness,
+            hplc_block.cross_check_passed,
+            hplc_block.diabetes_category.value,
+        )
+
+        if hplc_block.consistency_flags:
+            for flag in hplc_block.consistency_flags:
+                logger.warning("HPLC consistency: %s", flag)
+
+        return hplc_block
+
+    async def _reparse_hplc_and_update(
+        self, hplc_block, block_raw: list[dict],
+        img_b64: str, language: str, page_num: int,
+    ):
+        """Re-extract HPLC block using qwen3-vl-plus when incomplete."""
+        from lablens.extraction.hplc_block_parser import HPLCBlockParser
+
+        if hplc_block.completeness >= 2:
+            return hplc_block
+
+        logger.info(
+            "HPLC block on page %d incomplete (%d/3) — re-extracting "
+            "with %s",
+            page_num, hplc_block.completeness, self.structure_model,
+        )
+        reparse_result = await self._reparse_hplc(img_b64, language, page_num)
+        if reparse_result:
+            parser = HPLCBlockParser()
+            new_block = parser.parse_rows(reparse_result.get("values", []))
+            if new_block.completeness > hplc_block.completeness:
+                # Mark re-extracted analytes
+                for attr in ("ngsp", "ifcc", "eag"):
+                    analyte = getattr(new_block, attr)
+                    if analyte:
+                        analyte.source = "re-extracted"
+                logger.info(
+                    "HPLC re-extraction improved: %d/3 → %d/3",
+                    hplc_block.completeness, new_block.completeness,
+                )
+                return new_block
+        return hplc_block
+
+    async def _reparse_hplc(
+        self, img_b64: str, language: str, page_num: int
+    ) -> dict | None:
+        """Re-extract HPLC block using qwen3-vl-plus with structure prompt."""
+        messages = [
+            {"role": "system", "content": [{"text": HPLC_EXTRACTION_PROMPT}]},
+            {
+                "role": "user",
+                "content": [
+                    {"image": f"data:image/png;base64,{img_b64}"},
+                    {"text": "Extract the HPLC / HbA1c section values. "
+                     "Return ONLY the JSON object."},
+                ],
+            },
+        ]
+        try:
+            raw = await self._call_dashscope_ocr(self.structure_model, messages)
+            return self._parse_json_response(raw)
+        except Exception as e:
+            logger.warning(
+                "HPLC re-extraction failed on page %d: %s", page_num, e
+            )
+            return None
+
+    @staticmethod
+    def _emit_hplc_values(
+        hplc_block, all_values: list, page_num: int
+    ) -> None:
+        """Convert HPLCBlock analytes to LabValue rows and append."""
+        from lablens.extraction.ocr_range_preprocessor import fix_range_fields
+        from lablens.models.section_types import SectionType
+
+        for attr in ("ngsp", "ifcc", "eag"):
+            analyte = getattr(hplc_block, attr)
+            if analyte is None or analyte.value is None:
+                continue
+            try:
+                v = {
+                    "test_name": analyte.test_name,
+                    "value": analyte.value,
+                    "unit": analyte.unit,
+                    "reference_range_low": analyte.reference_range_low,
+                    "reference_range_high": analyte.reference_range_high,
+                    "section_type": SectionType.HPLC_DIABETES_BLOCK.value,
+                }
+                v = fix_range_fields(v)
+                all_values.append(LabValue(**v))
+            except Exception as e:
+                logger.warning(
+                    "Skipping HPLC analyte %s on page %d: %s",
+                    attr, page_num, e,
+                )
 
     @staticmethod
     def _normalize_name(name: str) -> str:

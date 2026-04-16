@@ -24,6 +24,100 @@ class PlainPipeline:
 
     _cached_rules: dict | None = None
 
+    @staticmethod
+    def _build_hplc_category_map(hplc_blocks: list) -> dict[str, str]:
+        """Build test_name → diabetes_category lookup from HPLCBlocks.
+
+        Maps each analyte's lowercase test_name to the block's
+        cross-validated diabetes_category. If cross-check failed,
+        all analytes map to "indeterminate".
+        """
+        cat_map: dict[str, str] = {}
+        for block in hplc_blocks:
+            if block.cross_check_passed:
+                cat = block.diabetes_category.value
+            else:
+                cat = "indeterminate"
+            for attr in ("ngsp", "ifcc", "eag"):
+                analyte = getattr(block, attr)
+                if analyte and analyte.test_name:
+                    key = analyte.test_name.lower().strip()
+                    cat_map[key] = cat
+        return cat_map
+
+    @staticmethod
+    def _normalize_micro(text: str) -> str:
+        """Normalize unicode micro sign variants (µ U+00B5 ↔ μ U+03BC)."""
+        return text.replace("\u00b5", "\u03bc")  # µ → μ
+
+    @staticmethod
+    def _dedupe_analytes(values: list) -> tuple[list, list]:
+        """Deduplicate analytes with same name in multiple units.
+
+        When the source PDF reports the same test in two unit systems
+        (e.g. Free T4 in pmol/L and ng/dL), keep the higher-confidence
+        row and move the alternate to an audit list.
+
+        Also normalizes micro-symbol variants (µ/μ) to detect TSH dupes.
+
+        Returns (canonical_values, alternate_values).
+        """
+        import unicodedata
+
+        def norm_key(v) -> str:
+            name = (v.test_name or "").lower().strip()
+            # Normalize unicode (µ → μ)
+            name = name.replace("\u00b5", "\u03bc")
+            # Strip bracketed/parenthesized qualifiers for grouping
+            import re
+            name = re.sub(r"\s*\[.*?\]", "", name)
+            name = re.sub(r"\s*\(.*?\)", "", name)
+            name = re.sub(r"[*#]", "", name)
+            return name.strip()
+
+        # Confidence ranking: high > medium > low
+        conf_rank = {"high": 3, "medium": 2, "low": 1}
+        # Range source trust hierarchy
+        range_trust = {
+            "lab-provided-validated": 5,
+            "curated-fallback": 4,
+            "unit-corrected": 3,
+            "lab-provided-suspicious": 2,
+            "range-text": 1,
+            "ocr-flag-fallback": 0,
+            "no-range": 0,
+        }
+
+        # Group by normalized name + loinc_code
+        # Exempt HPLC values — NGSP/IFCC/eAG are intentionally different
+        # representations and must never be collapsed
+        canonical = []
+        alternates = []
+        groups: dict[str, list] = {}
+        for v in values:
+            section = getattr(v, "section_type", None) or ""
+            if section == "hplc_diabetes_block":
+                canonical.append(v)  # bypass grouping entirely
+                continue
+            key = f"{norm_key(v)}|{v.loinc_code or ''}"
+            groups.setdefault(key, []).append(v)
+        for key, group in groups.items():
+            if len(group) == 1:
+                canonical.append(group[0])
+                continue
+            # Rank: confidence → range_source trust → unit_confidence
+            group.sort(key=lambda v: (
+                conf_rank.get(v.confidence, 0),
+                range_trust.get(v.range_source, 0),
+                conf_rank.get(
+                    getattr(v, "unit_confidence", "high"), 0
+                ),
+            ), reverse=True)
+            canonical.append(group[0])
+            alternates.extend(group[1:])
+
+        return canonical, alternates
+
     @classmethod
     def _check_unit_misreport(
         cls, vdict: dict, loinc_code: str | None, normalizer
@@ -79,12 +173,19 @@ class PlainPipeline:
                 logger.warning(
                     "Unit misreport detected for %s: value=%s '%s' is "
                     "implausible for curated [%s-%s] %s, but converting "
-                    "from '%s' gives %s — flagging low confidence.",
+                    "from '%s' gives %s — applying correction.",
                     vdict.get("test_name", "?"), value, reported_unit,
                     cur_low, cur_high, canonical_unit,
                     conv["from"], converted,
                 )
-                vdict["unit_confidence"] = "low"
+                # Apply the correction: convert to canonical unit
+                vdict["value"] = converted
+                vdict["unit"] = canonical_unit
+                vdict["unit_confidence"] = "medium"
+                # Clear lab range — it was for the wrong unit system
+                vdict["reference_range_low"] = None
+                vdict["reference_range_high"] = None
+                vdict["range_source"] = "unit-corrected"
                 return vdict
 
         return vdict
@@ -96,9 +197,60 @@ class PlainPipeline:
         from lablens.extraction.ocr_extractor import OCRExtractor
 
         extractor = OCRExtractor(self.settings)
-        report = await extractor.extract_from_pdf(pdf_bytes, language=language)
+        report, page_images, hplc_blocks, screening_results = (
+            await extractor.extract_from_pdf(pdf_bytes, language=language)
+        )
         logger.info(
-            "Extracted %d values from %d pages", len(report.values), report.page_count
+            "Extracted %d values, %d screening from %d pages",
+            len(report.values), len(screening_results), report.page_count,
+        )
+
+        # Build HPLC category lookup for interpretation routing
+        hplc_category_map = self._build_hplc_category_map(hplc_blocks)
+
+        # Stage 1.5: Semantic verification (deterministic checks)
+        from lablens.extraction.semantic_verifier import (
+            SemanticVerifier,
+            Verdict,
+        )
+
+        verifier = SemanticVerifier(
+            api_key=self.settings.dashscope_api_key,
+            verify_model=self.settings.dashscope_verify_model,
+        )
+        value_dicts = [v.model_dump() for v in report.values]
+        verdicts = verifier.verify_batch(value_dicts)
+        verification_verdicts = []
+        for i, (vdict, vr) in enumerate(zip(value_dicts, verdicts)):
+            vr.index = i
+            vr.value_id = f"v{i}"
+            verification_verdicts.append(vr)
+            if vr.verdict == Verdict.MARK_INDETERMINATE:
+                vdict["verification_verdict"] = "indeterminate"
+                vdict["unit_confidence"] = "low"
+            elif vr.verdict == Verdict.DOWNGRADE:
+                vdict["verification_verdict"] = "downgraded"
+                cur = vdict.get("unit_confidence", "high")
+                if cur == "high":
+                    vdict["unit_confidence"] = "medium"
+            elif vr.verdict == Verdict.RETRY:
+                # Deterministic RETRY: downgrade since no inline re-extraction
+                vdict["verification_verdict"] = "retry_exhausted"
+                vdict["unit_confidence"] = "low"
+            elif vr.verdict == Verdict.ACCEPT_WITH_WARNING:
+                vdict["verification_verdict"] = "accepted_with_warning"
+            else:
+                vdict["verification_verdict"] = "accepted"
+
+        logger.info(
+            "Verified %d values: %d accepted, %d warned, "
+            "%d downgraded, %d indeterminate",
+            len(verdicts),
+            sum(1 for v in verdicts if v.verdict == Verdict.ACCEPT),
+            sum(1 for v in verdicts
+                if v.verdict == Verdict.ACCEPT_WITH_WARNING),
+            sum(1 for v in verdicts if v.verdict == Verdict.DOWNGRADE),
+            sum(1 for v in verdicts if v.verdict == Verdict.MARK_INDETERMINATE),
         )
 
         # Stage 2: Map terminology + normalize units
@@ -121,9 +273,8 @@ class PlainPipeline:
 
         enriched_values = []
         confidences = {}
-        for i, v in enumerate(report.values):
-            loinc_code, match_conf = mapper.match(v.test_name)
-            vdict = v.model_dump()
+        for i, vdict in enumerate(value_dicts):
+            loinc_code, match_conf = mapper.match(vdict["test_name"])
             vdict["loinc_code"] = loinc_code
 
             # Convert numeric string values to float (OCR returns strings)
@@ -139,15 +290,16 @@ class PlainPipeline:
                 vdict.get("reference_range_low") is not None
                 and vdict.get("reference_range_high") is not None
             )
-            unit_present = v.unit and v.unit.strip()
+            unit_str = (vdict.get("unit") or "").strip()
+            unit_present = bool(unit_str)
             if isinstance(vdict["value"], (int, float)) and unit_present:
                 if has_lab_range:
                     # Keep original units — value and ranges are already consistent
-                    vdict["unit_confidence"] = "high"
+                    vdict.setdefault("unit_confidence", "high")
                 else:
                     # Convert to canonical unit for curated fallback comparison
                     norm = normalizer.normalize(
-                        loinc_code or "", float(vdict["value"]), v.unit
+                        loinc_code or "", float(vdict["value"]), unit_str
                     )
                     vdict["value"] = norm.value
                     vdict["unit"] = norm.unit
@@ -158,7 +310,7 @@ class PlainPipeline:
                         logger.warning(
                             "Unit mismatch for %s: %s not convertible to canonical. "
                             "Clearing LOINC to prevent curated range mismatch.",
-                            v.test_name, v.unit,
+                            vdict["test_name"], unit_str,
                         )
                         vdict["loinc_code"] = None
 
@@ -174,7 +326,7 @@ class PlainPipeline:
                 logger.warning(
                     "No unit and no lab range for %s — clearing LOINC to "
                     "prevent curated fallback with unknown unit system.",
-                    v.test_name,
+                    vdict["test_name"],
                 )
                 vdict["loinc_code"] = None
 
@@ -208,14 +360,82 @@ class PlainPipeline:
             vdict["is_decision_threshold"] = (
                 plausibility_checker.is_decision_threshold(lc)
             )
+
+            # Fallback: detect decision-threshold HbA1c variants by name
+            # when LOINC mapping fails (e.g., "HbA1c (NGSP)" not in alias
+            # registry). Without this, the engine gate is bypassed and HbA1c
+            # gets standard-range interpretation with OCR-grabbed ranges —
+            # producing false "high/mild" from clinical cutpoints.
+            #
+            # NOTE: This targets glycated hemoglobin markers only, NOT the
+            # entire hplc_diabetes_block. eAG and other HPLC-adjacent rows
+            # are already covered by LOINC-based detection (53553-4 is in
+            # decision_threshold_loinc_codes). Blanket section_type fallback
+            # would over-degrade non-HbA1c rows in the HPLC block.
+            if not vdict["is_decision_threshold"]:
+                name_lower = (vdict.get("test_name") or "").lower()
+                if any(kw in name_lower for kw in (
+                    "hba1c", "hb a1c", "hemoglobin a1c",
+                    "glycated hemoglobin", "glycosylated hemoglobin",
+                )):
+                    vdict["is_decision_threshold"] = True
+
             vdict["restricted_flag"] = (
                 plausibility_checker.is_restricted_flag_category(lc)
             )
+
+            # HPLC interpretation routing: inject cross-validated category
+            # so the engine bypasses standard range-selection for HPLC values
+            if vdict.get("section_type") == "hplc_diabetes_block":
+                vdict["is_decision_threshold"] = True
+                cat = hplc_category_map.get(
+                    (vdict.get("test_name") or "").lower().strip()
+                )
+                if cat:
+                    vdict["hplc_diabetes_category"] = cat
 
             confidences[i] = match_conf
             enriched_values.append(vdict)
 
         logger.info("Mapped %d values to LOINC codes", len(enriched_values))
+
+        # Stage 2.5: Post-enrichment verdict refinement
+        # The Stage 1.5 verifier runs on raw OCR output, before quality
+        # metadata (unit_confidence, range_source) is computed in Stage 2.
+        # Now re-evaluate verdicts using the enriched metadata.
+        from lablens.extraction.semantic_verifier import (
+            deterministic_checks as det_checks_fn,
+        )
+
+        downgraded_count = 0
+        for i, vdict in enumerate(enriched_values):
+            # Re-run deterministic checks with quality metadata now available
+            recheck = det_checks_fn(vdict, vdict.get("section_type", "standard_lab_table"))
+            vr = verification_verdicts[i] if i < len(verification_verdicts) else None
+            if vr and recheck.verdict not in (
+                Verdict.ACCEPT, Verdict.ACCEPT_WITH_WARNING
+            ):
+                # Quality metadata triggered a non-accept verdict
+                if recheck.verdict == Verdict.MARK_INDETERMINATE:
+                    vdict["verification_verdict"] = "indeterminate"
+                    vdict["unit_confidence"] = "low"
+                    vr.verdict = Verdict.MARK_INDETERMINATE
+                    vr.reasons.extend(recheck.reasons)
+                elif recheck.verdict in (Verdict.DOWNGRADE, Verdict.RETRY):
+                    cur_verdict = vdict.get("verification_verdict", "accepted")
+                    if cur_verdict in ("accepted", "accepted_with_warning"):
+                        vdict["verification_verdict"] = "downgraded"
+                        vr.verdict = Verdict.DOWNGRADE
+                    vr.reasons.extend(recheck.reasons)
+                vr.checks_passed = recheck.checks_passed
+                vr.checks_failed = recheck.checks_failed
+                downgraded_count += 1
+
+        if downgraded_count > 0:
+            logger.info(
+                "Post-enrichment quality check: %d verdicts refined",
+                downgraded_count,
+            )
 
         # Stage 3: Interpret
         from lablens.interpretation.engine import InterpretationEngine
@@ -228,6 +448,67 @@ class PlainPipeline:
             interpreted.total_abnormal,
         )
 
+        # Stage 3.5: Pre-explanation consistency enforcement
+        # Values whose direction was derived from weak evidence (OCR flag
+        # fallback with no numeric range) produce contradictions: the
+        # structured row says "high" but the LLM explanation says "cannot
+        # classify." Resolve by downgrading direction to indeterminate
+        # while preserving the OCR flag hint for audit transparency.
+        #
+        # Also refine verification verdicts now that range_source is
+        # available (verifier ran before interpretation set this field).
+        _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
+        _CAUTION_RANGE_SOURCES = {"range-text", "lab-provided-suspicious"}
+        for idx, v in enumerate(interpreted.values):
+            # Direction consistency: weak source → indeterminate
+            if (
+                v.range_source in _WEAK_DIRECTION_SOURCES
+                and v.reference_range_low is None
+                and v.reference_range_high is None
+                and v.direction not in ("in-range", "indeterminate")
+            ):
+                v.source_flag = v.direction[0].upper() if v.direction else None
+                v.direction = "indeterminate"
+                v.severity = "normal"
+                v.confidence = "low"
+
+            # Post-interpretation verdict refinement: upgrade accepted
+            # to accepted_with_warning for caution-tier range sources
+            # or standalone low confidence
+            if v.verification_verdict == "accepted":
+                has_caution = (
+                    v.range_source in _CAUTION_RANGE_SOURCES
+                    or v.confidence == "low"
+                )
+                if has_caution:
+                    v.verification_verdict = "accepted_with_warning"
+                    # Update audit verdict too
+                    if idx < len(verification_verdicts):
+                        vr = verification_verdicts[idx]
+                        if vr.verdict == Verdict.ACCEPT:
+                            vr.verdict = Verdict.ACCEPT_WITH_WARNING
+                            if v.range_source in _CAUTION_RANGE_SOURCES:
+                                vr.reasons.append(
+                                    f"[warn] range_source="
+                                    f"{v.range_source}"
+                                )
+                            if v.confidence == "low":
+                                vr.reasons.append(
+                                    f"[warn] confidence=low"
+                                )
+
+        # Stage 3.6: Deduplicate analytes with same name in multiple units
+        # Source PDFs sometimes list Free T4 in pmol/L AND ng/dL, or
+        # TSH with µ vs μ micro symbols. Keep lab-validated row; move
+        # alternate to audit.
+        interpreted.values, deduped_alternates = self._dedupe_analytes(
+            interpreted.values
+        )
+        if deduped_alternates:
+            logger.info(
+                "Deduped %d duplicate analyte(s)", len(deduped_alternates)
+            )
+
         # Stage 4: Explain
         from lablens.retrieval.context_assembler import ContextAssembler
         from lablens.retrieval.explanation_generator import ExplanationGenerator
@@ -236,13 +517,85 @@ class PlainPipeline:
 
         assembler = ContextAssembler(NullGraphRetriever(), NullVectorRetriever())
         generator = ExplanationGenerator(self.settings, assembler)
-        final = await generator.generate_report(interpreted, language)
+        final = await generator.generate_report(
+            interpreted, language,
+            hplc_blocks=hplc_blocks,
+            screening_results=screening_results,
+        )
 
-        return {
-            "values": [vars(v) for v in final.interpreted_values],
+        # Canonicalize screening results (dedup organs, structure followup)
+        from lablens.extraction.screening_parser import (
+            canonicalize_screening,
+        )
+
+        for sr in screening_results:
+            canonicalize_screening(sr)
+
+        # Build screening output (bypass interpretation — Contract D)
+        screening_output = [
+            {
+                "test_type": s.test_type,
+                "result_status": s.result_status.value,
+                "signal_origin": s.signal_origin,
+                "organs_screened": s.organs_screened,
+                "limitations": s.limitations,
+                "followup_recommendation": s.followup_recommendation,
+                "confidence": s.confidence,
+            }
+            for s in screening_results
+        ]
+
+        # Build audit HPLC block summaries
+        audit_hplc = []
+        for hb in hplc_blocks:
+            audit_hplc.append({
+                "ngsp_value": hb.ngsp.value if hb.ngsp else None,
+                "ifcc_value": hb.ifcc.value if hb.ifcc else None,
+                "eag_value": hb.eag.value if hb.eag else None,
+                "diabetes_category": hb.diabetes_category.value,
+                "cross_check_passed": hb.cross_check_passed,
+                "consistency_flags": hb.consistency_flags,
+            })
+
+        # Build value output — source_flag is audit-only, not semantic
+        def _value_dict(v):
+            d = vars(v)
+            sf = d.pop("source_flag", None)
+            if sf:
+                d.setdefault("evidence_trace", {})["source_flag"] = sf
+            return d
+
+        result = {
+            "values": [_value_dict(v) for v in final.interpreted_values],
+            "screening_results": screening_output,
             "explanations": [vars(e) for e in final.explanations],
             "panels": [vars(p) for p in final.panels] if final.panels else [],
             "coverage_score": final.coverage_score,
+            "explanation_quality": final.explanation_quality,
             "disclaimer": final.disclaimer,
             "language": final.language,
         }
+        # Audit: HPLC + verification verdicts
+        audit: dict = {}
+        if audit_hplc:
+            audit["hplc_blocks"] = audit_hplc
+        if verification_verdicts:
+            audit["verification_verdicts"] = [
+                {
+                    "index": vr.index,
+                    "value_id": vr.value_id,
+                    "verdict": vr.verdict.value,
+                    "provenance": vr.provenance,
+                    "reasons": vr.reasons,
+                    "checks_passed": vr.checks_passed,
+                    "checks_failed": vr.checks_failed,
+                }
+                for vr in verification_verdicts
+            ]
+        if deduped_alternates:
+            audit["deduped_alternates"] = [
+                vars(v) for v in deduped_alternates
+            ]
+        if audit:
+            result["audit"] = audit
+        return result

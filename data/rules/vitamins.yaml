@@ -1,0 +1,145 @@
+# Vitamins Panel — interpretation rules
+# Sources: Endocrine Society 2011, ARUP Laboratories
+# Note: Vitamin D uses ng/mL as canonical unit (US standard)
+
+- loinc_code: "1989-3"
+  test_name: "25-Hydroxyvitamin D"
+  unit: "ng/mL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 30
+      high: 100
+      source: "Endocrine Society 2011 — sufficient ≥30 ng/mL"
+  severity_bands:
+    normal: { low: 30, high: 100 }
+    mild_low: { low: 20, high: 29 }
+    moderate_low: { low: 12, high: 19 }
+    critical_low: { low: 0, high: 11 }
+    mild_high: { low: 101, high: 150 }
+    critical_high: { low: 151, high: 999 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    moderate_low: "consult"
+    critical_low: "urgent"
+    mild_high: "monitor"
+    critical_high: "urgent"
+
+- loinc_code: "2132-9"
+  test_name: "Vitamin B12"
+  unit: "pg/mL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 200
+      high: 900
+      source: "ARUP Laboratories — adult serum B12"
+  severity_bands:
+    normal: { low: 200, high: 900 }
+    mild_low: { low: 150, high: 199 }
+    moderate_low: { low: 100, high: 149 }
+    critical_low: { low: 0, high: 99 }
+    mild_high: { low: 901, high: 2000 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    moderate_low: "consult"
+    critical_low: "urgent"
+    mild_high: "monitor"
+
+- loinc_code: "2284-8"
+  test_name: "Folate (Serum)"
+  unit: "ng/mL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 3.0
+      high: 20.0
+      source: "ARUP Laboratories — adult serum folate"
+  severity_bands:
+    normal: { low: 3.0, high: 20.0 }
+    mild_low: { low: 2.0, high: 2.9 }
+    critical_low: { low: 0, high: 1.9 }
+    mild_high: { low: 20.1, high: 50.0 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    critical_low: "consult"
+    mild_high: "routine"
+
+- loinc_code: "2498-4"
+  test_name: "Iron (Serum)"
+  unit: "ug/dL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "male"
+      low: 65
+      high: 175
+      source: "ARUP Laboratories — adult male serum iron"
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "female"
+      low: 50
+      high: 170
+      source: "ARUP Laboratories — adult female serum iron"
+  severity_bands:
+    normal: { low: 50, high: 175 }
+    mild_low: { low: 30, high: 49 }
+    moderate_low: { low: 10, high: 29 }
+    critical_low: { low: 0, high: 9 }
+    mild_high: { low: 176, high: 300 }
+    moderate_high: { low: 301, high: 500 }
+    critical_high: { low: 501, high: 9999 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    moderate_low: "consult"
+    critical_low: "urgent"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"
+
+- loinc_code: "2276-4"
+  test_name: "Ferritin"
+  unit: "ng/mL"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "male"
+      low: 30
+      high: 400
+      source: "ARUP Laboratories — adult male ferritin"
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "female"
+      low: 15
+      high: 150
+      source: "ARUP Laboratories — adult female ferritin"
+  severity_bands:
+    normal: { low: 15, high: 400 }
+    mild_low: { low: 10, high: 14 }
+    moderate_low: { low: 5, high: 9 }
+    critical_low: { low: 0, high: 4 }
+    mild_high: { low: 401, high: 1000 }
+    moderate_high: { low: 1001, high: 2000 }
+    critical_high: { low: 2001, high: 99999 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    moderate_low: "consult"
+    critical_low: "urgent"
+    mild_high: "monitor"
+    moderate_high: "consult"
+    critical_high: "urgent"

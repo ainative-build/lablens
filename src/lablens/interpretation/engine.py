@@ -66,6 +66,20 @@ class InterpretationEngine:
             total_explained=len(abnormal),
         )
 
+    @staticmethod
+    def _sanitize_flag(raw_flag: str | None) -> str | None:
+        """Normalize OCR flag to allowlist {H, L, A} or None.
+
+        OCR sometimes grabs unit-column text ("UNIT", "%") or empty strings.
+        Only H (high), L (low), A (abnormal) are valid lab-report flags.
+        """
+        if not raw_flag:
+            return None
+        cleaned = raw_flag.strip().upper()
+        if cleaned in ("H", "L", "A"):
+            return cleaned
+        return None
+
     def _interpret_single(self, v: dict, match_confidence: str) -> InterpretedResult:
         """Apply 8-step decision order to a single lab value."""
         result = InterpretedResult(
@@ -73,6 +87,10 @@ class InterpretationEngine:
             loinc_code=v.get("loinc_code"),
             value=v["value"],
             unit=v.get("unit", ""),
+            section_type=v.get("section_type"),
+            verification_verdict=v.get("verification_verdict", "accepted"),
+            unit_confidence=v.get("unit_confidence", "high"),
+            source_flag=self._sanitize_flag(v.get("flag")),
         )
 
         # Non-numeric: interpret qualitative values
@@ -88,6 +106,13 @@ class InterpretationEngine:
         rule = get_rule(loinc, self.rules) if loinc else None
         range_trust = v.get("range_trust", "high")
         restricted_flag = v.get("restricted_flag", False)
+
+        # HPLC early-return: cross-validated diabetes category bypasses
+        # standard range-selection (OCR-grabbed ranges are unreliable
+        # for clinical cutpoint tests)
+        hplc_cat = v.get("hplc_diabetes_category")
+        if hplc_cat:
+            return self._interpret_hplc(result, hplc_cat, rule, match_confidence)
 
         # Step 1: Select reference range
         ref_low, ref_high, range_source = select_range(v, rule)
@@ -148,19 +173,27 @@ class InterpretationEngine:
                         )
                         return result
 
-        # Decision-threshold tests: lab-provided ranges are unreliable unless
-        # a curated rule can cross-validate. These tests use clinical cut-points
-        # (not reference intervals), so OCR-grabbed ranges from neighboring rows
-        # are especially dangerous.
+        # Decision-threshold tests: these use clinical cut-points (not
+        # population reference intervals), so OCR-grabbed ranges from
+        # neighboring rows are especially dangerous.
+        #   - No curated cross-check → always indeterminate (can't validate)
+        #   - Low-trust lab range not yet replaced by curated → indeterminate
+        #   - Curated-fallback already applied → trust it (ranges are curated)
+        #   - High-trust lab range with curated available → trust it
         is_decision_threshold = v.get("is_decision_threshold", False)
-        if is_decision_threshold and range_source == "lab-provided":
+        if is_decision_threshold:
             has_curated_crosscheck = rule and rule.get("reference_ranges")
-            if range_trust == "low" or not has_curated_crosscheck:
+            should_degrade = (
+                not has_curated_crosscheck
+                or (range_trust == "low" and range_source != "curated-fallback")
+            )
+            if should_degrade:
                 logger.info(
-                    "Decision-threshold test %s with unverifiable lab range "
-                    "(trust=%s, curated=%s) — degrading to indeterminate",
-                    v.get("test_name", "?"), range_trust,
+                    "Decision-threshold test %s — degrading to indeterminate "
+                    "(curated=%s, range_trust=%s, range_source=%s)",
+                    v.get("test_name", "?"),
                     "yes" if has_curated_crosscheck else "no",
+                    range_trust, range_source,
                 )
                 result.direction = "indeterminate"
                 result.range_source = "no-range"
@@ -205,6 +238,45 @@ class InterpretationEngine:
         # Step 7: Evidence trace
         result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
 
+        return result
+
+    @staticmethod
+    def _interpret_hplc(
+        result: InterpretedResult, hplc_cat: str,
+        rule: dict | None, match_confidence: str,
+    ) -> InterpretedResult:
+        """Interpret HPLC value using cross-validated diabetes category.
+
+        Bypasses standard range-selection entirely. Direction and severity
+        are derived from ADA clinical cutpoints, not OCR-extracted ranges.
+        """
+        _DIRECTION = {
+            "normal": "in-range",
+            "prediabetes": "high",
+            "diabetes": "high",
+            "indeterminate": "indeterminate",
+        }
+        _SEVERITY = {
+            "normal": "normal",
+            "prediabetes": "mild",
+            "diabetes": "moderate",
+            "indeterminate": "normal",
+        }
+        _ACTIONABILITY = {
+            "normal": "routine",
+            "prediabetes": "monitor",
+            "diabetes": "consult",
+            "indeterminate": "routine",
+        }
+
+        result.direction = _DIRECTION.get(hplc_cat, "indeterminate")
+        result.severity = _SEVERITY.get(hplc_cat, "normal")
+        result.actionability = _ACTIONABILITY.get(hplc_cat, "routine")
+        result.is_panic = False
+        result.range_source = "hplc-cross-check"
+        result.confidence = "high" if hplc_cat != "indeterminate" else "low"
+        result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
+        result.evidence_trace["hplc_diabetes_category"] = hplc_cat
         return result
 
     def _handle_no_range(

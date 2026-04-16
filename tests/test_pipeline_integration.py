@@ -515,8 +515,8 @@ class TestEmptyUnitGuards:
 
 
 class TestUnitMisreportDetection:
-    def test_implausibly_low_value_flags_low_confidence(self):
-        """HDL-C=0.92 'mg/dL' is implausible for curated [40-999] mg/dL."""
+    def test_implausibly_low_value_gets_corrected(self):
+        """HDL-C=0.92 'mg/dL' is implausible → correct to 35.58 mg/dL."""
         from lablens.extraction.unit_normalizer import UnitNormalizer
         from lablens.orchestration.pipeline import PlainPipeline
 
@@ -528,7 +528,11 @@ class TestUnitMisreportDetection:
             "unit_confidence": "high",
         }
         result = PlainPipeline._check_unit_misreport(vdict, "2085-9", normalizer)
-        assert result["unit_confidence"] == "low"
+        # Now applies correction instead of just flagging
+        assert result["value"] == pytest.approx(35.5764, abs=0.01)
+        assert result["unit"] == "mg/dL"
+        assert result["unit_confidence"] == "medium"
+        assert result.get("reference_range_low") is None
 
     def test_plausible_value_keeps_high_confidence(self):
         """HDL-C=45 mg/dL is plausible for curated [40-999] → keep high confidence."""
@@ -722,6 +726,54 @@ class TestDecisionThresholdGating:
         assert report.values[0].direction == "indeterminate"
         assert report.values[0].confidence == "low"
 
+    def test_hba1c_ngsp_suspicious_range_is_indeterminate(self, engine):
+        """HbA1c (NGSP) with OCR range 3.9-5.5 → indeterminate, not high/mild.
+
+        Regression test for: HbA1c threshold-style ranges should never produce
+        standard high/low from OCR-grabbed cutpoint intervals.
+        """
+        values = [{
+            "test_name": "HbA1c (NGSP)", "value": 6.1, "unit": "%",
+            "loinc_code": "4548-4",
+            "ref_range_low": 3.9, "ref_range_high": 5.5,
+            "range_trust": "high",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        # No curated HbA1c rule → must degrade to indeterminate
+        assert report.values[0].direction == "indeterminate"
+        assert report.values[0].confidence == "low"
+
+    def test_hba1c_ifcc_suspicious_range_is_indeterminate(self, engine):
+        """HbA1c (IFCC) with OCR range → indeterminate."""
+        values = [{
+            "test_name": "HbA1c (IFCC)", "value": 33.0, "unit": "mmol/mol",
+            "loinc_code": "4548-4",
+            "ref_range_low": 3.9, "ref_range_high": 5.5,
+            "range_trust": "medium",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "indeterminate"
+
+    def test_decision_threshold_curated_fallback_not_degraded(self, engine):
+        """Decision-threshold test with curated-fallback should NOT degrade.
+
+        When suspicious-override already replaced ranges with curated values,
+        the decision-threshold gate should trust the curated ranges.
+        """
+        values = [{
+            "test_name": "Total Cholesterol", "value": 180, "unit": "mg/dL",
+            "loinc_code": "2093-3",
+            "ref_range_low": 0, "ref_range_high": 200,
+            "range_trust": "low",
+            "is_decision_threshold": True,
+        }]
+        report = engine.interpret_report(values)
+        # Curated rule exists → suspicious-override replaces with curated
+        # ranges → curated-fallback → should NOT degrade to indeterminate
+        assert report.values[0].direction != "indeterminate"
+
     def test_decision_threshold_with_curated_crosscheck_uses_range(self, engine):
         """Decision-threshold test with curated cross-check → normal interpretation.
 
@@ -736,6 +788,66 @@ class TestDecisionThresholdGating:
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "in-range"
+
+
+class TestDecisionThresholdNameFallback:
+    """Test name-based detection of decision-threshold tests in pipeline."""
+
+    def test_hba1c_ngsp_detected_by_name(self):
+        """HbA1c (NGSP) should be flagged as decision-threshold by name."""
+        name = "HbA1c (NGSP)"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_hba1c_ifcc_detected_by_name(self):
+        name = "HbA1c (IFCC)"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_hba1c_whole_blood_detected_by_name(self):
+        name = "HbA1c [Whole blood]"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_glycated_hemoglobin_detected_by_name(self):
+        name = "Glycated Hemoglobin"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is True
+
+    def test_glucose_not_falsely_detected(self):
+        """Regular Glucose should NOT be flagged by name pattern."""
+        name = "Glucose"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is False
+
+    def test_wbc_not_falsely_detected(self):
+        name = "WBC"
+        name_lower = name.lower()
+        is_dt = any(kw in name_lower for kw in (
+            "hba1c", "hb a1c", "hemoglobin a1c",
+            "glycated hemoglobin", "glycosylated hemoglobin",
+        ))
+        assert is_dt is False
 
 
 class TestSeverityCap:
@@ -968,3 +1080,271 @@ class TestHPLCSemanticValidation:
         }
         result = validate_hplc_semantics(v)
         assert result["reference_range_low"] is None
+
+
+# ── Regression: Vitamin D canonical interpretation ──
+
+
+class TestVitaminDRegression:
+    """Vitamin D=25 ng/mL must use curated range, not direction_from_text."""
+
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_vitamin_d_25_is_insufficient_not_high(self, engine):
+        """25-OH Vitamin D=25 ng/mL → low (insufficient), NOT high."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 25.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+        }]
+        report = engine.interpret_report(values)
+        # Curated range [30-100]: 25 is below range → low
+        assert report.values[0].direction == "low"
+        assert report.values[0].range_source == "curated-fallback"
+
+    def test_vitamin_d_35_is_sufficient(self, engine):
+        """25-OH Vitamin D=35 ng/mL → in-range (sufficient)."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 35.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "in-range"
+
+    def test_vitamin_d_15_is_deficient(self, engine):
+        """25-OH Vitamin D=15 ng/mL → low (deficient), moderate severity."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 15.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "low"
+        assert report.values[0].severity == "moderate"
+
+    def test_vitamin_d_with_text_range_uses_curated(self, engine):
+        """Even with reference_range_text, curated range should win."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 25.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+            "reference_range_text": "Deficient: < 20, Insufficient: 20-29",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "low"
+        assert report.values[0].range_source == "curated-fallback"
+
+
+# ── Regression: Uric Acid unit rescue ──
+
+
+class TestUricAcidUnitRescue:
+    """Uric Acid=0.41 reported as mg/dL but actually mmol/L → must rescue."""
+
+    def test_uric_acid_mmol_rescue(self):
+        """Uric Acid=0.41 'mg/dL' → rescue to 6.89 mg/dL via mmol/L conversion."""
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        from lablens.orchestration.pipeline import PlainPipeline
+
+        normalizer = UnitNormalizer()
+        vdict = {
+            "test_name": "Uric Acid",
+            "value": 0.41,
+            "unit": "mg/dL",
+            "unit_confidence": "high",
+        }
+        result = PlainPipeline._check_unit_misreport(vdict, "3084-1", normalizer)
+        # 0.41 * 16.81 = 6.8921 — within curated [3.5-7.2]
+        assert result["value"] == pytest.approx(6.8921, abs=0.01)
+        assert result["unit"] == "mg/dL"
+        assert result["unit_confidence"] == "medium"
+
+    def test_uric_acid_plausible_value_unchanged(self):
+        """Uric Acid=5.0 mg/dL → plausible, no rescue needed."""
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        from lablens.orchestration.pipeline import PlainPipeline
+
+        normalizer = UnitNormalizer()
+        vdict = {
+            "test_name": "Uric Acid",
+            "value": 5.0,
+            "unit": "mg/dL",
+            "unit_confidence": "high",
+        }
+        result = PlainPipeline._check_unit_misreport(vdict, "3084-1", normalizer)
+        assert result["value"] == 5.0
+        assert result["unit_confidence"] == "high"
+
+
+# ── Canonical ranking ──
+
+
+class TestCanonicalRanking:
+    """Dedup should prefer higher-trust range_source and unit_confidence."""
+
+    def test_validated_beats_suspicious(self):
+        """Validated range_source wins over suspicious."""
+        from lablens.orchestration.pipeline import PlainPipeline
+        from lablens.interpretation.models import InterpretedResult
+
+        v1 = InterpretedResult(
+            test_name="TSH", loinc_code="3016-3", value=2.5,
+            unit="mIU/L", confidence="medium",
+            range_source="lab-provided-validated",
+        )
+        v2 = InterpretedResult(
+            test_name="TSH", loinc_code="3016-3", value=2.5,
+            unit="µIU/mL", confidence="medium",
+            range_source="lab-provided-suspicious",
+        )
+
+        canonical, alternates = PlainPipeline._dedupe_analytes([v1, v2])
+        assert len(canonical) == 1
+        assert canonical[0].range_source == "lab-provided-validated"
+
+    def test_high_unit_conf_beats_low(self):
+        """Higher unit_confidence wins as tiebreaker."""
+        from lablens.orchestration.pipeline import PlainPipeline
+        from lablens.interpretation.models import InterpretedResult
+
+        v1 = InterpretedResult(
+            test_name="Bilirubin", loinc_code="1975-2", value=0.86,
+            unit="mg/dL", confidence="medium",
+            range_source="curated-fallback", unit_confidence="high",
+        )
+        v2 = InterpretedResult(
+            test_name="Bilirubin", loinc_code="1975-2", value=14.7,
+            unit="umol/L", confidence="medium",
+            range_source="curated-fallback", unit_confidence="low",
+        )
+
+        canonical, alternates = PlainPipeline._dedupe_analytes([v1, v2])
+        assert canonical[0].unit_confidence == "high"
+
+
+# ── Structured/explanation consistency enforcement ──
+
+
+class TestDirectionConsistencyEnforcement:
+    """ocr-flag-fallback with null ranges must be downgraded to indeterminate."""
+
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_ocr_flag_high_downgraded_to_indeterminate(self, engine):
+        """Non-HDL Cholesterol flag=H, no range → direction=indeterminate."""
+        values = [{
+            "test_name": "Non HDL Cholesterol",
+            "value": 3.55,
+            "unit": "mmol/L",
+            "loinc_code": None,
+            "flag": "H",
+        }]
+        report = engine.interpret_report(values)
+        v = report.values[0]
+        # Before consistency enforcement: direction would be "high"
+        assert v.range_source == "ocr-flag-fallback"
+
+        # Simulate Stage 3.5 consistency enforcement
+        _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
+        if (
+            v.range_source in _WEAK_DIRECTION_SOURCES
+            and v.reference_range_low is None
+            and v.reference_range_high is None
+            and v.direction not in ("in-range", "indeterminate")
+        ):
+            v.direction = "indeterminate"
+            v.severity = "normal"
+        assert v.direction == "indeterminate"
+
+    def test_ocr_flag_low_downgraded_to_indeterminate(self, engine):
+        """NRBC flag=L, no range → direction=indeterminate."""
+        values = [{
+            "test_name": "NRBC",
+            "value": 0.0,
+            "unit": "10^9/L",
+            "loinc_code": None,
+            "flag": "L",
+        }]
+        report = engine.interpret_report(values)
+        v = report.values[0]
+        assert v.range_source == "ocr-flag-fallback"
+
+        # Simulate consistency enforcement
+        if (
+            v.range_source == "ocr-flag-fallback"
+            and v.reference_range_low is None
+            and v.reference_range_high is None
+            and v.direction not in ("in-range", "indeterminate")
+        ):
+            v.direction = "indeterminate"
+        assert v.direction == "indeterminate"
+
+    def test_range_text_direction_preserved(self, engine):
+        """HBsAb with range-text direction is NOT downgraded."""
+        values = [{
+            "test_name": "HBsAb",
+            "value": 916.89,
+            "unit": "mIU/mL",
+            "loinc_code": None,
+            "reference_range_text": "< 10",
+        }]
+        report = engine.interpret_report(values)
+        # range-text is not in _WEAK_DIRECTION_SOURCES → preserved
+        assert report.values[0].direction == "high"
+        assert report.values[0].range_source == "range-text"
+
+
+# ── Screening canonicalization ──
+
+
+class TestScreeningCanonicalization:
+    """canonicalize_screening deduplicates organs and structures followup."""
+
+    def test_dedup_organs(self):
+        from lablens.extraction.screening_parser import canonicalize_screening
+        from lablens.models.screening_result import ScreeningResult
+
+        sr = ScreeningResult(
+            test_type="SPOT-MAS",
+            organs_screened=[
+                "Phổi", "Vú", "Gan", "Phổi", "Gan",
+                "multiple cancers", "asymptomatic adults",
+            ],
+        )
+        result = canonicalize_screening(sr)
+        assert result.organs_screened == ["Phổi", "Vú", "Gan"]
+
+    def test_structure_followup_numbered(self):
+        from lablens.extraction.screening_parser import canonicalize_screening
+        from lablens.models.screening_result import ScreeningResult
+
+        sr = ScreeningResult(
+            test_type="SPOT-MAS",
+            followup_recommendation=(
+                "1. Continue annual checkups. "
+                "2. Maintain healthy lifestyle."
+            ),
+        )
+        result = canonicalize_screening(sr)
+        assert "1." in result.followup_recommendation
+        assert "2." in result.followup_recommendation
+
+    def test_none_followup_passthrough(self):
+        from lablens.extraction.screening_parser import canonicalize_screening
+        from lablens.models.screening_result import ScreeningResult
+
+        sr = ScreeningResult(
+            test_type="SPOT-MAS",
+            followup_recommendation=None,
+        )
+        result = canonicalize_screening(sr)
+        assert result.followup_recommendation is None

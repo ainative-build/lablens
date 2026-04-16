@@ -1,0 +1,49 @@
+{
+  "archetype": "hplc_only",
+  "source_pdf": "hplc_diabetes_page.pdf",
+  "pages": 1,
+  "expected_sections": [
+    {"page": 1, "section_type": "hplc_diabetes_block", "row_count": 3}
+  ],
+  "expected_values": [
+    {
+      "test_name": "HbA1c (NGSP)",
+      "value": 5.6,
+      "unit": "%",
+      "reference_range_low": null,
+      "reference_range_high": null,
+      "flag": null,
+      "section_type": "hplc_diabetes_block",
+      "loinc_code": "4548-4"
+    },
+    {
+      "test_name": "HbA1c (IFCC)",
+      "value": 38,
+      "unit": "mmol/mol",
+      "reference_range_low": null,
+      "reference_range_high": null,
+      "flag": null,
+      "section_type": "hplc_diabetes_block",
+      "loinc_code": "59261-8"
+    },
+    {
+      "test_name": "eAG",
+      "value": 114,
+      "unit": "mg/dL",
+      "reference_range_low": null,
+      "reference_range_high": null,
+      "flag": null,
+      "section_type": "hplc_diabetes_block",
+      "loinc_code": "53553-4"
+    }
+  ],
+  "expected_screening": [],
+  "expected_hplc": [
+    {
+      "ngsp_value": 5.6,
+      "ifcc_value": 38,
+      "eag_value": 114,
+      "diabetes_category": "normal"
+    }
+  ]
+}

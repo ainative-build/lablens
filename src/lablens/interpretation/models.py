@@ -29,6 +29,12 @@ class InterpretedResult:
     rule_source: str | None = None
     evidence_trace: dict = field(default_factory=dict)
 
+    # Extraction metadata (carried through from pipeline enrichment)
+    section_type: str | None = None
+    verification_verdict: str = "accepted"
+    unit_confidence: str = "high"
+    source_flag: str | None = None  # Raw OCR flag (audit-only, not semantic)
+
 
 @dataclass
 class PanelCompleteness:
@@ -55,5 +61,5 @@ class InterpretedReport:
     def coverage_score(self) -> str:
         return (
             f"{self.total_parsed}/{self.total_parsed} analytes parsed, "
-            f"{self.total_explained}/{self.total_abnormal} abnormal explained"
+            f"{self.total_abnormal} abnormal detected"
         )

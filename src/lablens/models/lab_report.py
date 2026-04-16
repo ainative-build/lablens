@@ -22,6 +22,7 @@ class LabValue(BaseModel):
     reference_range_text: str | None = None
     flag: str | None = None  # From PDF (e.g., "H", "L", "A")
     loinc_code: str | None = None  # Filled by terminology mapper
+    section_type: str | None = None  # SectionType value, nullable for backward compat
 
 
 class LabReport(BaseModel):
@@ -32,5 +33,6 @@ class LabReport(BaseModel):
     report_date: str | None = None
     lab_name: str | None = None
     values: list[LabValue] = []
+    screening_results: list[dict] = []  # Typed ScreeningResult in Phase 3
     raw_text: str | None = None
     page_count: int = 1
