@@ -180,10 +180,10 @@ def deterministic_checks(
         failed += 1
     elif range_src in _SUSPICIOUS_SOURCES:
         result.reasons.append(
-            f"range_source={range_src} — lab range may be unreliable"
+            f"[audit] range_source={range_src} — lab range may be "
+            f"unreliable"
         )
-        # Count as passed but note concern (doesn't fail)
-        passed += 1
+        # Neutral: neither pass nor fail — noted for audit trail only
     elif range_src:
         passed += 1
 
@@ -193,6 +193,12 @@ def deterministic_checks(
         # Double-low: both unit and overall confidence are low
         result.reasons.append("Both unit_confidence and confidence are low")
         failed += 1
+    elif row_conf == "low":
+        # Standalone low confidence — not severe enough to fail but
+        # reduces verification coverage (no pass increment)
+        result.reasons.append(
+            f"[audit] confidence=low for {v.get('test_name', '?')}"
+        )
 
     result.checks_passed = passed
     result.checks_failed = failed

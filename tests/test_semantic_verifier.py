@@ -213,8 +213,8 @@ class TestExtractionQualityEscalation:
         assert result.checks_failed >= 1
         assert any("ocr-flag-fallback" in r for r in result.reasons)
 
-    def test_lab_provided_suspicious_does_not_fail(self):
-        """Suspicious source is noted but should not fail the check."""
+    def test_lab_provided_suspicious_is_neutral(self):
+        """Suspicious source: audit note only, no pass OR fail increment."""
         v = {
             "test_name": "TSH",
             "value": 1.5,
@@ -222,12 +222,14 @@ class TestExtractionQualityEscalation:
             "range_source": "lab-provided-suspicious",
         }
         result = deterministic_checks(v)
-        # Should not have a failure for suspicious (only a note)
+        # Should not have a failure
         suspicious_fails = [
             r for r in result.reasons
-            if "suspicious" in r and "fail" in r.lower()
+            if "suspicious" in r and "[audit]" not in r
         ]
         assert len(suspicious_fails) == 0
+        # Should have an audit note
+        assert any("[audit]" in r and "suspicious" in r for r in result.reasons)
 
     def test_lab_validated_passes(self):
         v = {
@@ -252,6 +254,21 @@ class TestExtractionQualityEscalation:
         result = deterministic_checks(v)
         assert result.checks_failed >= 2  # unit_confidence + double-low
         assert any("Both" in r for r in result.reasons)
+
+    def test_standalone_low_confidence_audit_note(self):
+        """confidence=low alone → audit note, not a failure."""
+        v = {
+            "test_name": "Testosterone",
+            "value": 642.0,
+            "unit": "ng/dL",
+            "confidence": "low",
+            "range_source": "lab-provided-validated",
+        }
+        result = deterministic_checks(v)
+        # Should record audit note
+        assert any("[audit]" in r and "confidence=low" in r for r in result.reasons)
+        # Should NOT be a failure (standalone low conf is not severe)
+        assert result.checks_failed == 0
 
     def test_low_unit_conf_downgrades_previously_accepted(self):
         """A value that would be ACCEPT now gets DOWNGRADE with low unit conf."""

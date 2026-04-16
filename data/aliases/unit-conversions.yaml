@@ -120,6 +120,11 @@ conversions:
         factor: 0.01681
         reversible: true
         confidence: "high"
+      - from: "mmol/L"
+        to: "mg/dL"
+        factor: 16.81
+        reversible: true
+        confidence: "high"
 
   "1975-2":  # Total Bilirubin
     canonical_unit: "mg/dL"
@@ -173,6 +178,24 @@ conversions:
       - from: "mmol/L"
         to: "mg/dL"
         factor: 3.0974
+        reversible: true
+        confidence: "high"
+
+  "1989-3":  # 25-OH Vitamin D
+    canonical_unit: "ng/mL"
+    conversions:
+      - from: "nmol/L"
+        to: "ng/mL"
+        factor: 0.4006
+        reversible: true
+        confidence: "high"
+
+  "2132-9":  # Vitamin B12
+    canonical_unit: "pg/mL"
+    conversions:
+      - from: "pmol/L"
+        to: "pg/mL"
+        factor: 1.3554
         reversible: true
         confidence: "high"
 

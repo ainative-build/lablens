@@ -1080,3 +1080,150 @@ class TestHPLCSemanticValidation:
         }
         result = validate_hplc_semantics(v)
         assert result["reference_range_low"] is None
+
+
+# ── Regression: Vitamin D canonical interpretation ──
+
+
+class TestVitaminDRegression:
+    """Vitamin D=25 ng/mL must use curated range, not direction_from_text."""
+
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_vitamin_d_25_is_insufficient_not_high(self, engine):
+        """25-OH Vitamin D=25 ng/mL → low (insufficient), NOT high."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 25.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+        }]
+        report = engine.interpret_report(values)
+        # Curated range [30-100]: 25 is below range → low
+        assert report.values[0].direction == "low"
+        assert report.values[0].range_source == "curated-fallback"
+
+    def test_vitamin_d_35_is_sufficient(self, engine):
+        """25-OH Vitamin D=35 ng/mL → in-range (sufficient)."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 35.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "in-range"
+
+    def test_vitamin_d_15_is_deficient(self, engine):
+        """25-OH Vitamin D=15 ng/mL → low (deficient), moderate severity."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 15.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "low"
+        assert report.values[0].severity == "moderate"
+
+    def test_vitamin_d_with_text_range_uses_curated(self, engine):
+        """Even with reference_range_text, curated range should win."""
+        values = [{
+            "test_name": "25-OH Vitamin D",
+            "value": 25.0,
+            "unit": "ng/mL",
+            "loinc_code": "1989-3",
+            "reference_range_text": "Deficient: < 20, Insufficient: 20-29",
+        }]
+        report = engine.interpret_report(values)
+        assert report.values[0].direction == "low"
+        assert report.values[0].range_source == "curated-fallback"
+
+
+# ── Regression: Uric Acid unit rescue ──
+
+
+class TestUricAcidUnitRescue:
+    """Uric Acid=0.41 reported as mg/dL but actually mmol/L → must rescue."""
+
+    def test_uric_acid_mmol_rescue(self):
+        """Uric Acid=0.41 'mg/dL' → rescue to 6.89 mg/dL via mmol/L conversion."""
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        from lablens.orchestration.pipeline import PlainPipeline
+
+        normalizer = UnitNormalizer()
+        vdict = {
+            "test_name": "Uric Acid",
+            "value": 0.41,
+            "unit": "mg/dL",
+            "unit_confidence": "high",
+        }
+        result = PlainPipeline._check_unit_misreport(vdict, "3084-1", normalizer)
+        # 0.41 * 16.81 = 6.8921 — within curated [3.5-7.2]
+        assert result["value"] == pytest.approx(6.8921, abs=0.01)
+        assert result["unit"] == "mg/dL"
+        assert result["unit_confidence"] == "medium"
+
+    def test_uric_acid_plausible_value_unchanged(self):
+        """Uric Acid=5.0 mg/dL → plausible, no rescue needed."""
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        from lablens.orchestration.pipeline import PlainPipeline
+
+        normalizer = UnitNormalizer()
+        vdict = {
+            "test_name": "Uric Acid",
+            "value": 5.0,
+            "unit": "mg/dL",
+            "unit_confidence": "high",
+        }
+        result = PlainPipeline._check_unit_misreport(vdict, "3084-1", normalizer)
+        assert result["value"] == 5.0
+        assert result["unit_confidence"] == "high"
+
+
+# ── Canonical ranking ──
+
+
+class TestCanonicalRanking:
+    """Dedup should prefer higher-trust range_source and unit_confidence."""
+
+    def test_validated_beats_suspicious(self):
+        """Validated range_source wins over suspicious."""
+        from lablens.orchestration.pipeline import PlainPipeline
+        from lablens.interpretation.models import InterpretedResult
+
+        v1 = InterpretedResult(
+            test_name="TSH", loinc_code="3016-3", value=2.5,
+            unit="mIU/L", confidence="medium",
+            range_source="lab-provided-validated",
+        )
+        v2 = InterpretedResult(
+            test_name="TSH", loinc_code="3016-3", value=2.5,
+            unit="µIU/mL", confidence="medium",
+            range_source="lab-provided-suspicious",
+        )
+
+        canonical, alternates = PlainPipeline._dedupe_analytes([v1, v2])
+        assert len(canonical) == 1
+        assert canonical[0].range_source == "lab-provided-validated"
+
+    def test_high_unit_conf_beats_low(self):
+        """Higher unit_confidence wins as tiebreaker."""
+        from lablens.orchestration.pipeline import PlainPipeline
+        from lablens.interpretation.models import InterpretedResult
+
+        v1 = InterpretedResult(
+            test_name="Bilirubin", loinc_code="1975-2", value=0.86,
+            unit="mg/dL", confidence="medium",
+            range_source="curated-fallback", unit_confidence="high",
+        )
+        v2 = InterpretedResult(
+            test_name="Bilirubin", loinc_code="1975-2", value=14.7,
+            unit="umol/L", confidence="medium",
+            range_source="curated-fallback", unit_confidence="low",
+        )
+
+        canonical, alternates = PlainPipeline._dedupe_analytes([v1, v2])
+        assert canonical[0].unit_confidence == "high"

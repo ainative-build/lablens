@@ -77,6 +77,16 @@ class PlainPipeline:
 
         # Confidence ranking: high > medium > low
         conf_rank = {"high": 3, "medium": 2, "low": 1}
+        # Range source trust hierarchy
+        range_trust = {
+            "lab-provided-validated": 5,
+            "curated-fallback": 4,
+            "unit-corrected": 3,
+            "lab-provided-suspicious": 2,
+            "range-text": 1,
+            "ocr-flag-fallback": 0,
+            "no-range": 0,
+        }
 
         # Group by normalized name + loinc_code
         # Exempt HPLC values — NGSP/IFCC/eAG are intentionally different
@@ -95,10 +105,13 @@ class PlainPipeline:
             if len(group) == 1:
                 canonical.append(group[0])
                 continue
-            # Sort: highest confidence first, then lab-validated range_source
+            # Rank: confidence → range_source trust → unit_confidence
             group.sort(key=lambda v: (
                 conf_rank.get(v.confidence, 0),
-                1 if "validated" in v.range_source else 0,
+                range_trust.get(v.range_source, 0),
+                conf_rank.get(
+                    getattr(v, "unit_confidence", "high"), 0
+                ),
             ), reverse=True)
             canonical.append(group[0])
             alternates.extend(group[1:])

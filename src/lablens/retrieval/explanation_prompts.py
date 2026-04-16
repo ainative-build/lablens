@@ -25,7 +25,16 @@ Additional context:
 Patient education references:
 {education_snippets}
 
-For each abnormal result, provide:
+For EVERY abnormal result listed above, provide an explanation.
+Do NOT skip any result. Prioritize clinically significant ones:
+- Tumor markers (CA 19-9, AFP, CEA, PSA) — always explain, even if mildly elevated
+- Kidney function (eGFR, Creatinine) — always explain if abnormal
+- Lipid abnormalities (HDL, LDL, cholesterol) — always explain
+- Immunology / serology (HBsAb, HBsAg, HCV) — always explain
+- Vitamin deficiencies or excesses — always explain
+- For trivial or expected findings (e.g., NRBC=0), a brief note is sufficient
+
+For each result, provide:
 1. A brief summary (1 sentence)
 2. What it means in plain language (2-3 sentences)
 3. Suggested next steps (1-2 sentences, grounded in education content)
