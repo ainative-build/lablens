@@ -719,9 +719,24 @@ class PlainPipeline:
                 normalized.append(d)
             grp.results = normalized
 
+        # Phase 1b: build executive summary ONCE here.  Memoized into
+        # result["summary"] — never recomputed on poll/fetch.  LLM headline
+        # is generated for non-green status only; rejected → deterministic
+        # fallback.  Always safe.
+        from lablens.retrieval.report_summarizer import (
+            HeadlineGenerator,
+            build_summary,
+        )
+
+        headline_gen = HeadlineGenerator(self.settings)
+        summary = await build_summary(
+            final.interpreted_values, headline_gen=headline_gen
+        )
+
         result = {
             "values": [_value_dict(v) for v in final.interpreted_values],
             "topic_groups": [g.model_dump() for g in topic_groups],
+            "summary": summary.model_dump(),
             "screening_results": screening_output,
             "explanations": [vars(e) for e in final.explanations],
             "panels": [vars(p) for p in final.panels] if final.panels else [],

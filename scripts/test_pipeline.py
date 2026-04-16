@@ -129,7 +129,7 @@ async def main():
 
     # Export CSV with new fields
     csv_path = (Path(__file__).parent.parent / "resources"
-                / "pipeline-test-document-aware.csv")
+                / "manual-test-output.csv")
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -162,7 +162,7 @@ async def main():
 
     # Export full JSON for evaluation harness
     json_path = (Path(__file__).parent.parent / "resources"
-                 / "pipeline-test-document-aware.json")
+                 / "manual-test-output.json")
     with open(json_path, "w") as f:
         json.dump(result, f, indent=2, default=str)
     print(f"JSON exported to: {json_path}")
