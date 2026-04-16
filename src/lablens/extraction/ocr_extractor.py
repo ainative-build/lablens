@@ -15,6 +15,7 @@ from lablens.config import Settings
 from lablens.extraction.extraction_prompts import (
     EXTRACTION_PROMPTS,
     EXTRACTION_USER_PROMPT,
+    HPLC_EXTRACTION_PROMPT,
     REPARSE_SYSTEM_PROMPT,
     REPARSE_USER_PROMPT,
 )
@@ -46,17 +47,20 @@ class OCRExtractor:
 
     async def extract_from_pdf(
         self, pdf_bytes: bytes, language: str = "auto"
-    ) -> tuple[LabReport, dict[int, str]]:
+    ) -> tuple[LabReport, dict[int, str], list]:
         """Full extraction pipeline: PDF → images → OCR → classify → route → LabReport.
 
-        Returns (LabReport, page_images) where page_images = {page_num: img_b64}.
-        Page images are passed through for the semantic verifier (Phase 4).
-        They are NOT stored in LabReport to keep serialization-safe.
+        Returns (LabReport, page_images, hplc_blocks) where:
+        - page_images = {page_num: img_b64} for Phase 4 semantic verifier
+        - hplc_blocks = list[HPLCBlock] for interpretation routing
         """
+        from lablens.models.hplc_block import HPLCBlock
+
         PDFProcessor.validate_pdf(pdf_bytes)
         images = PDFProcessor.pdf_to_base64_images(pdf_bytes)
 
         all_values: list[LabValue] = []
+        hplc_blocks: list[HPLCBlock] = []
         screening_results: list[dict] = []
         page_images: dict[int, str] = {}
         metadata: dict = {}
@@ -139,13 +143,19 @@ class OCRExtractor:
                             block_raw = merged
 
                 if block.section_type == SectionType.HPLC_DIABETES_BLOCK:
-                    # Phase 2 will implement HPLCBlockParser here
-                    # For now: process as standard rows with section_type tag
-                    logger.info(
-                        "HPLC block on page %d — stub: standard flow "
-                        "with section_type tag (full parser in Phase 2)",
-                        page_num,
+                    hplc_block = self._parse_hplc_block(
+                        block_raw, img_b64, language, page_num
                     )
+                    if hplc_block is not None:
+                        hplc_block = await self._reparse_hplc_and_update(
+                            hplc_block, block_raw, img_b64,
+                            language, page_num,
+                        )
+                        hplc_blocks.append(hplc_block)
+                        self._emit_hplc_values(
+                            hplc_block, all_values, page_num
+                        )
+                        continue  # HPLC rows emitted — skip standard flow
 
                 for v in block_raw:
                     try:
@@ -173,7 +183,7 @@ class OCRExtractor:
             screening_results=screening_results,
             page_count=len(images),
         )
-        return report, page_images
+        return report, page_images, hplc_blocks
 
     async def _extract_page(
         self, img_b64: str, language: str, page_num: int
@@ -242,6 +252,120 @@ class OCRExtractor:
                 "Qwen3-VL reparse failed on page %d: %s", page_num, e
             )
             return None
+
+    def _parse_hplc_block(
+        self, block_raw: list[dict], img_b64: str, language: str, page_num: int
+    ):
+        """Parse HPLC block rows, re-extract if incomplete.
+
+        Returns HPLCBlock or None if parsing fails entirely.
+        This is a sync-looking wrapper; _reparse_hplc is async but
+        called from the already-async extract_from_pdf loop.
+        """
+        from lablens.extraction.hplc_block_parser import HPLCBlockParser
+
+        parser = HPLCBlockParser()
+        hplc_block = parser.parse_rows(block_raw)
+
+        logger.info(
+            "HPLC block on page %d: completeness=%d/3, cross_check=%s, "
+            "category=%s",
+            page_num,
+            hplc_block.completeness,
+            hplc_block.cross_check_passed,
+            hplc_block.diabetes_category.value,
+        )
+
+        if hplc_block.consistency_flags:
+            for flag in hplc_block.consistency_flags:
+                logger.warning("HPLC consistency: %s", flag)
+
+        return hplc_block
+
+    async def _reparse_hplc_and_update(
+        self, hplc_block, block_raw: list[dict],
+        img_b64: str, language: str, page_num: int,
+    ):
+        """Re-extract HPLC block using qwen3-vl-plus when incomplete."""
+        from lablens.extraction.hplc_block_parser import HPLCBlockParser
+
+        if hplc_block.completeness >= 2:
+            return hplc_block
+
+        logger.info(
+            "HPLC block on page %d incomplete (%d/3) — re-extracting "
+            "with %s",
+            page_num, hplc_block.completeness, self.structure_model,
+        )
+        reparse_result = await self._reparse_hplc(img_b64, language, page_num)
+        if reparse_result:
+            parser = HPLCBlockParser()
+            new_block = parser.parse_rows(reparse_result.get("values", []))
+            if new_block.completeness > hplc_block.completeness:
+                # Mark re-extracted analytes
+                for attr in ("ngsp", "ifcc", "eag"):
+                    analyte = getattr(new_block, attr)
+                    if analyte:
+                        analyte.source = "re-extracted"
+                logger.info(
+                    "HPLC re-extraction improved: %d/3 → %d/3",
+                    hplc_block.completeness, new_block.completeness,
+                )
+                return new_block
+        return hplc_block
+
+    async def _reparse_hplc(
+        self, img_b64: str, language: str, page_num: int
+    ) -> dict | None:
+        """Re-extract HPLC block using qwen3-vl-plus with structure prompt."""
+        messages = [
+            {"role": "system", "content": [{"text": HPLC_EXTRACTION_PROMPT}]},
+            {
+                "role": "user",
+                "content": [
+                    {"image": f"data:image/png;base64,{img_b64}"},
+                    {"text": "Extract the HPLC / HbA1c section values. "
+                     "Return ONLY the JSON object."},
+                ],
+            },
+        ]
+        try:
+            raw = await self._call_dashscope_ocr(self.structure_model, messages)
+            return self._parse_json_response(raw)
+        except Exception as e:
+            logger.warning(
+                "HPLC re-extraction failed on page %d: %s", page_num, e
+            )
+            return None
+
+    @staticmethod
+    def _emit_hplc_values(
+        hplc_block, all_values: list, page_num: int
+    ) -> None:
+        """Convert HPLCBlock analytes to LabValue rows and append."""
+        from lablens.extraction.ocr_range_preprocessor import fix_range_fields
+        from lablens.models.section_types import SectionType
+
+        for attr in ("ngsp", "ifcc", "eag"):
+            analyte = getattr(hplc_block, attr)
+            if analyte is None or analyte.value is None:
+                continue
+            try:
+                v = {
+                    "test_name": analyte.test_name,
+                    "value": analyte.value,
+                    "unit": analyte.unit,
+                    "reference_range_low": analyte.reference_range_low,
+                    "reference_range_high": analyte.reference_range_high,
+                    "section_type": SectionType.HPLC_DIABETES_BLOCK.value,
+                }
+                v = fix_range_fields(v)
+                all_values.append(LabValue(**v))
+            except Exception as e:
+                logger.warning(
+                    "Skipping HPLC analyte %s on page %d: %s",
+                    attr, page_num, e,
+                )
 
     @staticmethod
     def _normalize_name(name: str) -> str:

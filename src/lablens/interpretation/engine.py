@@ -89,6 +89,13 @@ class InterpretationEngine:
         range_trust = v.get("range_trust", "high")
         restricted_flag = v.get("restricted_flag", False)
 
+        # HPLC early-return: cross-validated diabetes category bypasses
+        # standard range-selection (OCR-grabbed ranges are unreliable
+        # for clinical cutpoint tests)
+        hplc_cat = v.get("hplc_diabetes_category")
+        if hplc_cat:
+            return self._interpret_hplc(result, hplc_cat, rule, match_confidence)
+
         # Step 1: Select reference range
         ref_low, ref_high, range_source = select_range(v, rule)
 
@@ -213,6 +220,45 @@ class InterpretationEngine:
         # Step 7: Evidence trace
         result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
 
+        return result
+
+    @staticmethod
+    def _interpret_hplc(
+        result: InterpretedResult, hplc_cat: str,
+        rule: dict | None, match_confidence: str,
+    ) -> InterpretedResult:
+        """Interpret HPLC value using cross-validated diabetes category.
+
+        Bypasses standard range-selection entirely. Direction and severity
+        are derived from ADA clinical cutpoints, not OCR-extracted ranges.
+        """
+        _DIRECTION = {
+            "normal": "in-range",
+            "prediabetes": "high",
+            "diabetes": "high",
+            "indeterminate": "indeterminate",
+        }
+        _SEVERITY = {
+            "normal": "normal",
+            "prediabetes": "mild",
+            "diabetes": "moderate",
+            "indeterminate": "normal",
+        }
+        _ACTIONABILITY = {
+            "normal": "routine",
+            "prediabetes": "monitor",
+            "diabetes": "consult",
+            "indeterminate": "routine",
+        }
+
+        result.direction = _DIRECTION.get(hplc_cat, "indeterminate")
+        result.severity = _SEVERITY.get(hplc_cat, "normal")
+        result.actionability = _ACTIONABILITY.get(hplc_cat, "routine")
+        result.is_panic = False
+        result.range_source = "hplc-cross-check"
+        result.confidence = "high" if hplc_cat != "indeterminate" else "low"
+        result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
+        result.evidence_trace["hplc_diabetes_category"] = hplc_cat
         return result
 
     def _handle_no_range(

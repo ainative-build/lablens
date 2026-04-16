@@ -24,6 +24,27 @@ class PlainPipeline:
 
     _cached_rules: dict | None = None
 
+    @staticmethod
+    def _build_hplc_category_map(hplc_blocks: list) -> dict[str, str]:
+        """Build test_name → diabetes_category lookup from HPLCBlocks.
+
+        Maps each analyte's lowercase test_name to the block's
+        cross-validated diabetes_category. If cross-check failed,
+        all analytes map to "indeterminate".
+        """
+        cat_map: dict[str, str] = {}
+        for block in hplc_blocks:
+            if block.cross_check_passed:
+                cat = block.diabetes_category.value
+            else:
+                cat = "indeterminate"
+            for attr in ("ngsp", "ifcc", "eag"):
+                analyte = getattr(block, attr)
+                if analyte and analyte.test_name:
+                    key = analyte.test_name.lower().strip()
+                    cat_map[key] = cat
+        return cat_map
+
     @classmethod
     def _check_unit_misreport(
         cls, vdict: dict, loinc_code: str | None, normalizer
@@ -96,13 +117,16 @@ class PlainPipeline:
         from lablens.extraction.ocr_extractor import OCRExtractor
 
         extractor = OCRExtractor(self.settings)
-        report, page_images = await extractor.extract_from_pdf(
+        report, page_images, hplc_blocks = await extractor.extract_from_pdf(
             pdf_bytes, language=language
         )
         logger.info(
             "Extracted %d values from %d pages", len(report.values), report.page_count
         )
         # page_images kept for Phase 4 semantic verifier (not used yet)
+
+        # Build HPLC category lookup for interpretation routing
+        hplc_category_map = self._build_hplc_category_map(hplc_blocks)
 
         # Stage 2: Map terminology + normalize units
         from lablens.extraction.alias_registry import AliasRegistry
@@ -235,6 +259,16 @@ class PlainPipeline:
                 plausibility_checker.is_restricted_flag_category(lc)
             )
 
+            # HPLC interpretation routing: inject cross-validated category
+            # so the engine bypasses standard range-selection for HPLC values
+            if vdict.get("section_type") == "hplc_diabetes_block":
+                vdict["is_decision_threshold"] = True
+                cat = hplc_category_map.get(
+                    (v.test_name or "").lower().strip()
+                )
+                if cat:
+                    vdict["hplc_diabetes_category"] = cat
+
             confidences[i] = match_conf
             enriched_values.append(vdict)
 
@@ -261,7 +295,19 @@ class PlainPipeline:
         generator = ExplanationGenerator(self.settings, assembler)
         final = await generator.generate_report(interpreted, language)
 
-        return {
+        # Build audit HPLC block summaries
+        audit_hplc = []
+        for hb in hplc_blocks:
+            audit_hplc.append({
+                "ngsp_value": hb.ngsp.value if hb.ngsp else None,
+                "ifcc_value": hb.ifcc.value if hb.ifcc else None,
+                "eag_value": hb.eag.value if hb.eag else None,
+                "diabetes_category": hb.diabetes_category.value,
+                "cross_check_passed": hb.cross_check_passed,
+                "consistency_flags": hb.consistency_flags,
+            })
+
+        result = {
             "values": [vars(v) for v in final.interpreted_values],
             "explanations": [vars(e) for e in final.explanations],
             "panels": [vars(p) for p in final.panels] if final.panels else [],
@@ -269,3 +315,6 @@ class PlainPipeline:
             "disclaimer": final.disclaimer,
             "language": final.language,
         }
+        if audit_hplc:
+            result["audit"] = {"hplc_blocks": audit_hplc}
+        return result
