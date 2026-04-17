@@ -9,9 +9,11 @@ from pathlib import Path
 
 import yaml
 
+from lablens._data_paths import data_path
+
 logger = logging.getLogger(__name__)
 
-RULES_DIR = Path(__file__).parent.parent.parent.parent / "data" / "rules"
+RULES_DIR = data_path("rules")
 
 
 def load_all_rules(rules_dir: Path | None = None) -> dict[str, dict]:

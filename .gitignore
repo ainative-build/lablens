@@ -32,10 +32,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# package manager
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# package manager — lockfiles MUST be committed for reproducible builds
+# (Dockerfile.frontend uses --frozen-lockfile)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
 # semantic-release
 .nyc_output
@@ -43,6 +44,7 @@ pnpm-lock.yaml
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+!.env.production.example
 
 # vercel
 .vercel

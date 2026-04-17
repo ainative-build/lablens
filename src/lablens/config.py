@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     max_upload_size_mb: int = 20
 
+    # CORS — dev default ["*"] permits any origin; prod sets explicit list
+    # via LABLENS_ALLOWED_ORIGINS=["https://lablens.ainative.build"]
+    # (pydantic-settings parses JSON arrays from env automatically)
+    allowed_origins: list[str] = ["*"]
+
     model_config = {"env_file": ".env", "env_prefix": "LABLENS_"}
 
 

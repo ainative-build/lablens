@@ -10,14 +10,11 @@ from pathlib import Path
 
 import yaml
 
+from lablens._data_paths import data_path
+
 logger = logging.getLogger(__name__)
 
-_FAMILIES_PATH = (
-    Path(__file__).parent.parent.parent.parent
-    / "data"
-    / "aliases"
-    / "analyte-families.yaml"
-)
+_FAMILIES_PATH = data_path("aliases", "analyte-families.yaml")
 
 
 class RangePlausibilityChecker:

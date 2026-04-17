@@ -1,0 +1,48 @@
+# Keep Docker build context lean.
+# Each Dockerfile only COPIES what it needs (src/, data/, frontend/),
+# but cutting context size also speeds up "Sending build context" step.
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+build/
+dist/
+
+# Node / Next.js
+node_modules/
+.next/
+.turbo/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Project artifacts not needed inside images
+plans/
+docs/
+tests/
+evaluation/
+scripts/
+resources/
+260416-1958-qualitative-semantics/
+*.zip
+release-manifest.json
+download_lab_pdfs.py
+
+# Secrets — must NEVER land in an image layer
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Git
+.git/
+.github/
+.gitignore
+.gitattributes
