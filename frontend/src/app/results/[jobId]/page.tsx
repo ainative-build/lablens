@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { PanicStickyBanner } from "@/components/panic-sticky-banner";
@@ -11,7 +11,6 @@ import { SummaryCard } from "@/components/summary-card";
 import { TopicGroup } from "@/components/topic-group";
 import type { AnalysisResult } from "@/lib/api-client";
 import { getExportUrl, pollResult } from "@/lib/api-client";
-import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
 const MAX_POLL_ATTEMPTS = 60; // ~ 10 min wall time
@@ -23,11 +22,10 @@ function nextDelay(attempt: number): number {
 
 export default function ResultsPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const jobId = params.jobId as string;
-  // Language is owned by AppShell; we read ?lang= for poll initialization
-  // and rendering. AppShell's selector updates the URL via push.
-  const language = (searchParams.get("lang") as Language) || "en";
+  // English-only for now; switcher removed in feat/polish-v1. Restore by
+  // reading ?lang= from URL when re-localizing.
+  const language = "en" as const;
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stillWorking, setStillWorking] = useState(false);
@@ -87,14 +85,11 @@ export default function ResultsPage() {
   // ── Loading / error states ──
   if (error === "timeout") {
     return (
-      <ErrorBox
-        message="Analysis is taking too long. Please try uploading again."
-        language={language}
-      />
+      <ErrorBox message="Analysis is taking too long. Please try uploading again." />
     );
   }
   if (error) {
-    return <ErrorBox message={`${t("error.analysis", language)}: ${error}`} language={language} />;
+    return <ErrorBox message={`${t("error.analysis", language)}: ${error}`} />;
   }
   if (!result || result.status === "queued" || result.status === "processing") {
     // Centered loader: spinner + bold caption + timing hint + job id. No
@@ -136,7 +131,7 @@ export default function ResultsPage() {
     );
   }
   if (result.status === "failed") {
-    return <ErrorBox message={`${t("error.analysis", language)}: ${result.error ?? ""}`} language={language} />;
+    return <ErrorBox message={`${t("error.analysis", language)}: ${result.error ?? ""}`} />;
   }
 
   // ── Success: render summary + grouped layout ──
@@ -256,9 +251,11 @@ export default function ResultsPage() {
   );
 }
 
-function ErrorBox({ message, language }: { message: string; language: Language }) {
+function ErrorBox({ message }: { message: string }) {
   // Token-aligned: surface-sunken + border tokens match SummaryCard tone.
   // Error tone is conveyed by the icon, not by tinting the whole panel.
+  // Hardcoded "en" since the app is English-only for now.
+  const language = "en" as const;
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-4">

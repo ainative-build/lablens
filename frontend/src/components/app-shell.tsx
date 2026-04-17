@@ -1,44 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ChatDock } from "@/components/chat-dock";
-import { LanguageSelector } from "@/components/language-selector";
-import type { Language } from "@/lib/i18n";
 
 interface Props {
   children: React.ReactNode;
 }
 
 /**
- * Top-level layout shell. Sidebar removed in feat/polish-v1 (redundant once
- * the homepage owns the upload flow). Now: slim top header (logo + lang) +
- * full-width main + floating chat dock on `/results/[jobId]`.
+ * Top-level layout shell. English-only — language switcher removed in
+ * feat/polish-v1 follow-up (was premature; bring back when we re-localize).
+ * Slim top header (logo only) + full-width main + floating chat dock on
+ * `/results/[jobId]`. Header uses translucent surface so content scrolls
+ * under calmly.
  *
- * The header is sticky + uses translucent surface so content underneath
- * scrolls calmly. Language is owned here so chat + results stay in sync
- * with the URL `?lang=` param.
+ * The `language` prop pipeline on downstream components is intentionally
+ * preserved (cheap to keep, expensive to thread back). All callers pass "en".
  */
 export function AppShell({ children }: Props) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const initialLang = (searchParams.get("lang") as Language) || "en";
-  const [language, setLanguage] = useState<Language>(initialLang);
-
-  // Re-sync if the user navigates with a different ?lang.
-  useEffect(() => {
-    const next = (searchParams.get("lang") as Language) || "en";
-    setLanguage(next);
-  }, [searchParams]);
-
-  // Sync <html lang/dir> for a11y + RTL.
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.lang = language;
-    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
-  }, [language]);
+  const language = "en" as const;
 
   // Extract jobId from /results/[jobId] for chat bar.
   const jobIdMatch = pathname?.match(/^\/results\/([^/]+)/);
@@ -50,7 +32,8 @@ export function AppShell({ children }: Props) {
 
   return (
     <div className="min-h-dvh flex flex-col bg-radial-brand">
-      {/* Sticky top header — logo (left), language (right). Same on all sizes. */}
+      {/* Sticky top header — logo only. Language switcher removed; restore
+          here when re-localizing (multi-lang select goes on the right side). */}
       <header
         className="sticky top-0 z-40 backdrop-blur-md bg-[var(--color-surface)]/85 border-b border-[var(--color-border)]"
         style={{ height: "var(--header-height)" }}
@@ -83,8 +66,6 @@ export function AppShell({ children }: Props) {
               LabLens
             </span>
           </Link>
-
-          <LanguageSelector value={language} onChange={setLanguage} />
         </div>
       </header>
 

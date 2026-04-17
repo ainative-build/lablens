@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { PDFUploader } from "@/components/pdf-uploader";
 import { uploadReport } from "@/lib/api-client";
-import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
 /**
@@ -13,13 +12,12 @@ import { t } from "@/lib/i18n";
  * quiet disclaimer footer. Designed against the "Accessible & Ethical"
  * style + healthcare type pairing (Figtree headline / Geist body).
  *
- * Language is read from `?lang=` so deep-links from result share-back keep
- * the right copy. AppShell owns the master language state (top header).
+ * English-only for now; `language` is hardcoded so the i18n surface stays
+ * intact for future re-localization.
  */
 export default function HomePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const language = (searchParams.get("lang") as Language) || "en";
+  const language = "en" as const;
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,13 +28,13 @@ export default function HomePage() {
       setError(null);
       try {
         const jobId = await uploadReport(file, language);
-        router.push(`/results/${jobId}?lang=${language}`);
+        router.push(`/results/${jobId}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : t("error.upload", language));
         setIsLoading(false);
       }
     },
-    [language, router]
+    [router]
   );
 
   return (
