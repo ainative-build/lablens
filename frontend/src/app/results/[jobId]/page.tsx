@@ -32,7 +32,43 @@ export default function ResultsPage() {
   const [stillWorking, setStillWorking] = useState(false);
   const [abnormalOnly, setAbnormalOnly] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const attemptRef = useRef(0);
+
+  // Fetch the CSV via JS so we can detect non-200 responses (e.g. 404
+  // when the in-memory job_store has been wiped by a backend restart)
+  // and surface a clear error instead of silently downloading the JSON
+  // error body the way `<a download>` does.
+  const handleExport = async () => {
+    if (exporting) return;
+    setExportError(null);
+    setExporting(true);
+    try {
+      const resp = await fetch(getExportUrl(jobId));
+      if (!resp.ok) {
+        setExportError(t("results.export_failed", language));
+        return;
+      }
+      const blob = await resp.blob();
+      // Filename comes from Content-Disposition; fall back to a sensible default.
+      const dispositionHeader = resp.headers.get("content-disposition") || "";
+      const filenameMatch = dispositionHeader.match(/filename="?([^"]+)"?/);
+      const filename = filenameMatch?.[1] ?? `lablens-${jobId.slice(0, 8)}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError(t("results.export_failed", language));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Rotate through friendly progress hints during the wait. 7 tips total,
   // each visible ~4.5 s. Mounted only while we're still polling — cleanup
@@ -238,15 +274,47 @@ export default function ResultsPage() {
                 onChange={setAbnormalOnlyPersisted}
                 language={language}
               />
-              <a
-                href={getExportUrl(jobId)}
-                download
-                className="px-3 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-muted)] text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                className="px-3 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-muted)] text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t("results.export_csv", language)}
-              </a>
+              </button>
             </div>
           </div>
+
+          {/* Inline export-error banner — shows when the export endpoint
+              returns non-200 (most commonly 404 after a backend restart). */}
+          {exportError && (
+            <div
+              role="alert"
+              className="bg-[var(--color-surface-sunken)] border border-[var(--color-border)] rounded-[var(--radius-card)] p-3 text-sm text-[var(--foreground)] flex items-start gap-2"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-5 w-5 shrink-0 text-rose-600"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.94 6.94a1.5 1.5 0 112.12 2.12L10 10.12V12a1 1 0 11-2 0V9.5c0-.4.16-.78.44-1.06l.5-.5zM10 16a1 1 0 100-2 1 1 0 000 2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="flex-1">{exportError}</span>
+              <button
+                type="button"
+                onClick={() => setExportError(null)}
+                aria-label="Dismiss"
+                className="text-[var(--foreground-muted)] hover:text-[var(--foreground)] -mt-0.5"
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           <DisclaimerBanner type="results" language={language} />
 
