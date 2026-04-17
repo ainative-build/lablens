@@ -4,10 +4,20 @@ import { t } from "@/lib/i18n";
 import { StatPanel } from "./stat-panel";
 import { SuggestedQuestions } from "./suggested-questions";
 
-interface Props {
-  result: NonNullable<AnalysisResult["result"]>;
-  language: Language;
-}
+// Discriminated union: when `isLoading` is true, no `result` is required —
+// the rail renders skeleton placeholders. Default branch keeps the existing
+// callsite signature ({ result, language }) unchanged.
+type Props =
+  | {
+      isLoading: true;
+      language: Language;
+      result?: undefined;
+    }
+  | {
+      isLoading?: false;
+      result: NonNullable<AnalysisResult["result"]>;
+      language: Language;
+    };
 
 /**
  * Right-rail composition of 3 stat cards derived from the existing
@@ -19,7 +29,26 @@ interface Props {
  *   indeterminate_count = unclear
  *   normal = total - abnormal - minor - unclear
  */
-export function ResultsRightRail({ result, language }: Props) {
+export function ResultsRightRail(props: Props) {
+  const { language } = props;
+
+  if (props.isLoading) {
+    // 3 stat-panel-shaped skeletons match the height of the loaded variant
+    // (~h-28 each) so swap-in causes minimal layout shift.
+    return (
+      <div
+        role="status"
+        aria-label={t("upload.skeleton.label", language)}
+        className="space-y-3"
+      >
+        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" aria-hidden="true" />
+        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" aria-hidden="true" />
+        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  const result = props.result;
   const total = result.values?.length ?? 0;
   const groups = result.topic_groups ?? [];
 

@@ -97,25 +97,62 @@ export default function ResultsPage() {
     return <ErrorBox message={`${t("error.analysis", language)}: ${error}`} language={language} />;
   }
   if (!result || result.status === "queued" || result.status === "processing") {
+    // Skeleton mirrors the success layout (mobile rail strip + main + desktop
+    // rail) so when real content lands the page barely shifts.
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div
-            role="status"
-            aria-live="polite"
-            className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"
-          />
-          <p className="text-gray-700 dark:text-gray-300 text-lg">
-            {t("upload.analyzing", language)}
-          </p>
-          {stillWorking && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Still working...
-            </p>
-          )}
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Job: {jobId}
-          </p>
+      <div
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+        className="px-4 py-5"
+      >
+        {/* Mobile/tablet right-rail skeleton strip */}
+        <div className="lg:hidden mb-4 -mx-4 px-4 overflow-x-auto">
+          <div className="flex gap-3 min-w-max pb-1">
+            <div className="w-72 shrink-0">
+              <ResultsRightRail isLoading language={language} />
+            </div>
+          </div>
+        </div>
+
+        {/* Two-column skeleton on lg+ */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 max-w-[1180px] mx-auto">
+          <div className="space-y-5 min-w-0">
+            {/* Toolbar placeholder */}
+            <div className="flex justify-between items-center flex-wrap gap-3">
+              <div className="h-7 w-48 rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] animate-pulse" />
+              <div className="h-7 w-28 rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] animate-pulse" />
+            </div>
+            {/* Summary card placeholder */}
+            <div className="h-40 rounded-[var(--radius-card)] border-2 border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
+            {/* 3 topic group placeholders */}
+            <div className="space-y-3">
+              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
+              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
+              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
+            </div>
+            {/* Progress label */}
+            <div className="text-center space-y-1 pt-2">
+              <p className="text-sm text-[var(--foreground)] opacity-80">
+                {t("upload.analyzing", language)}
+              </p>
+              {stillWorking && (
+                <p className="text-xs text-[var(--foreground)] opacity-60">
+                  {t("upload.still_working", language)}
+                </p>
+              )}
+              <p className="text-[11px] text-[var(--foreground)] opacity-40">
+                Job: {jobId}
+              </p>
+            </div>
+          </div>
+
+          {/* Desktop right-rail skeleton */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-4">
+              <ResultsRightRail isLoading language={language} />
+            </div>
+          </aside>
         </div>
       </div>
     );
@@ -182,9 +219,29 @@ export default function ResultsPage() {
                 : groups;
               if (visible.length === 0) {
                 return (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 italic px-4 py-6 text-center bg-[var(--color-surface)] rounded-[var(--radius-card)] border border-[var(--color-border)]">
-                    {t("filter.empty_state", language)}
-                  </p>
+                  <div
+                    role="status"
+                    className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-card)] p-6 text-center flex flex-col items-center gap-2"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="h-6 w-6 text-emerald-600 dark:text-emerald-400"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <p className="text-[var(--foreground)] font-medium">
+                      {t("results.empty.all_normal_title", language)}
+                    </p>
+                    <p className="text-sm text-[var(--foreground)] opacity-70">
+                      {t("filter.empty_state", language)}
+                    </p>
+                  </div>
                 );
               }
               return visible.map((g) => (
@@ -222,15 +279,32 @@ export default function ResultsPage() {
 }
 
 function ErrorBox({ message, language }: { message: string; language: Language }) {
+  // Token-aligned: surface-sunken + border tokens match SummaryCard tone.
+  // Error tone is conveyed by the icon, not by tinting the whole panel.
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-4">
-        <div className="bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 rounded-md p-4">
-          {message}
+        <div
+          role="alert"
+          className="bg-[var(--color-surface-sunken)] border border-[var(--color-border)] rounded-[var(--radius-card)] p-4 flex items-start gap-3"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-5 w-5 mt-0.5 shrink-0 text-rose-600 dark:text-rose-400"
+          >
+            <path
+              fillRule="evenodd"
+              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a1 1 0 011 1v3a1 1 0 11-2 0V7a1 1 0 011-1zm0 8a1 1 0 100-2 1 1 0 000 2z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <p className="text-[var(--foreground)] text-sm">{message}</p>
         </div>
         <Link
           href="/"
-          className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+          className="text-[var(--color-brand-600)] hover:underline text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded"
         >
           {t("results.back", language)}
         </Link>
