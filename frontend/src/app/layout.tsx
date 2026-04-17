@@ -46,10 +46,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${figtree.variable} h-full antialiased`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="min-h-full flex flex-col">
+        {/* Theme bootstrap — first body child so it runs before React
+            hydrates. Putting it in <head> doesn't work in Next.js 16 App
+            Router (the framework manages <head> itself and strips
+            children). Synchronous script keeps data-theme set pre-paint
+            so we never flash the wrong theme. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {/* AppShell uses useSearchParams → must be wrapped in Suspense (Next.js 16). */}
         <Suspense fallback={<div className="min-h-dvh" />}>
           <AppShell>{children}</AppShell>
