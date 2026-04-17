@@ -31,7 +31,21 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [stillWorking, setStillWorking] = useState(false);
   const [abnormalOnly, setAbnormalOnly] = useState(false);
+  const [tipIndex, setTipIndex] = useState(0);
   const attemptRef = useRef(0);
+
+  // Rotate through friendly progress hints during the wait. 7 tips total,
+  // each visible ~4.5 s. Mounted only while we're still polling — cleanup
+  // clears the interval when results land or the page unmounts.
+  const isProcessing =
+    !result || result.status === "queued" || result.status === "processing";
+  useEffect(() => {
+    if (!isProcessing) return;
+    const id = setInterval(() => {
+      setTipIndex((i) => (i + 1) % 7);
+    }, 4500);
+    return () => clearInterval(id);
+  }, [isProcessing]);
 
   // Restore abnormal-only preference from localStorage on mount.
   useEffect(() => {
@@ -103,39 +117,68 @@ export default function ResultsPage() {
   if (error) {
     return <ErrorBox message={`${t("error.analysis", language)}: ${error}`} />;
   }
-  if (!result || result.status === "queued" || result.status === "processing") {
-    // Centered loader: spinner + bold caption + timing hint + job id. No
-    // skeleton blocks — they read as empty/error cards more than "loading".
+  if (isProcessing) {
+    // Centered loader, vertically filling viewport minus the header.
+    // Uses min-h-[calc(100dvh-var(--header-height))] because the outer
+    // <main> is a block element — `flex-1` on a child wouldn't work without
+    // making <main> a flex column (cascading change we don't want).
+    const tipKey = `upload.tip.${tipIndex + 1}`;
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
+      <div
+        className="flex items-center justify-center p-4"
+        style={{ minHeight: "calc(100dvh - var(--header-height))" }}
+      >
         <div
           role="status"
           aria-busy="true"
           aria-live="polite"
-          className="text-center space-y-2"
+          className="text-center space-y-4 max-w-md"
         >
-          <div className="inline-flex items-center gap-2 text-[var(--foreground)] font-semibold text-xl">
+          {/* Spinner + subtle pulse ring around it for depth */}
+          <div className="relative inline-flex items-center justify-center h-16 w-16">
+            <span
+              aria-hidden
+              className="absolute inset-0 rounded-full bg-[var(--color-brand-500)]/10 animate-ping"
+            />
+            <span
+              aria-hidden
+              className="absolute inset-2 rounded-full bg-[var(--color-brand-500)]/15"
+            />
             <svg
               aria-hidden="true"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
-              className="h-6 w-6 animate-spin text-[var(--color-brand-600)]"
+              className="relative h-8 w-8 animate-spin text-[var(--color-brand-600)]"
             >
               <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
             </svg>
-            <span>{t("upload.analyzing", language)}</span>
           </div>
+
+          <h1 className="text-xl font-semibold text-[var(--foreground)]">
+            {t("upload.analyzing", language)}
+          </h1>
+
           <p className="text-sm text-[var(--foreground)] opacity-70">
             {t("upload.timing_hint", language)}
           </p>
+
+          {/* Rotating tip — fades in/out on change via `key` re-mount. */}
+          <p
+            key={tipIndex}
+            className="text-sm text-[var(--color-brand-700)] dark:text-[var(--color-brand-500)] font-medium min-h-[1.5rem] animate-fade-in"
+          >
+            {t(tipKey, language)}
+          </p>
+
           {stillWorking && (
-            <p className="text-sm text-[var(--color-brand-600)] font-medium">
+            <p className="text-sm text-[var(--foreground-muted)] italic">
               {t("upload.still_working", language)}
             </p>
           )}
-          <p className="text-[11px] text-[var(--foreground)] opacity-40">
+
+          <p className="text-[11px] text-[var(--foreground)] opacity-30 pt-2">
             Job: {jobId}
           </p>
         </div>
