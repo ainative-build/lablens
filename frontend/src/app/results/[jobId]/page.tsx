@@ -3,9 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
-import { LanguageSelector } from "@/components/language-selector";
 import { PanicStickyBanner } from "@/components/panic-sticky-banner";
 import { SummaryCard } from "@/components/summary-card";
 import { TopicGroup } from "@/components/topic-group";
@@ -13,12 +11,6 @@ import type { AnalysisResult } from "@/lib/api-client";
 import { getExportUrl, pollResult } from "@/lib/api-client";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
-
-// Phase 4 (lazy): Q&A pane is loaded only when the user opens it.
-const ChatPane = dynamic(
-  () => import("@/components/chat/qa-pane").then((m) => m.QaPane),
-  { ssr: false }
-);
 
 const MAX_POLL_ATTEMPTS = 60; // ~ 10 min wall time
 
@@ -31,22 +23,13 @@ export default function ResultsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const jobId = params.jobId as string;
-  const [language, setLanguage] = useState<Language>(
-    (searchParams.get("lang") as Language) || "en"
-  );
+  // Language is owned by AppShell; we read ?lang= for poll initialization
+  // and rendering. AppShell's selector updates the URL via push.
+  const language = (searchParams.get("lang") as Language) || "en";
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stillWorking, setStillWorking] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const attemptRef = useRef(0);
-
-  // Sync <html lang/dir> with selected language for a11y + RTL.
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.lang = language;
-      document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
-    }
-  }, [language]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -127,23 +110,21 @@ export default function ResultsPage() {
   const groups = data.topic_groups ?? [];
 
   return (
-    <div className="flex-1 p-4 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 max-w-3xl mx-auto space-y-5">
       <PanicStickyBanner values={data.values} language={language} />
 
+      {/* Toolbar — page-level actions (header text moved to AppShell). */}
       <div className="flex justify-between items-center flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+        <h1 className="text-2xl font-bold text-[var(--foreground)]">
           {t("results.title", language)}
         </h1>
-        <div className="flex items-center gap-3">
-          <a
-            href={getExportUrl(jobId)}
-            download
-            className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-          >
-            {t("results.export_csv", language)}
-          </a>
-          <LanguageSelector value={language} onChange={setLanguage} />
-        </div>
+        <a
+          href={getExportUrl(jobId)}
+          download
+          className="px-3 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-muted)] text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
+        >
+          {t("results.export_csv", language)}
+        </a>
       </div>
 
       <DisclaimerBanner type="results" language={language} />
@@ -161,32 +142,15 @@ export default function ResultsPage() {
         ))}
       </div>
 
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 text-center">
+      <div className="pt-4 border-t border-[var(--color-border)] text-center">
         <Link
           href="/"
-          className="text-blue-600 dark:text-blue-400 hover:underline text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded"
+          className="text-[var(--color-brand-600)] hover:underline text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded"
         >
           {t("results.back", language)}
         </Link>
       </div>
-
-      {/* Phase 4: Q&A floating CTA + lazy-loaded chat pane */}
-      {!chatOpen && (
-        <button
-          type="button"
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-4 right-4 z-30 rounded-full bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 text-sm font-medium shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-        >
-          💬 {t("chat.cta_open", language)}
-        </button>
-      )}
-      {chatOpen && (
-        <ChatPane
-          jobId={jobId}
-          language={language}
-          onClose={() => setChatOpen(false)}
-        />
-      )}
+      {/* Sticky chat bar lives in AppShell — auto-shown for /results/* routes. */}
     </div>
   );
 }
