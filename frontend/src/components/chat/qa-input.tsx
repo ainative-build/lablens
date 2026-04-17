@@ -6,6 +6,9 @@ import { t } from "@/lib/i18n";
 
 interface Props {
   disabled: boolean;
+  /** When true, render an inline spinner + "Sending..." label on the send button.
+   * `disabled` should usually also be true while pending. */
+  pending?: boolean;
   language: Language;
   onSubmit: (question: string) => void;
   initialValue?: string;
@@ -13,7 +16,13 @@ interface Props {
 
 const MAX_LEN = 500;
 
-export function QaInput({ disabled, language, onSubmit, initialValue = "" }: Props) {
+export function QaInput({
+  disabled,
+  pending = false,
+  language,
+  onSubmit,
+  initialValue = "",
+}: Props) {
   const [value, setValue] = useState(initialValue);
 
   const submit = () => {
@@ -68,9 +77,21 @@ export function QaInput({ disabled, language, onSubmit, initialValue = "" }: Pro
           type="button"
           disabled={disabled || value.trim().length === 0}
           onClick={submit}
-          className="rounded bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+          className="rounded bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 min-h-[44px] md:min-h-0 md:py-1.5 disabled:opacity-60 inline-flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
         >
-          {t("chat.send", language)}
+          {pending && (
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              className="inline-block h-3.5 w-3.5 animate-spin"
+            >
+              <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+            </svg>
+          )}
+          {pending ? t("chat.sending", language) : t("chat.send", language)}
         </button>
       </div>
     </div>

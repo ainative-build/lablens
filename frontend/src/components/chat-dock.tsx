@@ -151,6 +151,17 @@ export function ChatDock({ jobId, language }: Props) {
         </button>
       )}
 
+      {/* Backdrop — fades in behind dialog; click dismisses (matches ESC behavior).
+          Note: dialog stays aria-modal="false" by design; backdrop is purely
+          visual focus, not a focus-trap. */}
+      {open && (
+        <div
+          aria-hidden="true"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 bg-black/30 animate-fade-in"
+        />
+      )}
+
       {/* Dialog */}
       {open && (
         <aside
@@ -195,6 +206,7 @@ export function ChatDock({ jobId, language }: Props) {
           <div className="shrink-0 border-t border-[var(--color-border)]">
             <QaInput
               disabled={pending || expired}
+              pending={pending}
               language={language}
               onSubmit={submit}
             />
