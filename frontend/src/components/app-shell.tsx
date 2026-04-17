@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChatDock } from "@/components/chat-dock";
@@ -41,30 +42,21 @@ export function AppShell({ children }: Props) {
         <div className="mx-auto h-full flex items-center justify-between gap-3 px-4 sm:px-6 max-w-[var(--container-max)]">
           <Link
             href="/"
-            className="flex items-center gap-2 rounded-md px-1 -mx-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
+            className="flex items-center rounded-md px-1 -mx-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
             aria-label="LabLens home"
           >
-            {/* Compact mark — solid green dot with a stylized "drop" cutout.
-                Pure SVG so it scales + theme-tints cleanly. */}
-            <span
-              aria-hidden
-              className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-[var(--color-brand-500)] shadow-[var(--shadow-card)]"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="M12 3c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10z" fill="white" stroke="none" />
-              </svg>
-            </span>
-            <span className="font-display font-semibold text-[15px] sm:text-base text-[var(--foreground)]">
-              LabLens
-            </span>
+            {/* Logo includes the LabLens wordmark + tagline. next/image
+                serves an optimized WebP/AVIF at the actual render size, so
+                the source PNG (2816x1536, 5 MB) doesn't ship verbatim. */}
+            <Image
+              src="/logo.png"
+              alt="LabLens"
+              width={2816}
+              height={1536}
+              priority
+              sizes="(max-width: 640px) 110px, 140px"
+              className="h-10 w-auto sm:h-11"
+            />
           </Link>
         </div>
       </header>
