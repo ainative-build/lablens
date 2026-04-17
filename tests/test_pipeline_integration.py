@@ -214,25 +214,33 @@ class TestHeuristicSeverity:
     def engine(self):
         return InterpretationEngine()
 
-    def test_mild_deviation(self, engine):
-        """Value just outside range (≤10% deviation) → mild severity."""
+    def test_mild_deviation_gated_to_low_confidence(self, engine):
+        """Without a curated rule, heuristic severity is suppressed.
+
+        Phase 1 uncertainty gate: direction stays as computed, but severity
+        drops to normal and the row is tagged low_confidence so the UI won't
+        show a bogus "mild abnormal" callout on an analyte we don't have a
+        clinical rule for.
+        """
         values = [{
             "test_name": "Unknown Analyte", "value": 10.4, "unit": "mg/dL",
             "loinc_code": None, "ref_range_low": 5.0, "ref_range_high": 10.0,
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "high"
-        assert report.values[0].severity == "mild"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
-    def test_moderate_deviation(self, engine):
-        """Value well outside range → moderate severity."""
+    def test_moderate_deviation_gated_to_low_confidence(self, engine):
+        """Even large deviations get gated without curated rule."""
         values = [{
             "test_name": "Unknown Analyte", "value": 15.0, "unit": "mg/dL",
             "loinc_code": None, "ref_range_low": 5.0, "ref_range_high": 10.0,
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "high"
-        assert report.values[0].severity == "moderate"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
     def test_in_range_stays_normal(self, engine):
         """In-range value → normal severity regardless of missing rule."""
@@ -611,8 +619,13 @@ class TestRangeTrust:
         assert report.values[0].severity in ("mild", "normal")
         assert report.values[0].range_source == "lab-provided-suspicious"
 
-    def test_high_trust_range_allows_moderate(self, engine):
-        """High-trust lab range allows normal severity escalation."""
+    def test_high_trust_range_without_curated_rule_gated(self, engine):
+        """Even high-trust lab range gets gated without curated rule.
+
+        Phase 1: OCR-extracted lab ranges are not strong enough clinical
+        support on their own — without a curated rule the severity drops
+        to normal and the row is tagged low_confidence.
+        """
         values = [{
             "test_name": "WBC", "value": 15.0, "unit": "K/uL",
             "loinc_code": None,
@@ -620,7 +633,9 @@ class TestRangeTrust:
             "range_trust": "high",
         }]
         report = engine.interpret_report(values)
-        assert report.values[0].severity == "moderate"
+        assert report.values[0].direction == "high"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
 
 class TestExpandedRangeSource:
@@ -856,7 +871,12 @@ class TestSeverityCap:
         return InterpretationEngine()
 
     def test_never_critical_without_curated(self, engine):
-        """Heuristic severity cannot reach critical — capped at moderate."""
+        """Heuristic severity cannot reach critical without curated rule.
+
+        Phase 1: without curated bands the uncertainty gate now fires and
+        drops severity to normal entirely (low_confidence), superseding the
+        older heuristic-cap-at-moderate behavior.
+        """
         values = [{
             "test_name": "Unknown", "value": 100.0, "unit": "mg/dL",
             "loinc_code": None,
@@ -864,7 +884,8 @@ class TestSeverityCap:
         }]
         report = engine.interpret_report(values)
         assert report.values[0].severity != "critical"
-        assert report.values[0].severity == "moderate"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
 
 class TestPlausibilityChecker:

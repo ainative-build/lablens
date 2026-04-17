@@ -50,6 +50,7 @@ def _make_result(
     is_panic: bool,
     note: str,
     context: str = "",
+    classification_state: str = "classified",
 ) -> dict:
     """Build result dict with all fields needed by InterpretedResult."""
     return {
@@ -58,6 +59,7 @@ def _make_result(
         "severity": severity,
         "actionability": actionability,
         "is_panic": is_panic,
+        "classification_state": classification_state,
         "evidence_trace": {
             "note": note,
             "explanation_hint": context,
@@ -223,6 +225,7 @@ def _interpret_expected_negative(rule: dict, val: str, flag: str | None) -> dict
     return _make_result(
         "indeterminate", "low", "normal", "routine", False,
         f"Unknown qualitative value: {val}",
+        classification_state="could_not_classify",
     )
 
 
@@ -251,6 +254,7 @@ def _interpret_expected_positive(rule: dict, val: str, flag: str | None) -> dict
     return _make_result(
         "indeterminate", "low", "normal", "routine", False,
         f"Unknown value for expected-positive test: {val}",
+        classification_state="could_not_classify",
     )
 
 
@@ -320,4 +324,5 @@ def _interpret_fallback(val: str, flag: str | None) -> dict:
     return _make_result(
         "indeterminate", "low", "normal", "routine", False,
         f"Unknown qualitative value: {val}",
+        classification_state="could_not_classify",
     )

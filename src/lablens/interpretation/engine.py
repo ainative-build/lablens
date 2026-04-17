@@ -112,6 +112,9 @@ class InterpretationEngine:
                 result.actionability = qr["actionability"]
                 result.is_panic = qr["is_panic"]
                 result.range_source = qr.get("range_source", "no-range")
+                result.classification_state = qr.get(
+                    "classification_state", "classified"
+                )
                 result.evidence_trace = {
                     **qr.get("evidence_trace", {}),
                     "raw": str(v["value"]),
@@ -132,6 +135,9 @@ class InterpretationEngine:
             result.actionability = qr["actionability"]
             result.is_panic = qr["is_panic"]
             result.range_source = qr.get("range_source", "no-range")
+            result.classification_state = qr.get(
+                "classification_state", "classified"
+            )
             result.evidence_trace = {
                 **qr.get("evidence_trace", {}),
                 "raw": str(v["value"]),
@@ -205,6 +211,7 @@ class InterpretationEngine:
                         result.range_source = "no-range"
                         result.range_trust = range_trust
                         result.confidence = "low"
+                        result.classification_state = "could_not_classify"
                         result.evidence_trace = build_evidence_trace(
                             result, rule, match_confidence
                         )
@@ -236,6 +243,7 @@ class InterpretationEngine:
                 result.range_source = "no-range"
                 result.range_trust = range_trust
                 result.confidence = "low"
+                result.classification_state = "could_not_classify"
                 result.evidence_trace = build_evidence_trace(
                     result, rule, match_confidence
                 )
@@ -340,9 +348,11 @@ class InterpretationEngine:
         is_decision_threshold = v.get("is_decision_threshold", False)
         if not unit.strip():
             result.direction = "indeterminate"
+            result.classification_state = "could_not_classify"
         elif restricted_flag or is_decision_threshold:
             result.direction = "indeterminate"
             result.range_source = "no-range"
+            result.classification_state = "could_not_classify"
         elif flag and flag.upper() in ("H", "A"):
             result.direction = "high"
             result.range_source = "ocr-flag-fallback"
@@ -351,6 +361,7 @@ class InterpretationEngine:
             result.range_source = "ocr-flag-fallback"
         else:
             result.direction = "indeterminate"
+            result.classification_state = "could_not_classify"
         result.confidence = "low"
         result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
         return result
@@ -398,3 +409,25 @@ class InterpretationEngine:
         result.actionability = DEFAULT_ACTIONABILITY.get(result.severity, "routine")
         if result.is_panic:
             result.actionability = "urgent"
+
+        # Phase 1 uncertainty gate: a non-normal severity is only trustworthy
+        # when we have curated bands. An OCR-extracted lab range alone — even
+        # if the verifier rates it high trust — is not strong enough clinical
+        # rule support; that's exactly how Basophils/NRBC/Non-HDL got called
+        # `moderate` in the judge-review report. Suppress to normal and mark
+        # the row low_confidence — the direction arrow still shows, but the
+        # UI/CSV won't report a bogus "mild abnormal" callout.
+        if result.severity != "normal":
+            has_curated_bands = rule is not None and rule.get(
+                "severity_bands"
+            ) is not None
+            if not has_curated_bands:
+                logger.info(
+                    "Uncertainty gate: %s — no curated bands (range_source=%s),"
+                    " suppressing severity %s -> normal (low_confidence)",
+                    result.test_name, range_source, result.severity,
+                )
+                result.severity = "normal"
+                result.actionability = "routine"
+                result.is_panic = False
+                result.classification_state = "low_confidence"
