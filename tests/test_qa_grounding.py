@@ -237,6 +237,31 @@ class TestNumericScrub:
         )
         assert numeric_scrub_violation(text, compact, citations=[]) is None
 
+    def test_does_not_capture_minus_from_test_name(self):
+        """Real bug (reported by user): 'CA 19-9' → regex extracted '-9' as
+        an invented number, falsely refused legitimate doctor-questions
+        whenever the model mentioned the tumor marker by name.
+        """
+        compact = {"values": [{"name": "CA 19-9", "value": 42.0, "unit": "U/mL"}]}
+        text = (
+            "Your CA 19-9 is mildly elevated; discuss with your clinician at "
+            "your next visit for context."
+        )
+        assert numeric_scrub_violation(text, compact, citations=[]) is None
+
+    def test_does_not_capture_minus_from_loinc_code(self):
+        """LOINC codes like '1989-3' shouldn't yield '-3' as an invented number."""
+        compact = {"values": [{"name": "Vit D", "value": 25.0, "unit": "ng/mL"}]}
+        text = "Reference: LOINC 1989-3 — your value is at 25 ng/mL."
+        assert numeric_scrub_violation(text, compact, citations=[]) is None
+
+    def test_still_allows_genuine_negative(self):
+        """Negative numbers preceded by space/start should still parse."""
+        compact = {"values": [{"name": "Z-score", "value": -1.5}]}
+        text = "Your Z-score is -1.5 which is within range."
+        # -1.5 IS in the compact, so no violation
+        assert numeric_scrub_violation(text, compact, citations=[]) is None
+
     def test_allows_cited_value(self):
         assert numeric_scrub_violation(
             "Glucose 100 mg/dL is in range.",
@@ -383,3 +408,34 @@ class TestValidateAnswer:
 def test_canned_refusal_has_follow_ups():
     out = canned_refusal("en", "x")
     assert len(out["follow_ups"]) >= 3
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Differentiated refusal text (PR #6 v5: validator-fail vs out-of-scope)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestDifferentiatedRefusal:
+    def test_validator_failure_uses_rephrase_text(self):
+        """invented_number / invalid_cite / etc. → 'try rephrasing' message,
+        NOT the 'consult your doctor' canned text. Otherwise users can't tell
+        a real out-of-scope refusal from an internal validator hiccup.
+        """
+        out = canned_refusal("en", "invented_number:75")
+        assert "rephras" in out["answer"].lower() or "trouble" in out["answer"].lower()
+        assert "consult your doctor" not in out["answer"].lower()
+
+    def test_out_of_scope_uses_doctor_text(self):
+        out = canned_refusal("en", "out_of_scope")
+        assert "consult your doctor" in out["answer"].lower()
+
+    def test_drug_refusal_uses_doctor_text(self):
+        out = canned_refusal("en", "drug_or_dose")
+        assert "consult your doctor" in out["answer"].lower()
+
+    def test_invalid_citation_uses_rephrase_text(self):
+        out = canned_refusal("en", "invalid_cite:foo")
+        assert "trouble" in out["answer"].lower() or "rephras" in out["answer"].lower()
+
+    def test_localized_validator_failure_vn(self):
+        out = canned_refusal("vn", "invented_number:75")
+        # Vietnamese 'rephrase' fallback shouldn't be the doctor refusal
+        assert "diễn đạt lại" in out["answer"] or "khó khăn" in out["answer"]

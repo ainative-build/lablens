@@ -276,25 +276,67 @@ def _extract_answer_numbers(text: str) -> list[str]:
     return [_normalize_number(f) for f in _extract_answer_floats(text)]
 
 
-def _extract_answer_floats(text: str) -> list[float]:
-    """Extract standalone numbers as floats — used for tolerant matching."""
+# Hyphen-separated digit pairs:
+#   - LOINC codes: 1989-3, 4548-4, 33914-3
+#   - Test name fragments: 19-9 (CA 19-9), 25-OH (vitamin D)
+# These are NEVER medical values — they're identifiers.
+_HYPHENATED_DIGIT_PAIR = re.compile(r"\b\d{1,6}-\d{1,3}\b")
+
+
+def _strip_test_name_numbers(text: str, compact: dict) -> str:
+    """Strip digits that belong to identifiers (test names + LOINC codes).
+
+    e.g. "CA 19-9" mentioned in answer → both "19" and "9" should NOT be
+    treated as standalone medical numbers. Same for LOINC codes "1989-3".
+
+    Two-pass strategy:
+      1. Replace each known test_name occurrence with a letter-only token.
+      2. Replace any remaining hyphen-digit-pair pattern (catches LOINC codes
+         and identifier fragments not in compact_report).
+    """
+    if not text:
+        return text
+    out = text
+    for v in compact.get("values", []):
+        name = v.get("name") or ""
+        # Only test names that contain digits matter for this scrub.
+        if not name or not any(ch.isdigit() for ch in name):
+            continue
+        # Case-insensitive strip; replace with letter-only token.
+        out = re.sub(re.escape(name), "TESTNAME", out, flags=re.IGNORECASE)
+    # Pass 2: strip hyphen-digit-pair identifiers (LOINC, etc.)
+    out = _HYPHENATED_DIGIT_PAIR.sub("CODE", out)
+    return out
+
+
+def _extract_answer_floats(text: str, compact: dict | None = None) -> list[float]:
+    """Extract standalone numbers as floats — used for tolerant matching.
+
+    Rules:
+      - Skip digits embedded in identifiers ("HbA1c" → no "1"; "B12" → no "12").
+      - Don't read "-" as a minus sign when preceded by a digit, so test names
+        like "CA 19-9" and LOINC codes like "1989-3" don't yield "-9" / "-3".
+      - Skip digits that belong to a known test_name from compact_report
+        (e.g. "CA 19-9" → both "19" and "9" stripped).
+      - Skip ordered-list bullets ("1." / "2)") at line/whitespace start.
+    """
     cleaned = _strip_whitelisted_number_contexts(text or "")
-    # Number must NOT be adjacent to letters (excludes "HbA1c", "B12", etc.).
-    # Also skip ordered-list markers like "1." at line start (e.g. "1. Should
-    # I repeat ...") — these aren't medical numbers, just enumeration.
-    pattern = r"(?<![A-Za-z])-?\d+(?:\.\d+)?(?![A-Za-z])"
+    if compact is not None:
+        cleaned = _strip_test_name_numbers(cleaned, compact)
+    # The negative-sign half is OPTIONAL but only allowed when not preceded by
+    # a letter OR a digit. Lookbehind `(?<![A-Za-z\d])` covers both.
+    # The number itself uses the same lookbehind via `(?<![A-Za-z])`.
+    pattern = r"(?<![A-Za-z])(?:(?<![\d])-)?\d+(?:\.\d+)?(?![A-Za-z])"
     nums: list[float] = []
     for m in re.finditer(pattern, cleaned):
         token = m.group(0)
-        # Skip ordered-list bullets: number followed by ". " or ") " preceded
-        # by start of line / whitespace and digit count is small (1-2 digits).
+        # Skip ordered-list bullets: "1. " or "2) " at start of line / after whitespace.
         end = m.end()
         if (
             end < len(cleaned)
             and cleaned[end:end + 2] in (". ", ") ")
             and len(token) <= 2
         ):
-            # Verify it's at start of line / after whitespace (list bullet)
             start = m.start()
             if start == 0 or cleaned[start - 1] in (" ", "\n", "\t"):
                 continue
@@ -337,7 +379,7 @@ def numeric_scrub_violation(answer: str, compact: dict, citations: list[dict]) -
             except (ValueError, TypeError):
                 pass
 
-    for n in _extract_answer_floats(answer):
+    for n in _extract_answer_floats(answer, compact):
         if not _number_matches_compact(n, compact_floats):
             return f"invented_number:{_normalize_number(n)}"
     return None
@@ -346,17 +388,52 @@ def numeric_scrub_violation(answer: str, compact: dict, citations: list[dict]) -
 # ─────────────────────────────────────────────────────────────────────────────
 # Canned refusals (localized per language)
 # ─────────────────────────────────────────────────────────────────────────────
-_CANNED = {
+# Real out-of-scope refusal — model correctly refused to answer (drug, dosing,
+# diagnosis confirmation, prescriptions, unrelated topics).
+_CANNED_OUT_OF_SCOPE = {
     "en": "I can only help interpret what is in this report. For that, please consult your doctor.",
     "vn": "Tôi chỉ có thể hỗ trợ giải thích những gì có trong báo cáo này. Vui lòng tham khảo ý kiến bác sĩ.",
     "fr": "Je peux uniquement aider à interpréter ce qui figure dans ce rapport. Pour cela, veuillez consulter votre médecin.",
     "ar": "أستطيع المساعدة فقط في تفسير ما في هذا التقرير. لذلك، يرجى استشارة طبيبك.",
 }
 
+# Internal validator failure — the question was probably fine but we couldn't
+# verify the answer (numeric mismatch, citation alias, parse error). Tell the
+# user to rephrase rather than letting them think the question itself was wrong.
+_CANNED_VALIDATOR_FAIL = {
+    "en": "I had trouble answering that one. Try rephrasing — for example: \"What in my report should I focus on first?\"",
+    "vn": "Tôi gặp khó khăn khi trả lời câu này. Hãy thử diễn đạt lại — ví dụ: \"Tôi nên tập trung vào điều gì trước?\"",
+    "fr": "J'ai eu du mal à répondre. Essayez de reformuler — par exemple : « Sur quoi me concentrer en premier ? »",
+    "ar": "واجهت صعوبة في الإجابة على ذلك. حاول إعادة الصياغة — مثلاً: \"بماذا أبدأ التركيز؟\"",
+}
+
+# Reasons that map to "validator failure" (we should encourage retry, not refuse).
+# Anything else (out_of_scope from LLM, denied_verb, drug_or_dose, schema_invalid,
+# acute symptom triggers) is a real refusal where the user shouldn't retry.
+_VALIDATOR_FAIL_REASONS = {
+    "invented_number",
+    "comparative_ratio",
+    "invalid_cite",
+    "citation_shape",
+    "citation_empty",
+    "schema_invalid",
+}
+
+
+def _is_validator_failure(reason: str) -> bool:
+    """A reason like 'invented_number:75' counts; we match the prefix."""
+    head = (reason or "").split(":", 1)[0]
+    return head in _VALIDATOR_FAIL_REASONS
+
 
 def canned_refusal(language: str, reason: str) -> dict:
+    """Refusal envelope — text varies by reason category for user clarity."""
+    if _is_validator_failure(reason):
+        text = _CANNED_VALIDATOR_FAIL.get(language) or _CANNED_VALIDATOR_FAIL["en"]
+    else:
+        text = _CANNED_OUT_OF_SCOPE.get(language) or _CANNED_OUT_OF_SCOPE["en"]
     return {
-        "answer": _CANNED.get(language, _CANNED["en"]),
+        "answer": text,
         "citations": [],
         "follow_ups": _default_follow_ups(language),
         "doctor_routing": False,
