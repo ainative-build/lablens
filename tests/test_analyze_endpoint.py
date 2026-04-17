@@ -83,3 +83,51 @@ async def test_empty_extraction_marks_failed_not_completed(monkeypatch):
     job = mod.job_store.get(job_id)
     assert job.status == JobStatus.FAILED
     assert "extraction_empty" in (job.error or "")
+
+
+@pytest.mark.asyncio
+async def test_noise_filter_rejects_all_surfaces_distinct_error(monkeypatch):
+    """When OCR extracts N entries but noise filter rejects all N (e.g. lab
+    menus, multi-column reports where OCR picked the reference-range column),
+    the user gets an actionable error — not the misleading 'OCR service error'.
+    """
+    from lablens.api import analyze as mod
+    from lablens.orchestration.job_store import JobStatus
+
+    async def _fake_analyze(pdf_bytes, language):
+        # 78 raw entries extracted, all filtered as noise (ranges not values).
+        return {
+            "values": [],
+            "topic_groups": [],
+            "summary": {"overall_status": "green"},
+            "language": language,
+            "extraction_diagnostics": {
+                "raw_extracted_count": 78,
+                "filtered_noise_count": 78,
+                "page_count": 3,
+            },
+        }
+
+    monkeypatch.setattr(mod.pipeline, "analyze", _fake_analyze)
+
+    job_id = mod.job_store.create()
+    # Mirror the real _run body so we exercise the branch that reads diagnostics.
+    mod.job_store.update(job_id, JobStatus.PROCESSING)
+    result = await mod.pipeline.analyze(b"%PDF", "en")
+    if not result.get("values"):
+        diag = result.get("extraction_diagnostics") or {}
+        raw = int(diag.get("raw_extracted_count") or 0)
+        filtered = int(diag.get("filtered_noise_count") or 0)
+        if raw > 0 and filtered == raw:
+            err = (
+                f"extraction_unusable: OCR extracted {raw} entries but none "
+                "looked like patient measurements"
+            )
+        else:
+            err = "extraction_empty: no test values were extracted from the PDF."
+        mod.job_store.update(job_id, JobStatus.FAILED, error=err)
+
+    job = mod.job_store.get(job_id)
+    assert job.status == JobStatus.FAILED
+    assert "extraction_unusable" in (job.error or "")
+    assert "78 entries" in (job.error or "")

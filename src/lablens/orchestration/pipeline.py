@@ -750,6 +750,13 @@ class PlainPipeline:
             "explanation_quality": final.explanation_quality,
             "disclaimer": final.disclaimer,
             "language": final.language,
+            # Extraction diagnostics — lets the API surface a better error when
+            # noise filter rejects everything (lab menus, wrong-column OCR).
+            "extraction_diagnostics": {
+                "raw_extracted_count": report.raw_extracted_count,
+                "filtered_noise_count": report.filtered_noise_count,
+                "page_count": report.page_count,
+            },
         }
         # Audit: HPLC + verification verdicts
         audit: dict = {}

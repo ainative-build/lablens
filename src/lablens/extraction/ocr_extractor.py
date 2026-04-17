@@ -179,7 +179,9 @@ class OCRExtractor:
                             page_num, e,
                         )
 
+        raw_extracted_count = len(all_values)
         all_values = filter_noise_values(all_values)
+        filtered_noise_count = raw_extracted_count - len(all_values)
         all_values = deduplicate_values(all_values)
 
         # Deduplicate screening results: keep highest-confidence per test_type
@@ -204,6 +206,8 @@ class OCRExtractor:
             values=all_values,
             screening_results=screening_dicts,
             page_count=len(images),
+            raw_extracted_count=raw_extracted_count,
+            filtered_noise_count=filtered_noise_count,
         )
         return report, page_images, hplc_blocks, screening_results
 
