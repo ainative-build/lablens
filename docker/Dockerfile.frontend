@@ -1,0 +1,42 @@
+# Frontend production image — Next.js 16 standalone output.
+#
+# Multi-stage:
+#   deps    → install pnpm deps from lockfile (cacheable)
+#   builder → run `pnpm build` (NEXT_PUBLIC_API_URL baked at this stage)
+#   runtime → minimal node + standalone server.js
+#
+# Build context: repo root → `docker compose -f docker/docker-compose.prod.yml build frontend`
+
+FROM node:22-alpine AS deps
+WORKDIR /app
+RUN corepack enable
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+FROM node:22-alpine AS builder
+WORKDIR /app
+RUN corepack enable
+COPY --from=deps /app/node_modules ./node_modules
+COPY frontend/ ./
+
+# NEXT_PUBLIC_* vars are baked at build time. Pass via --build-arg in compose.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+RUN pnpm build
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Standalone output produces a self-contained server.js + node_modules subset.
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
+
+# Probe the Next.js server root — if it returns anything other than 5xx we're up.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget -qO- http://localhost:3000 > /dev/null || exit 1
+
+CMD ["node", "server.js"]

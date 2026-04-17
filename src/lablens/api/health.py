@@ -1,4 +1,8 @@
-"""Health check endpoint."""
+"""Health check endpoint.
+
+Canonical path: /api/health (used by Docker HEALTHCHECK, Nginx upstream
+probe, and `make smoke-test`). Mounted under /api prefix in main.py.
+"""
 
 from fastapi import APIRouter
 
