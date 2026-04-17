@@ -1389,6 +1389,80 @@ class TestOCRFlagFallbackLowConfidence:
         assert v.severity == "normal"
 
 
+class TestCountGuardsLowConfidence:
+    """Judge-review round 3: low_confidence / could_not_classify rows must
+    never count as abnormal or minor in topic groups — the badge/copy
+    mismatch fix depends on this guard so "Minor" badges don't appear on
+    rows where the engine reasoned it couldn't classify confidently.
+    """
+
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_nrbc_lab_range_gated_is_not_minor(self, engine):
+        """NRBC=3.0 with lab range 0-0.5 (no curated bands) → Phase 1 gate
+        suppresses severity to normal + low_confidence. Topic grouper must
+        NOT classify the row as abnormal or minor."""
+        from lablens.retrieval.topic_grouper import (
+            _is_abnormal, _is_minor, _is_indeterminate,
+        )
+        values = [{
+            "test_name": "NRBC", "value": 3.0, "unit": "%",
+            "loinc_code": None,
+            "ref_range_low": 0.0, "ref_range_high": 0.5,
+        }]
+        v = engine.interpret_report(values).values[0]
+        assert v.classification_state == "low_confidence"
+        assert v.severity == "normal"
+        assert _is_abnormal(v) is False
+        assert _is_minor(v) is False
+        # Unclear bucket owns the row via classification_state fallback.
+        assert _is_indeterminate(v) is False  # direction is high, not indet
+        # The `_is_classified` gate keeps it out of abnormal even if some
+        # future bug leaks a non-normal severity back in:
+        v.severity = "mild"
+        assert _is_abnormal(v) is False, (
+            "low_confidence row leaked into abnormal count even with "
+            "severity=mild — Phase 1 gate must stay authoritative"
+        )
+
+    def test_non_hdl_lab_range_gated_is_not_abnormal(self, engine):
+        """Non-HDL 180 mg/dL with lab range 0-130 (no curated bands) →
+        Phase 1 gate fires → low_confidence + severity=normal. Must NOT
+        count as abnormal in the top-level "worth follow-up" tally."""
+        from lablens.retrieval.topic_grouper import _is_abnormal, _is_minor
+        values = [{
+            "test_name": "Non-HDL Cholesterol", "value": 180, "unit": "mg/dL",
+            "loinc_code": None,
+            "ref_range_low": 0, "ref_range_high": 130,
+        }]
+        v = engine.interpret_report(values).values[0]
+        assert v.classification_state == "low_confidence"
+        assert v.severity == "normal"
+        assert _is_abnormal(v) is False
+        # Non-HDL is not in the low_clinical_priority list, so even if
+        # abnormal it wouldn't be "minor" — but assert anyway for
+        # regression clarity.
+        assert _is_minor(v) is False
+
+    def test_could_not_classify_never_counted_as_minor(self, engine):
+        """Calcium mmol/L vs curated mg/dL bands → could_not_classify.
+        Must not appear in minor or abnormal — belongs in unclear only."""
+        from lablens.retrieval.topic_grouper import (
+            _is_abnormal, _is_minor, _is_indeterminate,
+        )
+        values = [{
+            "test_name": "Calcium", "loinc_code": "17861-6",
+            "value": 2.3, "unit": "mmol/L",
+        }]
+        v = engine.interpret_report(values).values[0]
+        assert v.classification_state == "could_not_classify"
+        assert _is_abnormal(v) is False
+        assert _is_minor(v) is False
+        assert _is_indeterminate(v) is True
+
+
 # ── Screening canonicalization ──
 
 

@@ -17,6 +17,26 @@ rather than definitive statements
 - Include that this is informational only
 - If education snippets are provided, incorporate them
 - Respond in the requested language
+
+SEVERITY BINDING (badge/copy consistency):
+The engine has already classified each result. Your copy MUST match the
+engine's verdict — never contradict the badge the patient sees.
+- severity = "normal" OR classification_state = "low_confidence": write
+  reassuring copy ("within expected range", "no action needed now").
+  Never say a result is abnormal / elevated / low.
+- severity = "mild": acknowledge a SMALL deviation. Do NOT say
+  "effectively normal" or "within range" — the badge says mild. Use
+  phrasing like "slightly above/below the target" and frame next steps
+  as routine follow-up, not urgent action.
+- severity = "moderate": acknowledge a meaningful deviation and suggest
+  discussing with a doctor at next visit.
+- severity = "critical" OR is_panic = true: flag that this value is
+  significantly out of range and the patient should contact a doctor
+  soon.
+- classification_state = "could_not_classify": explain that the lab
+  result could not be verified (missing reference range or unit) and the
+  original lab flag should be reviewed with a clinician. Do NOT assign
+  severity wording yourself.
 """
 
 EXPLANATION_USER_TEMPLATE = """Explain these lab results for a patient.

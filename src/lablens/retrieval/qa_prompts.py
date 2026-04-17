@@ -141,9 +141,16 @@ USER_TEMPLATE = """Conversation so far:
 
 Current question: {question}
 
+ANSWER SHAPE — short-first, then optional detail:
+- First sentence: direct, specific, <=20 words. Lead with the conclusion.
+- Optional follow-up: 1-2 sentences with the "why" or context. Skip if
+  the first sentence already answers the question.
+- Total answer length: <= 4 sentences. Never pad with pleasantries.
+- Still hedged ("may", "could suggest"). Cite test names inline.
+
 Reply ONLY in this JSON shape:
 {{
-  "answer": "<2-5 sentences, hedged, cited by test name>",
+  "answer": "<direct first sentence. Optional 1-2 detail sentences.>",
   "citations": [{{"test_name": "...", "value": "...", "unit": "...", "health_topic": "..."}}],
   "follow_ups": ["short suggested next question", "...", "..."],
   "doctor_routing": <true|false>,
