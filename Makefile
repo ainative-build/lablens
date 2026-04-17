@@ -12,12 +12,13 @@ APP_DIR  ?= /opt/lablens
 COMPOSE  ?= docker compose -f docker/docker-compose.prod.yml
 ALI      ?= aliyun --profile lablens-deploy
 DOMAIN   ?= lablens.ainative.build
+BRANCH   ?= main
 
 .PHONY: help deploy logs restart ssh down smoke-test tls-check cert-renew ecs-status
 
 help:
 	@echo "LabLens deploy targets (run from repo root):"
-	@echo "  make deploy      → pull main + rebuild + restart compose stack on prod"
+	@echo "  make deploy [BRANCH=foo]  → pull BRANCH (default: main) + rebuild + restart"
 	@echo "  make logs        → tail logs from all services"
 	@echo "  make restart     → docker compose restart (no rebuild)"
 	@echo "  make ssh         → open shell on the box"
@@ -28,8 +29,8 @@ help:
 	@echo "  make ecs-status  → describe ECS instance state via aliyun ecs"
 
 deploy:
-	@echo "→ Deploying latest main to $(DOMAIN)…"
-	$(SSH) "cd $(APP_DIR) && git fetch origin && git reset --hard origin/main && $(COMPOSE) up -d --build"
+	@echo "→ Deploying latest $(BRANCH) to $(DOMAIN)…"
+	$(SSH) "cd $(APP_DIR) && git fetch origin && git reset --hard origin/$(BRANCH) && $(COMPOSE) up -d --build"
 	@echo "→ Waiting 20s for services to settle…"
 	@sleep 20
 	@$(MAKE) smoke-test
