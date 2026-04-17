@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { Explanation, InterpretedValue } from "@/lib/api-client";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
@@ -57,6 +60,26 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
         ? "border-gray-300 dark:border-gray-600"
         : "border-gray-200 dark:border-gray-700";
 
+  // PR #6 v6 calibration: tighten card to 4 essentials, hide rest.
+  // Card surfaces (in order):
+  //   1. test name + direction icon
+  //   2. value + unit + severity badge
+  //   3. range bar (visual)
+  //   4. ONE "why it matters" line (explanation.summary OR first sentence of what_it_means)
+  //   5. ONE "what to do" line (explanation.next_steps)
+  //   ⤷ "Learn more" expand: full what_it_means body + technical audit
+  const whyItMatters = explanation?.summary ||
+    (explanation?.what_it_means
+      ? firstSentence(explanation.what_it_means)
+      : null);
+  const fullExplanation = explanation?.what_it_means || null;
+  // Show "Learn more" only when there's MORE to reveal beyond the 1-line summary.
+  const hasMore =
+    fullExplanation &&
+    fullExplanation.trim() !== (whyItMatters || "").trim();
+
+  const [learnMoreOpen, setLearnMoreOpen] = useState(false);
+
   return (
     <div
       id={cardId}
@@ -67,32 +90,26 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
           <span className="mr-2 text-gray-500">{dirArrow}</span>
           {value.test_name}
         </h3>
-        <div className="flex gap-2 items-center">
-          {/* PR #6 calibration v2: badge variant routes by direction first
-              (indeterminate → "unclear"), then by display_severity (capped
-              for low-clinical-impact tests), then by raw severity. This
-              matches the explanation tone instead of the engine's raw math. */}
-          <SeverityBadge
-            variant={
-              isIndet
-                ? "unclear"
-                : value.is_minor
-                  ? "minor"
-                  : (value.display_severity as
-                      | "normal"
-                      | "mild"
-                      | "moderate"
-                      | "critical"
-                      | undefined) ??
-                    (value.severity as
-                      | "normal"
-                      | "mild"
-                      | "moderate"
-                      | "critical")
-            }
-            language={language}
-          />
-        </div>
+        <SeverityBadge
+          variant={
+            isIndet
+              ? "unclear"
+              : value.is_minor
+                ? "minor"
+                : (value.display_severity as
+                    | "normal"
+                    | "mild"
+                    | "moderate"
+                    | "critical"
+                    | undefined) ??
+                  (value.severity as
+                    | "normal"
+                    | "mild"
+                    | "moderate"
+                    | "critical")
+          }
+          language={language}
+        />
       </div>
 
       <div className="mt-2 flex items-baseline gap-2 text-sm">
@@ -106,7 +123,7 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
         )}
       </div>
 
-      {/* Range bar — Phase 3: replaces the text "Reference Range: low – high" */}
+      {/* Range bar */}
       {value.reference_range_low !== null && value.reference_range_high !== null && (
         <div className="mt-3">
           <RangeBar
@@ -118,29 +135,21 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
         </div>
       )}
 
-      {explanation && (explanation.summary || explanation.what_it_means) && (
-        <div className="mt-3 bg-gray-50 dark:bg-gray-800 rounded p-3 text-sm space-y-1">
-          {explanation.summary && (
-            <p className="font-medium text-gray-900 dark:text-gray-100">
-              {explanation.summary}
-            </p>
-          )}
-          {explanation.what_it_means && (
-            <p className="text-gray-700 dark:text-gray-300">
-              {explanation.what_it_means}
-            </p>
-          )}
-          {explanation.next_steps && (
-            <p className="text-blue-700 dark:text-blue-300">
-              {explanation.next_steps}
-            </p>
-          )}
-        </div>
+      {/* PR #6 v6: tightened "why it matters" + "what to do" lines */}
+      {whyItMatters && (
+        <p className="mt-3 text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+          {whyItMatters}
+        </p>
+      )}
+      {explanation?.next_steps && (
+        <p className="mt-1.5 text-sm text-[var(--color-brand-700)] dark:text-[var(--color-brand-500)] leading-relaxed">
+          <span className="font-medium">{t("card.next_step", language)}:</span>{" "}
+          {explanation.next_steps}
+        </p>
       )}
 
-      {/* Indeterminate rows rarely have an LLM explanation — show a calm
-          helper line so users see uncertainty as intentional, not missing. */}
-      {isIndet && !(explanation && (explanation.summary || explanation.what_it_means)) && (
+      {/* Indeterminate rows rarely have an LLM explanation — calm helper line */}
+      {isIndet && !whyItMatters && (
         <p className="mt-3 text-xs text-gray-600 dark:text-gray-400 italic border-l-2 border-gray-300 dark:border-gray-600 pl-2">
           {unclearHelper(value, language)}
         </p>
@@ -152,7 +161,36 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
         </div>
       )}
 
+      {/* Learn more — full LLM explanation behind a disclosure */}
+      {hasMore && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setLearnMoreOpen((v) => !v)}
+            aria-expanded={learnMoreOpen}
+            className="text-xs text-[var(--color-brand-700)] dark:text-[var(--color-brand-500)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded"
+          >
+            {learnMoreOpen
+              ? t("card.learn_less", language)
+              : t("card.learn_more", language)}
+          </button>
+          {learnMoreOpen && fullExplanation && (
+            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded p-3 leading-relaxed">
+              {fullExplanation}
+            </p>
+          )}
+        </div>
+      )}
+
       <AuditPanel value={value} language={language} />
     </div>
   );
+}
+
+/** Best-effort "first sentence" — handles common end punctuation. */
+function firstSentence(text: string): string {
+  const trimmed = text.trim();
+  // Match through the first . ! ? followed by space or end.
+  const m = trimmed.match(/^.+?[.!?](?=\s|$)/);
+  return m ? m[0] : trimmed;
 }

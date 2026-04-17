@@ -2,6 +2,7 @@ import type { AnalysisResult } from "@/lib/api-client";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import { StatPanel } from "./stat-panel";
+import { SuggestedQuestions } from "./suggested-questions";
 
 interface Props {
   result: NonNullable<AnalysisResult["result"]>;
@@ -29,11 +30,14 @@ export function ResultsRightRail({ result, language }: Props) {
 
   const pct = (n: number) => (total === 0 ? 0 : Math.round((n / total) * 100));
 
+  // PR #6 v6 calibration: human counts in donut center ("12 of 75") instead
+  // of percentages. Captions get one-line action context.
   return (
     <div className="space-y-3">
       <StatPanel
         title={t("stats.normal", language)}
         percent={pct(normal)}
+        countLabel={`${normal}/${total}`}
         caption={t("stats.normal_caption", language, {
           count: normal,
           total,
@@ -43,6 +47,7 @@ export function ResultsRightRail({ result, language }: Props) {
       <StatPanel
         title={t("stats.worth_followup", language)}
         percent={pct(abnormal + minor)}
+        countLabel={`${abnormal + minor}/${total}`}
         caption={t("stats.followup_caption", language, {
           count: abnormal,
           minor,
@@ -53,10 +58,14 @@ export function ResultsRightRail({ result, language }: Props) {
         <StatPanel
           title={t("stats.unclear", language)}
           percent={pct(unclear)}
+          countLabel={`${unclear}/${total}`}
           caption={t("stats.unclear_caption", language, { count: unclear })}
           variant="unclear"
         />
       )}
+
+      {/* PR #6 v6: pinned Q&A starter panel — makes Q&A feel native to UX */}
+      <SuggestedQuestions language={language} />
     </div>
   );
 }

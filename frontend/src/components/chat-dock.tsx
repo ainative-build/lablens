@@ -11,6 +11,10 @@ import {
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import { QaInput } from "@/components/chat/qa-input";
+import {
+  ASK_EVENT,
+  type AskEventDetail,
+} from "@/components/suggested-questions";
 
 interface Props {
   jobId: string;
@@ -83,6 +87,24 @@ export function ChatDock({ jobId, language }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // Listen for "ask this question" events from the pinned SuggestedQuestions
+  // panel. Opens the dialog and auto-submits the question.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<AskEventDetail>;
+      const q = ce.detail?.question;
+      if (!q) return;
+      setOpen(true);
+      // Fire submit after React has had a chance to render the dialog.
+      setTimeout(() => void submit(q), 0);
+    };
+    window.addEventListener(ASK_EVENT, handler as EventListener);
+    return () =>
+      window.removeEventListener(ASK_EVENT, handler as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread, pending, expired]);
 
   const submit = async (question: string) => {
     if (pending || expired) return;

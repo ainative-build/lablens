@@ -6,6 +6,8 @@ type Variant = "normal" | "warn" | "unclear";
 interface Props {
   title: string;
   percent: number;
+  /** Big human-readable count shown in the donut center (replaces "%"). */
+  countLabel: string;
   caption: string;
   variant?: Variant;
   /** Optional CTA / link rendered at the bottom of the card */
@@ -31,6 +33,7 @@ const VARIANT_DOT: Record<Variant, string> = {
 export function StatPanel({
   title,
   percent,
+  countLabel,
   caption,
   variant = "normal",
   action,
@@ -57,7 +60,18 @@ export function StatPanel({
           {action && <div className="mt-2">{action}</div>}
         </div>
         <div className="shrink-0">
-          <DonutRing percent={percent} valueClass={VARIANT_RING[variant]} />
+          {/* PR #6 v6 calibration: show human count ("12 of 75") in the
+              donut center instead of "88%". The ring still visually encodes
+              the proportion, but users see the medically meaningful number. */}
+          <DonutRing
+            percent={percent}
+            valueClass={VARIANT_RING[variant]}
+            label={
+              <tspan className="font-semibold" fontSize="14">
+                {countLabel}
+              </tspan>
+            }
+          />
         </div>
       </div>
     </section>
