@@ -2,8 +2,8 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ChatDock } from "@/components/chat-dock";
 import { Sidebar } from "@/components/sidebar";
-import { StickyChatBar } from "@/components/sticky-chat-bar";
 import { type Language } from "@/lib/i18n";
 
 interface Props {
@@ -55,8 +55,10 @@ export function AppShell({ children }: Props) {
   const jobIdMatch = pathname?.match(/^\/results\/([^/]+)/);
   const jobId = jobIdMatch?.[1];
 
-  // Push content above the chat bar so nothing hides under it.
-  const bottomPad = jobId ? "pb-[calc(var(--chat-bar-height)+1rem)]" : "pb-4";
+  // ChatDock is a floating button (bottom-right) — not a full-width bar — so
+  // we no longer need to reserve bottom padding for it. Reserve a little
+  // for safe-area + breathing room.
+  const bottomPad = jobId ? "pb-20" : "pb-4";
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -98,8 +100,8 @@ export function AppShell({ children }: Props) {
         </main>
       </div>
 
-      {/* Sticky chat bar — only on results pages */}
-      {jobId && <StickyChatBar jobId={jobId} language={language} />}
+      {/* Floating chat button + dialog — only on results pages */}
+      {jobId && <ChatDock jobId={jobId} language={language} />}
     </div>
   );
 }
