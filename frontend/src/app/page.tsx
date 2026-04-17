@@ -26,6 +26,21 @@ export default function HomePage() {
     async (file: File) => {
       setIsLoading(true);
       setError(null);
+      // Clear any leftover chat threads from previous reports — starting a
+      // new analysis should give the user a clean slate. Chat threads are
+      // persisted under keys "lablens.chat.<jobId>"; wipe them all.
+      if (typeof window !== "undefined") {
+        try {
+          for (let i = window.localStorage.length - 1; i >= 0; i--) {
+            const key = window.localStorage.key(i);
+            if (key && key.startsWith("lablens.chat.")) {
+              window.localStorage.removeItem(key);
+            }
+          }
+        } catch {
+          /* ignore — best effort */
+        }
+      }
       try {
         const jobId = await uploadReport(file, language);
         router.push(`/results/${jobId}`);

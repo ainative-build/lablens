@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ChatDock } from "@/components/chat-dock";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { PanicStickyBanner } from "@/components/panic-sticky-banner";
 import { ResultsRightRail } from "@/components/results-right-rail";
@@ -157,11 +158,31 @@ export default function ResultsPage() {
       {/* Two-column layout on lg+; main fixed-width centered, right rail fixed */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 max-w-[1180px] mx-auto">
         <div className="space-y-5 min-w-0">
-          {/* Toolbar — page-level actions */}
+          {/* SR-only page heading — visible affordance is the back link below. */}
+          <h1 className="sr-only">{t("results.title", language)}</h1>
+
+          {/* Toolbar — page-level actions. Left side carries the
+              "Analyze another report" affordance so users always see how
+              to start over. Right side: filter + export. */}
           <div className="flex justify-between items-center flex-wrap gap-3">
-            <h1 className="text-2xl font-bold text-[var(--foreground)]">
-              {t("results.title", language)}
-            </h1>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-brand-700)] hover:text-[var(--color-brand-600)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded-md px-2 py-1 -mx-2"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              {t("results.back", language)}
+            </Link>
             <div className="flex items-center gap-3">
               <ShowAbnormalToggle
                 value={abnormalOnly}
@@ -246,7 +267,9 @@ export default function ResultsPage() {
           </div>
         </aside>
       </div>
-      {/* Sticky chat bar lives in AppShell — auto-shown for /results/* routes. */}
+      {/* Floating chat dock — only mounted now that results are confirmed
+          ready. While scanning, the CTA is intentionally hidden. */}
+      <ChatDock jobId={jobId} language={language} />
     </div>
   );
 }
