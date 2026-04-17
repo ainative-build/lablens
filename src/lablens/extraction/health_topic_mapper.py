@@ -15,10 +15,10 @@ Loaded once at module import; thread-safe (read-only after load).
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import yaml
 
+from lablens._data_paths import data_path
 from lablens.extraction.range_plausibility_checker import (
     RangePlausibilityChecker,
 )
@@ -26,12 +26,7 @@ from lablens.extraction.terminology_mapper import normalize_test_name
 
 logger = logging.getLogger(__name__)
 
-_ALIASES_PATH = (
-    Path(__file__).parent.parent.parent.parent
-    / "data"
-    / "aliases"
-    / "common-aliases.yaml"
-)
+_ALIASES_PATH = data_path("aliases", "common-aliases.yaml")
 
 # 11-bucket taxonomy. Keep in sync with topic_grouper.TOPIC_ORDER and the
 # locked frontend i18n keys (topic.<id>).

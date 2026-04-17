@@ -13,16 +13,15 @@ Module-level cache: file is read once at import.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import yaml
+
+from lablens._data_paths import data_path
 
 logger = logging.getLogger(__name__)
 
 
-_CLINICAL_PRIORITY_PATH = (
-    Path(__file__).resolve().parents[3] / "data" / "clinical-priority.yaml"
-)
+_CLINICAL_PRIORITY_PATH = data_path("clinical-priority.yaml")
 
 
 def _load() -> set[str]:

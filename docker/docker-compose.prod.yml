@@ -15,6 +15,10 @@ services:
     restart: unless-stopped
     env_file:
       - ../.env.production
+    environment:
+      # Pin the bundled YAML data dir; otherwise `__file__`-based path resolution
+      # breaks after `pip install` (file lives in site-packages, not /app/src).
+      LABLENS_DATA_DIR: /app/data
     expose:
       - "8000"
     # No `ports:` block — nginx fronts everything.

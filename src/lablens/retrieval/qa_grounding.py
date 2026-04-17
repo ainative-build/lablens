@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path
 
 import yaml
+
+from lablens._data_paths import data_path
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 # Cached safety data
 # ─────────────────────────────────────────────────────────────────────────────
-_SAFETY_DIR = Path(__file__).resolve().parents[3] / "data" / "safety"
+_SAFETY_DIR = data_path("safety")
 
 
 def _load_yaml(name: str) -> dict:

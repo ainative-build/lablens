@@ -10,9 +10,11 @@ from pathlib import Path
 
 import yaml
 
+from lablens._data_paths import data_path
+
 logger = logging.getLogger(__name__)
 
-CONVERSIONS_PATH = Path(__file__).parent.parent.parent.parent / "data" / "aliases" / "unit-conversions.yaml"
+CONVERSIONS_PATH = data_path("aliases", "unit-conversions.yaml")
 
 
 @dataclass

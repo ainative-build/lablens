@@ -10,9 +10,11 @@ from pathlib import Path
 
 import yaml
 
+from lablens._data_paths import data_path
+
 logger = logging.getLogger(__name__)
 
-ALIASES_PATH = Path(__file__).parent.parent.parent.parent / "data" / "aliases"
+ALIASES_PATH = data_path("aliases")
 
 
 @dataclass
