@@ -26,6 +26,9 @@ from lablens.interpretation.severity import (
     heuristic_severity,
 )
 from lablens.knowledge.rules_loader import get_rule, load_all_rules
+from lablens.retrieval.clinical_priority import get_severity_cap
+
+_SEVERITY_ORDER = {"normal": 0, "mild": 1, "moderate": 2, "critical": 3}
 
 logger = logging.getLogger(__name__)
 
@@ -431,3 +434,23 @@ class InterpretationEngine:
                 result.actionability = "routine"
                 result.is_panic = False
                 result.classification_state = "low_confidence"
+
+        # Phase 2 canonical severity cap: low-clinical-impact analytes
+        # (Basophils, NRBC, PDW, MPV, etc.) never report moderate/critical
+        # in isolation. Applied post-gate so the stored severity — and
+        # therefore CSV export — matches what the UI shows. Record the
+        # raw value on evidence_trace for auditability.
+        cap = get_severity_cap(result.test_name)
+        if cap and _SEVERITY_ORDER.get(
+            result.severity, 0
+        ) > _SEVERITY_ORDER.get(cap, 0):
+            raw_severity = result.severity
+            result.evidence_trace = dict(result.evidence_trace or {})
+            result.evidence_trace["severity_source_raw"] = raw_severity
+            result.severity = cap
+            result.actionability = DEFAULT_ACTIONABILITY.get(cap, "routine")
+            if not result.is_panic:
+                logger.info(
+                    "Severity cap: %s %s -> %s (low-clinical-impact)",
+                    result.test_name, raw_severity, cap,
+                )
