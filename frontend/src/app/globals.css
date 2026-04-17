@@ -6,15 +6,18 @@
    ───────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Light surface palette — refined for WCAG AAA contrast on body text */
-  --background: #fafbfc;          /* page bg, near-white with a hint of cool */
+  /* Light surface palette — refined for WCAG AAA contrast on body text.
+     Page bg is pure white to match the logo's background (so the rectangular
+     logo image blends seamlessly). Cards use a faint warm tint so they
+     still read as elevated against white. */
+  --background: #ffffff;          /* page bg, matches logo card */
   --foreground: #0b1220;          /* deeper text for higher contrast */
   --foreground-muted: #4b5563;    /* secondary text, AA on --background */
   --color-surface: #ffffff;        /* card/panel bg */
-  --color-surface-muted: #f3f5f8;  /* hover/secondary */
-  --color-surface-sunken: #eef1f5; /* nested surfaces */
-  --color-border: #e3e7ec;
-  --color-border-strong: #cdd3dc;  /* visible borders for inputs/dropzones */
+  --color-surface-muted: #f5f7f4;  /* hover/secondary, faint warm tint */
+  --color-surface-sunken: #eef2ec; /* nested surfaces, faint green-cream */
+  --color-border: #e6ebe4;
+  --color-border-strong: #cfd6cb;  /* visible borders for inputs/dropzones */
 
   /* Brand green */
   --color-brand-50: #eafaf2;
