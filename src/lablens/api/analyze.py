@@ -43,6 +43,23 @@ async def analyze_report(
         try:
             job_store.update(job_id, JobStatus.PROCESSING)
             result = await pipeline.analyze(pdf_bytes, language)
+            # Guard against silent extraction failure (e.g. OCR network error
+            # leaves us with zero values). Without this, the pipeline emits a
+            # green "all normal" summary that misleads the user — they'd think
+            # their report is fine when in fact nothing was extracted.
+            if not result.get("values"):
+                logger.warning(
+                    "Job %s: extraction returned 0 values — marking failed", job_id
+                )
+                job_store.update(
+                    job_id,
+                    JobStatus.FAILED,
+                    error=(
+                        "extraction_empty: no test values were extracted from the PDF. "
+                        "This usually means an OCR service error. Please try again."
+                    ),
+                )
+                return
             job_store.update(job_id, JobStatus.COMPLETED, result=result)
         except Exception as e:
             logger.error("Job %s failed: %s", job_id, e, exc_info=True)

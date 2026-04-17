@@ -1,0 +1,96 @@
+# Acute symptom lexicon for Q&A doctor-routing (Phase 3).
+# Multi-language. Word-boundary match required to avoid false positives
+# (e.g., "severe" alone won't match "severe weather"; phrase context wins).
+#
+# Loaded by qa_grounding.match_acute_symptom(question, language).
+
+en:
+  # Cardiac / chest
+  - "chest pain"
+  - "chest pressure"
+  - "tightness in chest"
+  - "crushing chest"
+  # Respiratory
+  - "trouble breathing"
+  - "difficulty breathing"
+  - "shortness of breath"
+  - "can't breathe"
+  - "cannot breathe"
+  # Neurological
+  - "fainting"
+  - "fainted"
+  - "passed out"
+  - "lose consciousness"
+  - "numbness on one side"
+  - "weakness on one side"
+  - "slurred speech"
+  - "sudden confusion"
+  - "severe headache"
+  - "worst headache"
+  # Bleeding
+  - "severe bleeding"
+  - "heavy bleeding"
+  - "bleeding heavily"
+  - "vomiting blood"
+  - "blood in stool"
+  - "blood in urine"
+  - "rectal bleeding"
+  # Other emergency
+  - "severe pain"
+  - "severe abdominal pain"
+  - "uncontrolled vomiting"
+
+vn:
+  - "đau ngực"
+  - "tức ngực"
+  - "khó thở"
+  - "không thở được"
+  - "ngất xỉu"
+  - "ngất"
+  - "mất ý thức"
+  - "tê liệt một bên"
+  - "yếu một bên"
+  - "nói lắp"
+  - "đau đầu dữ dội"
+  - "chảy máu nhiều"
+  - "nôn ra máu"
+  - "đi ngoài ra máu"
+  - "đau dữ dội"
+  - "đau bụng dữ dội"
+
+fr:
+  - "douleur thoracique"
+  - "douleur à la poitrine"
+  - "difficulté à respirer"
+  - "essoufflement"
+  - "évanouissement"
+  - "perte de conscience"
+  - "engourdissement d'un côté"
+  - "faiblesse d'un côté"
+  - "élocution difficile"
+  - "mal de tête sévère"
+  - "saignement sévère"
+  - "vomir du sang"
+  - "sang dans les selles"
+  - "douleur sévère"
+
+ar:
+  - "ألم في الصدر"
+  - "ضغط على الصدر"
+  - "صعوبة في التنفس"
+  - "ضيق في التنفس"
+  - "إغماء"
+  - "فقدان الوعي"
+  - "تنميل في جانب"
+  - "ضعف في جانب"
+  - "صداع شديد"
+  - "نزيف حاد"
+  - "تقيؤ دم"
+  - "ألم شديد"
+
+# Doctor-routing phrase per language (appended to answer when triggered).
+doctor_phrases:
+  en: "Please contact a healthcare provider promptly."
+  vn: "Vui lòng liên hệ với cơ sở y tế ngay."
+  fr: "Veuillez contacter un professionnel de santé rapidement."
+  ar: "يرجى الاتصال بمقدم الرعاية الصحية فوراً."

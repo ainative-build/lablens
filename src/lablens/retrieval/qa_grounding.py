@@ -1,0 +1,588 @@
+"""Q&A grounding utilities — Phase 3.
+
+Two responsibilities:
+  1. `build_compact_report(result)` — produces a token-efficient view of
+     the pipeline output for the LLM (strips raw OCR + audit internals).
+  2. `validate_answer(parsed, compact, question, language)` — runs the
+     7-step guardrail pipeline.  Returns sanitized response or canned
+     refusal on any violation.
+
+All pure functions — easy to test.  Loaded data (drug denylist + symptom
+lexicon) is cached at module import.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from pathlib import Path
+
+import yaml
+
+logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cached safety data
+# ─────────────────────────────────────────────────────────────────────────────
+_SAFETY_DIR = Path(__file__).resolve().parents[3] / "data" / "safety"
+
+
+def _load_yaml(name: str) -> dict:
+    path = _SAFETY_DIR / name
+    if not path.exists():
+        logger.warning("Safety file missing: %s", path)
+        return {}
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+
+_DRUG_DATA = _load_yaml("drug-denylist.yaml")
+_SYMPTOM_DATA = _load_yaml("acute-symptoms.yaml")
+
+_DRUG_NAMES: set[str] = {d.lower() for d in _DRUG_DATA.get("drugs", [])}
+_DOSE_PATTERN = re.compile(
+    # Match e.g. "500 mg", "10 mcg" — but NOT "165 mg/dL" (that's a unit, not dose)
+    r"\b\d+\s*(mg|mcg|μg|ug|g|ml|iu|units?)\b(?!/)",
+    re.IGNORECASE,
+)
+
+
+def _symptoms_for(language: str) -> list[str]:
+    """Return language-specific acute-symptom phrases (lowercased)."""
+    if language not in _SYMPTOM_DATA:
+        language = "en"
+    raw = _SYMPTOM_DATA.get(language, []) or []
+    return [s.lower() for s in raw if isinstance(s, str)]
+
+
+def doctor_phrase(language: str) -> str:
+    """Localized 'contact a healthcare provider' append-phrase."""
+    phrases = _SYMPTOM_DATA.get("doctor_phrases", {}) or {}
+    return phrases.get(language) or phrases.get("en") or (
+        "Please contact a healthcare provider promptly."
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Compact report builder
+# ─────────────────────────────────────────────────────────────────────────────
+def find_explanation(
+    test_name: str, explanations: list[dict]
+) -> dict | None:
+    for e in explanations:
+        if e.get("test_name") == test_name:
+            return e
+    return None
+
+
+def build_compact_report(result: dict) -> dict:
+    """Strip raw OCR + PII + verbose audit; keep what model needs.
+
+    Token budget for a 70-test report ≈ 3.5K tokens.
+    """
+    explanations = result.get("explanations", []) or []
+    values = []
+    for v in result.get("values", []):
+        exp = find_explanation(v.get("test_name", ""), explanations)
+        values.append(
+            {
+                "name": v.get("test_name"),
+                "value": v.get("value"),
+                "unit": v.get("unit"),
+                "ref_low": v.get("reference_range_low"),
+                "ref_high": v.get("reference_range_high"),
+                "direction": v.get("direction"),
+                "severity": v.get("severity"),
+                "is_panic": v.get("is_panic", False),
+                "health_topic": v.get("health_topic"),
+                "explanation": (
+                    {
+                        "summary": exp.get("summary"),
+                        "what_it_means": exp.get("what_it_means"),
+                        "next_steps": exp.get("next_steps"),
+                    }
+                    if exp
+                    else None
+                ),
+            }
+        )
+    return {
+        "summary": result.get("summary"),
+        "values": values,
+        "panels": result.get("panels", []),
+        "screening_results": [
+            {
+                "test_type": s.get("test_type"),
+                "result_status": s.get("result_status"),
+                "signal_origin": s.get("signal_origin"),
+                "followup": s.get("followup_recommendation"),
+            }
+            for s in result.get("screening_results", []) or []
+        ],
+        "hplc": (result.get("audit") or {}).get("hplc_blocks", []),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Doctor routing — uses CORRECT severity domain
+# ─────────────────────────────────────────────────────────────────────────────
+def _has_serious_severity(compact: dict) -> bool:
+    """Severity domain: {normal, mild, moderate, critical}.  'high' is direction."""
+    for v in compact.get("values", []):
+        if v.get("is_panic"):
+            return True
+        if v.get("severity") in {"moderate", "critical"}:
+            return True
+    return False
+
+
+def match_acute_symptom(question: str, language: str) -> bool:
+    """Word-boundary match of acute-symptom phrases for the language."""
+    if not question:
+        return False
+    q = question.lower()
+    for phrase in _symptoms_for(language):
+        # Escape regex metas; word-boundary anchors.
+        pat = r"(?:^|\W)" + re.escape(phrase) + r"(?:\W|$)"
+        if re.search(pat, q):
+            return True
+    return False
+
+
+def needs_doctor_routing(
+    compact: dict, question: str, language: str
+) -> bool:
+    return _has_serious_severity(compact) or match_acute_symptom(
+        question, language
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Answer validation — 7 guardrails
+# ─────────────────────────────────────────────────────────────────────────────
+_DENYLIST_VERBS = [
+    re.compile(r"\byou have\b", re.IGNORECASE),
+    re.compile(r"\byou are diagnosed\b", re.IGNORECASE),
+    re.compile(r"\bdiagnosed with\b", re.IGNORECASE),
+    re.compile(r"\bdefinitely indicates\b", re.IGNORECASE),
+    re.compile(r"\bmeans you have\b", re.IGNORECASE),
+    re.compile(r"\bconfirmed (?:case of |that you have )", re.IGNORECASE),
+    re.compile(r"\bproves\b", re.IGNORECASE),
+]
+
+
+def _normalize_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
+
+
+def contains_denylisted_verb(text: str) -> bool:
+    for pat in _DENYLIST_VERBS:
+        if pat.search(text or ""):
+            return True
+    return False
+
+
+def contains_drug_or_dose(text: str) -> bool:
+    if not text:
+        return False
+    for tok in re.findall(r"[a-zA-Z]+", text.lower()):
+        if tok in _DRUG_NAMES:
+            return True
+    return bool(_DOSE_PATTERN.search(text))
+
+
+def _extract_compact_numbers(compact: dict) -> set[str]:
+    """All numeric values appearing in the compact report (as strings).
+
+    Includes values, ref_low, ref_high.  Allows the answer to mention
+    these numbers without triggering the numeric-scrub guardrail.
+    Kept for backwards compatibility with tests.
+    """
+    nums: set[str] = set()
+    for f in _extract_compact_floats(compact):
+        nums.add(_normalize_number(f))
+    return nums
+
+
+def _extract_compact_floats(compact: dict) -> list[float]:
+    """All numeric values from compact_report as floats — for tolerant matching."""
+    nums: list[float] = []
+    for v in compact.get("values", []):
+        for k in ("value", "ref_low", "ref_high"):
+            x = v.get(k)
+            if x is None:
+                continue
+            try:
+                nums.append(float(x))
+            except (ValueError, TypeError):
+                pass
+    return nums
+
+
+def _normalize_number(n: float) -> str:
+    """Stable string for numeric comparison (strip trailing zeros)."""
+    s = f"{n:.4f}".rstrip("0").rstrip(".")
+    return s if s else "0"
+
+
+def _number_matches_compact(answer_num: float, compact_nums: list[float]) -> bool:
+    """Tolerant match: True if `answer_num` plausibly references a compact value.
+
+    Allows reasonable LLM rounding so legitimate answers like "LDL is 121"
+    aren't rejected when the actual value is 121.0371.
+
+    Match rules (any one):
+      1. Exact equality
+      2. Absolute difference ≤ 0.5 (small numbers like 5 vs 5.4)
+      3. Relative difference ≤ 5%
+      4. Rounding equivalence at 0/1/2 decimal digits
+    """
+    for c in compact_nums:
+        if answer_num == c:
+            return True
+        diff = abs(answer_num - c)
+        if diff <= 0.5:
+            return True
+        if c != 0 and diff / abs(c) <= 0.05:
+            return True
+        for digits in (0, 1, 2):
+            if round(c, digits) == answer_num or round(answer_num, digits) == c:
+                return True
+    return False
+
+
+# Whitelist patterns: timeframes, percentages without comparison, ages.
+_WHITELIST_NUMBER_CONTEXTS = [
+    re.compile(r"\b\d+\s*(?:weeks?|months?|days?|years?)\b", re.IGNORECASE),
+    re.compile(r"\b\d+\s*-\s*\d+\s*(?:weeks?|months?|days?|years?)\b", re.IGNORECASE),
+    re.compile(r"\bage\s*\d+\b", re.IGNORECASE),
+]
+
+
+def _strip_whitelisted_number_contexts(text: str) -> str:
+    """Remove whitelisted numeric phrases so they don't trigger scrub."""
+    for pat in _WHITELIST_NUMBER_CONTEXTS:
+        text = pat.sub("", text)
+    return text
+
+
+def _extract_answer_numbers(text: str) -> list[str]:
+    """All standalone numbers in the answer (skip digits embedded in names),
+    returned as normalized strings (legacy API for backwards compatibility).
+
+    e.g., "HbA1c" should NOT yield "1"; "5.6" or "165" should be picked up.
+    """
+    return [_normalize_number(f) for f in _extract_answer_floats(text)]
+
+
+# Hyphen-separated digit pairs:
+#   - LOINC codes: 1989-3, 4548-4, 33914-3
+#   - Test name fragments: 19-9 (CA 19-9), 25-OH (vitamin D)
+# These are NEVER medical values — they're identifiers.
+_HYPHENATED_DIGIT_PAIR = re.compile(r"\b\d{1,6}-\d{1,3}\b")
+
+
+def _strip_test_name_numbers(text: str, compact: dict) -> str:
+    """Strip digits that belong to identifiers (test names + LOINC codes).
+
+    e.g. "CA 19-9" mentioned in answer → both "19" and "9" should NOT be
+    treated as standalone medical numbers. Same for LOINC codes "1989-3".
+
+    Two-pass strategy:
+      1. Replace each known test_name occurrence with a letter-only token.
+      2. Replace any remaining hyphen-digit-pair pattern (catches LOINC codes
+         and identifier fragments not in compact_report).
+    """
+    if not text:
+        return text
+    out = text
+    for v in compact.get("values", []):
+        name = v.get("name") or ""
+        # Only test names that contain digits matter for this scrub.
+        if not name or not any(ch.isdigit() for ch in name):
+            continue
+        # Case-insensitive strip; replace with letter-only token.
+        out = re.sub(re.escape(name), "TESTNAME", out, flags=re.IGNORECASE)
+    # Pass 2: strip hyphen-digit-pair identifiers (LOINC, etc.)
+    out = _HYPHENATED_DIGIT_PAIR.sub("CODE", out)
+    return out
+
+
+def _extract_answer_floats(text: str, compact: dict | None = None) -> list[float]:
+    """Extract standalone numbers as floats — used for tolerant matching.
+
+    Rules:
+      - Skip digits embedded in identifiers ("HbA1c" → no "1"; "B12" → no "12").
+      - Don't read "-" as a minus sign when preceded by a digit, so test names
+        like "CA 19-9" and LOINC codes like "1989-3" don't yield "-9" / "-3".
+      - Skip digits that belong to a known test_name from compact_report
+        (e.g. "CA 19-9" → both "19" and "9" stripped).
+      - Skip ordered-list bullets ("1." / "2)") at line/whitespace start.
+    """
+    cleaned = _strip_whitelisted_number_contexts(text or "")
+    if compact is not None:
+        cleaned = _strip_test_name_numbers(cleaned, compact)
+    # The negative-sign half is OPTIONAL but only allowed when not preceded by
+    # a letter OR a digit. Lookbehind `(?<![A-Za-z\d])` covers both.
+    # The number itself uses the same lookbehind via `(?<![A-Za-z])`.
+    pattern = r"(?<![A-Za-z])(?:(?<![\d])-)?\d+(?:\.\d+)?(?![A-Za-z])"
+    nums: list[float] = []
+    for m in re.finditer(pattern, cleaned):
+        token = m.group(0)
+        # Skip ordered-list bullets: "1. " or "2) " at start of line / after whitespace.
+        end = m.end()
+        if (
+            end < len(cleaned)
+            and cleaned[end:end + 2] in (". ", ") ")
+            and len(token) <= 2
+        ):
+            start = m.start()
+            if start == 0 or cleaned[start - 1] in (" ", "\n", "\t"):
+                continue
+        try:
+            nums.append(float(token))
+        except ValueError:
+            pass
+    return nums
+
+
+# Comparative-ratio bypass attempts (model-invented relative claims).
+_COMPARATIVE_RATIO = re.compile(
+    r"\b\d+(?:\.\d+)?\s*(?:×|x|times)\s*(?:normal|the (?:upper|lower) (?:limit|range|bound))",
+    re.IGNORECASE,
+)
+
+
+def numeric_scrub_violation(answer: str, compact: dict, citations: list[dict]) -> str | None:
+    """Reject if answer contains numbers not plausibly in compact + citations.
+
+    Tolerant of reasonable LLM rounding (5% relative or 0.5 absolute, or
+    rounding equivalence at 0/1/2 digits) so legitimate answers like
+    "LDL is 121" aren't rejected when the actual value is 121.0371.
+
+    Also reject explicit comparative ratios ("2.5× normal") since those
+    are model-invented relative claims.
+    """
+    if not answer:
+        return None
+    if _COMPARATIVE_RATIO.search(answer):
+        return "comparative_ratio"
+
+    compact_floats = _extract_compact_floats(compact)
+    # Add cited values to the allowed set
+    for c in citations or []:
+        v = c.get("value")
+        if v is not None:
+            try:
+                compact_floats.append(float(v))
+            except (ValueError, TypeError):
+                pass
+
+    for n in _extract_answer_floats(answer, compact):
+        if not _number_matches_compact(n, compact_floats):
+            return f"invented_number:{_normalize_number(n)}"
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Canned refusals (localized per language)
+# ─────────────────────────────────────────────────────────────────────────────
+# Real out-of-scope refusal — model correctly refused to answer (drug, dosing,
+# diagnosis confirmation, prescriptions, unrelated topics).
+_CANNED_OUT_OF_SCOPE = {
+    "en": "I can only help interpret what is in this report. For that, please consult your doctor.",
+    "vn": "Tôi chỉ có thể hỗ trợ giải thích những gì có trong báo cáo này. Vui lòng tham khảo ý kiến bác sĩ.",
+    "fr": "Je peux uniquement aider à interpréter ce qui figure dans ce rapport. Pour cela, veuillez consulter votre médecin.",
+    "ar": "أستطيع المساعدة فقط في تفسير ما في هذا التقرير. لذلك، يرجى استشارة طبيبك.",
+}
+
+# Internal validator failure — the question was probably fine but we couldn't
+# verify the answer (numeric mismatch, citation alias, parse error). Tell the
+# user to rephrase rather than letting them think the question itself was wrong.
+_CANNED_VALIDATOR_FAIL = {
+    "en": "I had trouble answering that one. Try rephrasing — for example: \"What in my report should I focus on first?\"",
+    "vn": "Tôi gặp khó khăn khi trả lời câu này. Hãy thử diễn đạt lại — ví dụ: \"Tôi nên tập trung vào điều gì trước?\"",
+    "fr": "J'ai eu du mal à répondre. Essayez de reformuler — par exemple : « Sur quoi me concentrer en premier ? »",
+    "ar": "واجهت صعوبة في الإجابة على ذلك. حاول إعادة الصياغة — مثلاً: \"بماذا أبدأ التركيز؟\"",
+}
+
+# Reasons that map to "validator failure" (we should encourage retry, not refuse).
+# Anything else (out_of_scope from LLM, denied_verb, drug_or_dose, schema_invalid,
+# acute symptom triggers) is a real refusal where the user shouldn't retry.
+_VALIDATOR_FAIL_REASONS = {
+    "invented_number",
+    "comparative_ratio",
+    "invalid_cite",
+    "citation_shape",
+    "citation_empty",
+    "schema_invalid",
+}
+
+
+def _is_validator_failure(reason: str) -> bool:
+    """A reason like 'invented_number:75' counts; we match the prefix."""
+    head = (reason or "").split(":", 1)[0]
+    return head in _VALIDATOR_FAIL_REASONS
+
+
+def canned_refusal(language: str, reason: str) -> dict:
+    """Refusal envelope — text varies by reason category for user clarity."""
+    if _is_validator_failure(reason):
+        text = _CANNED_VALIDATOR_FAIL.get(language) or _CANNED_VALIDATOR_FAIL["en"]
+    else:
+        text = _CANNED_OUT_OF_SCOPE.get(language) or _CANNED_OUT_OF_SCOPE["en"]
+    return {
+        "answer": text,
+        "citations": [],
+        "follow_ups": _default_follow_ups(language),
+        "doctor_routing": False,
+        "refused": True,
+        "refusal_reason": reason,
+    }
+
+
+def _default_follow_ups(language: str) -> list[str]:
+    if language == "vn":
+        return [
+            "Kết quả nào nằm ngoài khoảng?",
+            "Tôi nên tập trung vào điều gì trước?",
+            "Tôi có cần đi khám bác sĩ không?",
+        ]
+    if language == "fr":
+        return [
+            "Quels résultats sont hors plage ?",
+            "Sur quoi me concentrer en premier ?",
+            "Dois-je consulter un médecin ?",
+        ]
+    if language == "ar":
+        return [
+            "أي النتائج خارج النطاق؟",
+            "بماذا أبدأ التركيز؟",
+            "هل أحتاج لرؤية طبيب؟",
+        ]
+    return [
+        "Which results are out of range?",
+        "What should I focus on first?",
+        "Do I need to see a doctor?",
+    ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Top-level validation pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+def validate_answer(
+    parsed: dict, compact: dict, question: str, language: str
+) -> dict:
+    """Run 7 guardrails.  Return sanitized response or canned refusal."""
+    # 1) JSON schema basic validation
+    if not isinstance(parsed, dict):
+        return canned_refusal(language, "schema_invalid")
+    answer = parsed.get("answer")
+    citations = parsed.get("citations") or []
+    if not isinstance(answer, str) or not answer.strip():
+        return canned_refusal(language, "schema_invalid")
+    if not isinstance(citations, list):
+        return canned_refusal(language, "schema_invalid")
+
+    # 2) Citations resolve to canonicals in compact_report
+    valid_norms = {
+        _normalize_name(v.get("name", "")) for v in compact.get("values", [])
+    }
+    for c in citations:
+        if not isinstance(c, dict):
+            return canned_refusal(language, "citation_shape")
+        cn = _normalize_name(c.get("test_name", ""))
+        if not cn:
+            return canned_refusal(language, "citation_empty")
+        if cn not in valid_norms:
+            # Allow substring match (handles "HbA1c (NGSP)" vs "HbA1c")
+            if not any(cn in n or n in cn for n in valid_norms if n):
+                return canned_refusal(language, f"invalid_cite:{c.get('test_name')}")
+
+    # 3) Numeric scrub
+    nv = numeric_scrub_violation(answer, compact, citations)
+    if nv:
+        return canned_refusal(language, nv)
+
+    # 4) Diagnostic verb denylist
+    if contains_denylisted_verb(answer):
+        return canned_refusal(language, "denied_verb")
+
+    # 5) Drug / dose mentions
+    if contains_drug_or_dose(answer):
+        return canned_refusal(language, "drug_or_dose")
+
+    # 6) Doctor-routing escalation
+    routing = needs_doctor_routing(compact, question, language)
+    if routing:
+        parsed["doctor_routing"] = True
+        phrase = doctor_phrase(language)
+        if phrase not in answer:
+            answer = answer.rstrip() + " " + phrase
+            parsed["answer"] = answer
+    else:
+        parsed.setdefault("doctor_routing", False)
+
+    # 7) Default fields
+    parsed.setdefault("refused", False)
+    parsed.setdefault("refusal_reason", None)
+    parsed["follow_ups"] = parsed.get("follow_ups") or _default_follow_ups(language)
+
+    return parsed
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# History sanitization
+# ─────────────────────────────────────────────────────────────────────────────
+_ROLE_PREFIX = re.compile(r"^\s*(system|assistant|user)\s*:", re.IGNORECASE)
+
+
+def validate_history(history: list[dict]) -> list[dict]:
+    """Server-side defense against injected client history.
+
+    Rules:
+      - max 6 turns (Pydantic also enforces, this is defense in depth)
+      - alternating roles (user → assistant → user → ...)
+      - content max 2000 chars
+      - reject content starting with role-prefix injection
+      - drop turns failing any check (don't 422 — silently sanitize)
+    """
+    if not history:
+        return []
+    out: list[dict] = []
+    expected_role = None
+    for turn in history[-6:]:
+        if not isinstance(turn, dict):
+            continue
+        role = turn.get("role")
+        content = turn.get("content")
+        if role not in ("user", "assistant"):
+            continue
+        if not isinstance(content, str) or not content.strip():
+            continue
+        if len(content) > 2000:
+            content = content[:2000]
+        if _ROLE_PREFIX.match(content):
+            continue  # drop injection
+        if expected_role and role != expected_role:
+            continue  # not alternating; skip
+        out.append({"role": role, "content": content})
+        expected_role = "assistant" if role == "user" else "user"
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PII strip (heuristic — best effort, not airtight)
+# ─────────────────────────────────────────────────────────────────────────────
+_EMAIL_PAT = re.compile(r"\b[\w._%+-]+@[\w.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+_PHONE_PAT = re.compile(r"\b(?:\+?\d{1,3}[\s-]?)?\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4}\b")
+
+
+def strip_pii(text: str) -> str:
+    """Drop common PII patterns from user-supplied text."""
+    if not text:
+        return ""
+    text = _EMAIL_PAT.sub("[email]", text)
+    text = _PHONE_PAT.sub("[phone]", text)
+    return text

@@ -1,0 +1,120 @@
+# Drug name denylist for Q&A guardrails (Phase 3).
+# Loaded by qa_grounding.contains_drug_or_dose() to reject any LLM answer
+# that mentions specific drugs or dosing.
+#
+# Token-level case-insensitive match. Generic and brand names included.
+
+drugs:
+  # Diabetes
+  - metformin
+  - insulin
+  - glipizide
+  - glyburide
+  - sitagliptin
+  - januvia
+  - empagliflozin
+  - jardiance
+  - dapagliflozin
+  - liraglutide
+  - semaglutide
+  - ozempic
+  - wegovy
+  - mounjaro
+  - tirzepatide
+
+  # Cardiovascular / lipids
+  - statin
+  - atorvastatin
+  - lipitor
+  - rosuvastatin
+  - crestor
+  - simvastatin
+  - zocor
+  - pravastatin
+  - lovastatin
+  - ezetimibe
+  - zetia
+  - fenofibrate
+  - gemfibrozil
+
+  # Hypertension
+  - lisinopril
+  - enalapril
+  - losartan
+  - valsartan
+  - amlodipine
+  - metoprolol
+  - atenolol
+  - hydrochlorothiazide
+  - hctz
+  - furosemide
+  - lasix
+  - spironolactone
+
+  # Anticoagulants / antiplatelet
+  - warfarin
+  - coumadin
+  - aspirin
+  - clopidogrel
+  - plavix
+  - apixaban
+  - eliquis
+  - rivaroxaban
+  - xarelto
+
+  # Pain / NSAIDs
+  - ibuprofen
+  - advil
+  - motrin
+  - acetaminophen
+  - paracetamol
+  - tylenol
+  - naproxen
+  - aleve
+
+  # GI
+  - omeprazole
+  - prilosec
+  - pantoprazole
+  - protonix
+  - esomeprazole
+  - nexium
+  - ranitidine
+  - famotidine
+
+  # Thyroid
+  - levothyroxine
+  - synthroid
+  - methimazole
+  - propylthiouracil
+
+  # Antibiotics
+  - amoxicillin
+  - augmentin
+  - azithromycin
+  - zithromax
+  - ciprofloxacin
+  - cipro
+  - doxycycline
+  - cephalexin
+
+  # Steroids
+  - prednisone
+  - prednisolone
+  - hydrocortisone
+  - dexamethasone
+
+  # Respiratory
+  - albuterol
+  - ventolin
+
+  # Mental health
+  - fluoxetine
+  - prozac
+  - sertraline
+  - zoloft
+  - escitalopram
+  - lexapro
+
+# Dose patterns are matched separately by regex in qa_grounding.py:
+# r'\b\d+\s*(mg|mcg|μg|ug|g|ml|iu|units?)\b'

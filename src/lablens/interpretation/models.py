@@ -35,6 +35,11 @@ class InterpretedResult:
     unit_confidence: str = "high"
     source_flag: str | None = None  # Raw OCR flag (audit-only, not semantic)
 
+    # Phase 1a: health-topic tagging (one of the 11 buckets in
+    # health_topic_mapper.KNOWN_TOPICS). Stamped by the pipeline after
+    # LOINC mapping. None until tagged.
+    health_topic: str | None = None
+
 
 @dataclass
 class PanelCompleteness:

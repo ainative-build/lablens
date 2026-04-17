@@ -30,11 +30,18 @@ class Job:
 
 
 class JobStore:
-    """In-memory job store with TTL cleanup."""
+    """In-memory job store with TTL cleanup.
 
-    def __init__(self, ttl_minutes: int = 60):
+    Phase 3: `touch(job_id)` extends TTL on Q&A interaction (sliding window),
+    so chat sessions don't get killed mid-conversation.
+    """
+
+    def __init__(
+        self, ttl_minutes: int = 60, chat_extend_minutes: int = 240
+    ):
         self._jobs: dict[str, Job] = {}
         self._ttl = timedelta(minutes=ttl_minutes)
+        self._chat_extend = timedelta(minutes=chat_extend_minutes)
 
     def create(self) -> str:
         job_id = str(uuid.uuid4())
@@ -59,6 +66,19 @@ class JobStore:
             job.status = status
             job.result = result
             job.error = error
+
+    def touch(self, job_id: str) -> bool:
+        """Extend TTL on Q&A read.  Sliding window: bumps `created_at`
+        forward so the job survives `_chat_extend` minutes from now.
+
+        Returns True if the job exists, False otherwise.
+        """
+        job = self._jobs.get(job_id)
+        if not job:
+            return False
+        # Move created_at forward so cleanup window restarts.
+        job.created_at = datetime.utcnow() - self._ttl + self._chat_extend
+        return True
 
     def _cleanup(self):
         cutoff = datetime.utcnow() - self._ttl

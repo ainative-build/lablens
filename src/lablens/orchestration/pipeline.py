@@ -272,6 +272,7 @@ class PlainPipeline:
 
         # Stage 2: Map terminology + normalize units
         from lablens.extraction.alias_registry import AliasRegistry
+        from lablens.extraction.health_topic_mapper import get_health_topic
         from lablens.extraction.terminology_mapper import TerminologyMapper
         from lablens.extraction.unit_normalizer import UnitNormalizer
 
@@ -293,6 +294,15 @@ class PlainPipeline:
         for i, vdict in enumerate(value_dicts):
             loinc_code, match_conf = mapper.match(vdict["test_name"])
             vdict["loinc_code"] = loinc_code
+
+            # Stage 2.6: tag health topic for L2 grouping. Carried through
+            # to the InterpretedResult after interpretation. inferred=True
+            # is logged for taxonomy-coverage instrumentation.
+            topic_id, topic_inferred = get_health_topic(
+                loinc_code, vdict.get("test_name", "")
+            )
+            vdict["health_topic"] = topic_id
+            vdict["topic_inferred"] = topic_inferred
 
             # Convert numeric string values to float (OCR returns strings)
             raw_val = vdict["value"]
@@ -535,6 +545,23 @@ class PlainPipeline:
             interpreted.total_abnormal,
         )
 
+        # Stamp health_topic onto each interpreted row (engine doesn't
+        # currently carry the field through). Index-aligned with
+        # enriched_values since interpret_report iterates in-order.
+        inferred_count = 0
+        for idx, v in enumerate(interpreted.values):
+            if idx < len(enriched_values):
+                v.health_topic = enriched_values[idx].get("health_topic", "other")
+                if enriched_values[idx].get("topic_inferred"):
+                    inferred_count += 1
+            else:
+                v.health_topic = "other"
+        if interpreted.values:
+            logger.info(
+                "Tagged %d values with health topics (%d inferred via family)",
+                len(interpreted.values), inferred_count,
+            )
+
         # Stage 3.5: Pre-explanation consistency enforcement
         # Values whose direction was derived from weak evidence (OCR flag
         # fallback with no numeric range) produce contradictions: the
@@ -675,8 +702,41 @@ class PlainPipeline:
                 d.setdefault("evidence_trace", {})["source_flag"] = sf
             return d
 
+        # Phase 1a: pre-build topic_groups so frontend (Phase 2) and Q&A
+        # (Phase 3) consume identical pre-grouped output.
+        from lablens.retrieval.topic_grouper import build_topic_groups
+
+        topic_groups = build_topic_groups(final.interpreted_values)
+        # Re-apply source_flag normalization on grouped results so they
+        # match the flat "values" list shape exactly.
+        for grp in topic_groups:
+            normalized: list[dict] = []
+            for d in grp.results:
+                d = dict(d)
+                sf = d.pop("source_flag", None)
+                if sf:
+                    d.setdefault("evidence_trace", {})["source_flag"] = sf
+                normalized.append(d)
+            grp.results = normalized
+
+        # Phase 1b: build executive summary ONCE here.  Memoized into
+        # result["summary"] — never recomputed on poll/fetch.  LLM headline
+        # is generated for non-green status only; rejected → deterministic
+        # fallback.  Always safe.
+        from lablens.retrieval.report_summarizer import (
+            HeadlineGenerator,
+            build_summary,
+        )
+
+        headline_gen = HeadlineGenerator(self.settings)
+        summary = await build_summary(
+            final.interpreted_values, headline_gen=headline_gen
+        )
+
         result = {
             "values": [_value_dict(v) for v in final.interpreted_values],
+            "topic_groups": [g.model_dump() for g in topic_groups],
+            "summary": summary.model_dump(),
             "screening_results": screening_output,
             "explanations": [vars(e) for e in final.explanations],
             "panels": [vars(p) for p in final.panels] if final.panels else [],
