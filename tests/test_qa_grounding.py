@@ -188,6 +188,55 @@ class TestNumericScrub:
             citations=[],
         ) is None
 
+    # ── PR #6 v3 calibration: tolerant rounding ──
+    def test_allows_rounded_integer(self):
+        """Real bug: '121' should match compact value 121.0371."""
+        compact = {"values": [{"name": "LDL", "value": 121.0371, "unit": "mg/dL"}]}
+        assert numeric_scrub_violation(
+            "Your LDL is 121 mg/dL — discuss with your clinician.",
+            compact,
+            citations=[],
+        ) is None
+
+    def test_allows_rounded_to_two_digits(self):
+        compact = {"values": [{"name": "LDL", "value": 121.0371, "unit": "mg/dL"}]}
+        assert numeric_scrub_violation(
+            "LDL of 121.04 mg/dL is mildly elevated.",
+            compact,
+            citations=[],
+        ) is None
+
+    def test_allows_relative_5pct_tolerance(self):
+        compact = {"values": [{"name": "X", "value": 100.0}]}
+        # 104 is within 5% of 100
+        assert numeric_scrub_violation(
+            "Your X is around 104.",
+            compact,
+            citations=[],
+        ) is None
+
+    def test_rejects_far_off_number(self):
+        compact = {"values": [{"name": "LDL", "value": 121.0371, "unit": "mg/dL"}]}
+        # 200 is far from 121
+        violation = numeric_scrub_violation(
+            "Your LDL is 200 mg/dL.",
+            compact,
+            citations=[],
+        )
+        assert violation is not None
+        assert "invented_number" in violation
+
+    def test_allows_ordered_list_bullets(self):
+        """Real bug: '1. Should I repeat...' — '1' is bullet, not data."""
+        compact = {"values": [{"name": "LDL", "value": 121.0371, "unit": "mg/dL"}]}
+        text = (
+            "Useful questions for your doctor:\n"
+            "1. Should I repeat my lipid panel?\n"
+            "2. Do I need vitamin D?\n"
+            "3. Should my eGFR be repeated?"
+        )
+        assert numeric_scrub_violation(text, compact, citations=[]) is None
+
     def test_allows_cited_value(self):
         assert numeric_scrub_violation(
             "Glucose 100 mg/dL is in range.",

@@ -197,15 +197,24 @@ def _extract_compact_numbers(compact: dict) -> set[str]:
 
     Includes values, ref_low, ref_high.  Allows the answer to mention
     these numbers without triggering the numeric-scrub guardrail.
+    Kept for backwards compatibility with tests.
     """
     nums: set[str] = set()
+    for f in _extract_compact_floats(compact):
+        nums.add(_normalize_number(f))
+    return nums
+
+
+def _extract_compact_floats(compact: dict) -> list[float]:
+    """All numeric values from compact_report as floats — for tolerant matching."""
+    nums: list[float] = []
     for v in compact.get("values", []):
         for k in ("value", "ref_low", "ref_high"):
             x = v.get(k)
             if x is None:
                 continue
             try:
-                nums.add(_normalize_number(float(x)))
+                nums.append(float(x))
             except (ValueError, TypeError):
                 pass
     return nums
@@ -215,6 +224,32 @@ def _normalize_number(n: float) -> str:
     """Stable string for numeric comparison (strip trailing zeros)."""
     s = f"{n:.4f}".rstrip("0").rstrip(".")
     return s if s else "0"
+
+
+def _number_matches_compact(answer_num: float, compact_nums: list[float]) -> bool:
+    """Tolerant match: True if `answer_num` plausibly references a compact value.
+
+    Allows reasonable LLM rounding so legitimate answers like "LDL is 121"
+    aren't rejected when the actual value is 121.0371.
+
+    Match rules (any one):
+      1. Exact equality
+      2. Absolute difference ≤ 0.5 (small numbers like 5 vs 5.4)
+      3. Relative difference ≤ 5%
+      4. Rounding equivalence at 0/1/2 decimal digits
+    """
+    for c in compact_nums:
+        if answer_num == c:
+            return True
+        diff = abs(answer_num - c)
+        if diff <= 0.5:
+            return True
+        if c != 0 and diff / abs(c) <= 0.05:
+            return True
+        for digits in (0, 1, 2):
+            if round(c, digits) == answer_num or round(answer_num, digits) == c:
+                return True
+    return False
 
 
 # Whitelist patterns: timeframes, percentages without comparison, ages.
@@ -233,17 +268,41 @@ def _strip_whitelisted_number_contexts(text: str) -> str:
 
 
 def _extract_answer_numbers(text: str) -> list[str]:
-    """All standalone numbers in the answer (skip digits embedded in names).
+    """All standalone numbers in the answer (skip digits embedded in names),
+    returned as normalized strings (legacy API for backwards compatibility).
 
     e.g., "HbA1c" should NOT yield "1"; "5.6" or "165" should be picked up.
     """
+    return [_normalize_number(f) for f in _extract_answer_floats(text)]
+
+
+def _extract_answer_floats(text: str) -> list[float]:
+    """Extract standalone numbers as floats — used for tolerant matching."""
     cleaned = _strip_whitelisted_number_contexts(text or "")
-    # Number must NOT be adjacent to letters (excludes "HbA1c", "B12", etc.)
+    # Number must NOT be adjacent to letters (excludes "HbA1c", "B12", etc.).
+    # Also skip ordered-list markers like "1." at line start (e.g. "1. Should
+    # I repeat ...") — these aren't medical numbers, just enumeration.
     pattern = r"(?<![A-Za-z])-?\d+(?:\.\d+)?(?![A-Za-z])"
-    return [
-        _normalize_number(float(m))
-        for m in re.findall(pattern, cleaned)
-    ]
+    nums: list[float] = []
+    for m in re.finditer(pattern, cleaned):
+        token = m.group(0)
+        # Skip ordered-list bullets: number followed by ". " or ") " preceded
+        # by start of line / whitespace and digit count is small (1-2 digits).
+        end = m.end()
+        if (
+            end < len(cleaned)
+            and cleaned[end:end + 2] in (". ", ") ")
+            and len(token) <= 2
+        ):
+            # Verify it's at start of line / after whitespace (list bullet)
+            start = m.start()
+            if start == 0 or cleaned[start - 1] in (" ", "\n", "\t"):
+                continue
+        try:
+            nums.append(float(token))
+        except ValueError:
+            pass
+    return nums
 
 
 # Comparative-ratio bypass attempts (model-invented relative claims).
@@ -254,27 +313,33 @@ _COMPARATIVE_RATIO = re.compile(
 
 
 def numeric_scrub_violation(answer: str, compact: dict, citations: list[dict]) -> str | None:
-    """Reject if answer contains numbers not in compact + citations + whitelist.
+    """Reject if answer contains numbers not plausibly in compact + citations.
+
+    Tolerant of reasonable LLM rounding (5% relative or 0.5 absolute, or
+    rounding equivalence at 0/1/2 digits) so legitimate answers like
+    "LDL is 121" aren't rejected when the actual value is 121.0371.
 
     Also reject explicit comparative ratios ("2.5× normal") since those
-    are model-invented values.
+    are model-invented relative claims.
     """
     if not answer:
         return None
     if _COMPARATIVE_RATIO.search(answer):
         return "comparative_ratio"
-    allowed = _extract_compact_numbers(compact)
-    # Add cited values
+
+    compact_floats = _extract_compact_floats(compact)
+    # Add cited values to the allowed set
     for c in citations or []:
         v = c.get("value")
         if v is not None:
             try:
-                allowed.add(_normalize_number(float(v)))
+                compact_floats.append(float(v))
             except (ValueError, TypeError):
                 pass
-    for token in _extract_answer_numbers(answer):
-        if token not in allowed:
-            return f"invented_number:{token}"
+
+    for n in _extract_answer_floats(answer):
+        if not _number_matches_compact(n, compact_floats):
+            return f"invented_number:{_normalize_number(n)}"
     return None
 
 
