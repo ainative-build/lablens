@@ -28,6 +28,7 @@ interface ThreadMessage extends ChatTurn {
 }
 
 const STORAGE_KEY = (jobId: string) => `lablens.chat.${jobId}`;
+const TEASER_DISMISSED_KEY = "lablens.chat.teaserDismissed";
 
 // Lazy-load the thread renderer so the floating button stays light when
 // the user hasn't engaged the chat yet.
@@ -56,6 +57,27 @@ export function ChatDock({ jobId, language }: Props) {
   const [pending, setPending] = useState(false);
   const [expired, setExpired] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Teaser bubble — visible by default until the user dismisses it via the
+  // close button on the bubble. Once dismissed, stays dismissed across
+  // sessions (localStorage). Also auto-hides when the dialog is opened.
+  const [teaserVisible, setTeaserVisible] = useState(false);
+
+  // Restore teaser visibility on mount (default = show; respect dismissal).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dismissed =
+      window.localStorage.getItem(TEASER_DISMISSED_KEY) === "1";
+    setTeaserVisible(!dismissed);
+  }, []);
+
+  const dismissTeaser = () => {
+    setTeaserVisible(false);
+    try {
+      window.localStorage.setItem(TEASER_DISMISSED_KEY, "1");
+    } catch {
+      /* private mode etc — fine */
+    }
+  };
 
   // Restore on mount (also restores expired flag indirectly — if thread had
   // a previous server-side 410 we'd see it next request).
@@ -138,14 +160,69 @@ export function ChatDock({ jobId, language }: Props) {
 
   return (
     <>
-      {/* Floating button — only visible when dialog closed.
-          Icon is an inline SVG (not emoji) so it baseline-aligns with the
-          text and matches the rest of the icon system. */}
+      {/* Teaser bubble — Intercom-style. Sits above the FAB; carries the
+          "Ask about your results" copy so the CTA text isn't lost when the
+          button became icon-only. Dismissible (× button), persistent. */}
+      {!open && teaserVisible && (
+        <div
+          role="status"
+          className="fixed bottom-24 right-4 md:right-6 z-30 max-w-[280px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-card)] shadow-[var(--shadow-elevated)] p-3 pr-7 animate-fade-in"
+        >
+          <button
+            type="button"
+            onClick={dismissTeaser}
+            aria-label="Dismiss"
+            className="absolute top-1.5 right-1.5 inline-flex items-center justify-center h-6 w-6 rounded text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--color-surface-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3.5 w-3.5"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="flex items-start gap-2.5 text-left w-full focus-visible:outline-none rounded-md"
+          >
+            {/* Brand mark avatar — links the chat to LabLens identity */}
+            <span
+              aria-hidden
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-500)] shadow-[var(--shadow-card)] ring-2 ring-white dark:ring-[var(--color-surface-sunken)]"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="white"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M12 3c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10z" />
+              </svg>
+            </span>
+            <span className="text-sm text-[var(--foreground)] leading-snug font-medium pt-0.5">
+              {t("chat.cta_open", language)}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Floating circular FAB — icon-only, larger touch target than before.
+          Hovers/scales subtly; brand-green stays the anchor color. */}
       {!open && (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-4 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] text-white px-5 py-3 text-sm font-medium leading-none shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] pb-safe"
+          className="fixed bottom-4 right-4 md:right-6 z-30 inline-flex items-center justify-center h-14 w-14 rounded-full bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] hover:scale-105 active:scale-95 transition-transform duration-150 text-white shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] pb-safe"
           aria-label={t("chat.cta_open", language)}
         >
           <svg
@@ -156,11 +233,10 @@ export function ChatDock({ jobId, language }: Props) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-4 w-4 shrink-0"
+            className="h-6 w-6"
           >
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <span>{t("chat.cta_open", language)}</span>
         </button>
       )}
 
