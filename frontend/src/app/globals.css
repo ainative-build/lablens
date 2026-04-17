@@ -60,20 +60,22 @@
   --font-display: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b0d10;
-    --foreground: #f3f4f6;
-    --foreground-muted: #9ca3af;
-    --color-surface: #16191c;
-    --color-surface-muted: #1c2024;
-    --color-surface-sunken: #21252a;
-    --color-border: #2a2f35;
-    --color-border-strong: #3a4049;
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 1px 6px rgb(0 0 0 / 0.20);
-    --shadow-elevated: 0 6px 24px rgb(0 0 0 / 0.40);
-    --shadow-hero: 0 24px 64px -24px rgb(25 195 125 / 0.32);
-  }
+/* Dark mode is now driven by [data-theme="dark"] on <html> instead of the
+   prefers-color-scheme media query. The inline init script in layout.tsx
+   sets the attribute before paint based on saved preference -> system fallback
+   so there's no FOUC. ThemeToggle in the header flips it on click. */
+:root[data-theme="dark"] {
+  --background: #0b0d10;
+  --foreground: #f3f4f6;
+  --foreground-muted: #9ca3af;
+  --color-surface: #16191c;
+  --color-surface-muted: #1c2024;
+  --color-surface-sunken: #21252a;
+  --color-border: #2a2f35;
+  --color-border-strong: #3a4049;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 1px 6px rgb(0 0 0 / 0.20);
+  --shadow-elevated: 0 6px 24px rgb(0 0 0 / 0.40);
+  --shadow-hero: 0 24px 64px -24px rgb(25 195 125 / 0.32);
 }
 
 body {
