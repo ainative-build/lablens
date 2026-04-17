@@ -26,6 +26,9 @@ from lablens.interpretation.severity import (
     heuristic_severity,
 )
 from lablens.knowledge.rules_loader import get_rule, load_all_rules
+from lablens.retrieval.clinical_priority import get_severity_cap
+
+_SEVERITY_ORDER = {"normal": 0, "mild": 1, "moderate": 2, "critical": 3}
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +115,9 @@ class InterpretationEngine:
                 result.actionability = qr["actionability"]
                 result.is_panic = qr["is_panic"]
                 result.range_source = qr.get("range_source", "no-range")
+                result.classification_state = qr.get(
+                    "classification_state", "classified"
+                )
                 result.evidence_trace = {
                     **qr.get("evidence_trace", {}),
                     "raw": str(v["value"]),
@@ -132,6 +138,9 @@ class InterpretationEngine:
             result.actionability = qr["actionability"]
             result.is_panic = qr["is_panic"]
             result.range_source = qr.get("range_source", "no-range")
+            result.classification_state = qr.get(
+                "classification_state", "classified"
+            )
             result.evidence_trace = {
                 **qr.get("evidence_trace", {}),
                 "raw": str(v["value"]),
@@ -172,6 +181,21 @@ class InterpretationEngine:
             )
             ref_low, ref_high, range_source = None, None, "no-range"
 
+        # Guard: curated fallback with a unit that disagrees with the rule
+        # (e.g. Calcium reported in mmol/L while the curated band is mg/dL).
+        # Silently classifying 2.3 mmol/L against an 8.5-10.5 mg/dL band
+        # would produce a dramatically wrong "low" reading.
+        if range_source == "curated-fallback" and rule:
+            curated_unit = (rule.get("unit") or "").strip().lower()
+            value_unit = unit_str.strip().lower()
+            if curated_unit and value_unit and curated_unit != value_unit:
+                logger.info(
+                    "Unit mismatch for %s — curated '%s' vs value '%s',"
+                    " clearing curated fallback range",
+                    v.get("test_name", "?"), curated_unit, value_unit,
+                )
+                ref_low, ref_high, range_source = None, None, "no-range"
+
         # Suspicious lab range override: prefer curated only if unit-compatible
         if range_source == "lab-provided" and range_trust == "low":
             if rule:
@@ -205,6 +229,7 @@ class InterpretationEngine:
                         result.range_source = "no-range"
                         result.range_trust = range_trust
                         result.confidence = "low"
+                        result.classification_state = "could_not_classify"
                         result.evidence_trace = build_evidence_trace(
                             result, rule, match_confidence
                         )
@@ -236,6 +261,7 @@ class InterpretationEngine:
                 result.range_source = "no-range"
                 result.range_trust = range_trust
                 result.confidence = "low"
+                result.classification_state = "could_not_classify"
                 result.evidence_trace = build_evidence_trace(
                     result, rule, match_confidence
                 )
@@ -340,9 +366,11 @@ class InterpretationEngine:
         is_decision_threshold = v.get("is_decision_threshold", False)
         if not unit.strip():
             result.direction = "indeterminate"
+            result.classification_state = "could_not_classify"
         elif restricted_flag or is_decision_threshold:
             result.direction = "indeterminate"
             result.range_source = "no-range"
+            result.classification_state = "could_not_classify"
         elif flag and flag.upper() in ("H", "A"):
             result.direction = "high"
             result.range_source = "ocr-flag-fallback"
@@ -351,6 +379,7 @@ class InterpretationEngine:
             result.range_source = "ocr-flag-fallback"
         else:
             result.direction = "indeterminate"
+            result.classification_state = "could_not_classify"
         result.confidence = "low"
         result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
         return result
@@ -398,3 +427,45 @@ class InterpretationEngine:
         result.actionability = DEFAULT_ACTIONABILITY.get(result.severity, "routine")
         if result.is_panic:
             result.actionability = "urgent"
+
+        # Phase 1 uncertainty gate: a non-normal severity is only trustworthy
+        # when we have curated bands. An OCR-extracted lab range alone — even
+        # if the verifier rates it high trust — is not strong enough clinical
+        # rule support; that's exactly how Basophils/NRBC/Non-HDL got called
+        # `moderate` in the judge-review report. Suppress to normal and mark
+        # the row low_confidence — the direction arrow still shows, but the
+        # UI/CSV won't report a bogus "mild abnormal" callout.
+        if result.severity != "normal":
+            has_curated_bands = rule is not None and rule.get(
+                "severity_bands"
+            ) is not None
+            if not has_curated_bands:
+                logger.info(
+                    "Uncertainty gate: %s — no curated bands (range_source=%s),"
+                    " suppressing severity %s -> normal (low_confidence)",
+                    result.test_name, range_source, result.severity,
+                )
+                result.severity = "normal"
+                result.actionability = "routine"
+                result.is_panic = False
+                result.classification_state = "low_confidence"
+
+        # Phase 2 canonical severity cap: low-clinical-impact analytes
+        # (Basophils, NRBC, PDW, MPV, etc.) never report moderate/critical
+        # in isolation. Applied post-gate so the stored severity — and
+        # therefore CSV export — matches what the UI shows. Record the
+        # raw value on evidence_trace for auditability.
+        cap = get_severity_cap(result.test_name)
+        if cap and _SEVERITY_ORDER.get(
+            result.severity, 0
+        ) > _SEVERITY_ORDER.get(cap, 0):
+            raw_severity = result.severity
+            result.evidence_trace = dict(result.evidence_trace or {})
+            result.evidence_trace["severity_source_raw"] = raw_severity
+            result.severity = cap
+            result.actionability = DEFAULT_ACTIONABILITY.get(cap, "routine")
+            if not result.is_panic:
+                logger.info(
+                    "Severity cap: %s %s -> %s (low-clinical-impact)",
+                    result.test_name, raw_severity, cap,
+                )

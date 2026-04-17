@@ -31,3 +31,25 @@ exclude_from_summary:
 
 # Fallback rule: if `exclude_from_summary` filters EVERYTHING out, summary
 # still includes them — better to show something than an empty hero.
+
+# Canonical severity cap for low-clinical-impact analytes.
+#
+# The engine applies this AFTER the Phase 1 uncertainty gate so the cap
+# is stored on InterpretedResult (and therefore shows up in CSV export
+# identically to the UI). Judge-review P0: Basophils was showing
+# "moderate/consult" in the CSV while the UI said "mild" — the display-
+# only cap caused the mismatch. Making it canonical closes that gap.
+#
+# Match is case-insensitive substring, same rules as exclude_from_summary.
+severity_cap:
+  Basophils: "mild"
+  "Nucleated Red Blood Cells": "mild"
+  NRBC: "mild"
+  "Platelets Distribution Width": "mild"
+  PDW: "mild"
+  Plateletcrit: "mild"
+  PCT: "mild"
+  "Mean Platelet Volume": "mild"
+  MPV: "mild"
+  "Immature Granulocytes": "mild"
+  RDW: "mild"

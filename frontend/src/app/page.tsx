@@ -167,14 +167,16 @@ export default function HomePage() {
       </section>
 
       {/* Quiet disclaimer + source link — bottom, low visual weight */}
-      <footer className="mt-16 sm:mt-24 pb-10 border-t border-[var(--color-border)] pt-8 space-y-5">
-        <DisclaimerBanner type="upload" language={language} variant="compact" />
-        <div className="text-center">
+      <footer className="mt-16 sm:mt-24 pb-10 border-t border-[var(--color-border)] pt-8">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+          <div className="flex-1 min-w-0">
+            <DisclaimerBanner type="upload" language={language} variant="compact" />
+          </div>
           <a
             href="https://github.com/ainative-build/lablens"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-[var(--foreground-muted)] hover:text-[var(--color-brand-700)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded px-1"
+            className="inline-flex items-center gap-1.5 text-xs text-[var(--foreground-muted)] hover:text-[var(--color-brand-700)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded px-1 shrink-0"
           >
             <svg
               aria-hidden="true"

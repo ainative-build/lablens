@@ -214,25 +214,33 @@ class TestHeuristicSeverity:
     def engine(self):
         return InterpretationEngine()
 
-    def test_mild_deviation(self, engine):
-        """Value just outside range (≤10% deviation) → mild severity."""
+    def test_mild_deviation_gated_to_low_confidence(self, engine):
+        """Without a curated rule, heuristic severity is suppressed.
+
+        Phase 1 uncertainty gate: direction stays as computed, but severity
+        drops to normal and the row is tagged low_confidence so the UI won't
+        show a bogus "mild abnormal" callout on an analyte we don't have a
+        clinical rule for.
+        """
         values = [{
             "test_name": "Unknown Analyte", "value": 10.4, "unit": "mg/dL",
             "loinc_code": None, "ref_range_low": 5.0, "ref_range_high": 10.0,
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "high"
-        assert report.values[0].severity == "mild"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
-    def test_moderate_deviation(self, engine):
-        """Value well outside range → moderate severity."""
+    def test_moderate_deviation_gated_to_low_confidence(self, engine):
+        """Even large deviations get gated without curated rule."""
         values = [{
             "test_name": "Unknown Analyte", "value": 15.0, "unit": "mg/dL",
             "loinc_code": None, "ref_range_low": 5.0, "ref_range_high": 10.0,
         }]
         report = engine.interpret_report(values)
         assert report.values[0].direction == "high"
-        assert report.values[0].severity == "moderate"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
     def test_in_range_stays_normal(self, engine):
         """In-range value → normal severity regardless of missing rule."""
@@ -611,8 +619,13 @@ class TestRangeTrust:
         assert report.values[0].severity in ("mild", "normal")
         assert report.values[0].range_source == "lab-provided-suspicious"
 
-    def test_high_trust_range_allows_moderate(self, engine):
-        """High-trust lab range allows normal severity escalation."""
+    def test_high_trust_range_without_curated_rule_gated(self, engine):
+        """Even high-trust lab range gets gated without curated rule.
+
+        Phase 1: OCR-extracted lab ranges are not strong enough clinical
+        support on their own — without a curated rule the severity drops
+        to normal and the row is tagged low_confidence.
+        """
         values = [{
             "test_name": "WBC", "value": 15.0, "unit": "K/uL",
             "loinc_code": None,
@@ -620,7 +633,9 @@ class TestRangeTrust:
             "range_trust": "high",
         }]
         report = engine.interpret_report(values)
-        assert report.values[0].severity == "moderate"
+        assert report.values[0].direction == "high"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
 
 class TestExpandedRangeSource:
@@ -856,7 +871,12 @@ class TestSeverityCap:
         return InterpretationEngine()
 
     def test_never_critical_without_curated(self, engine):
-        """Heuristic severity cannot reach critical — capped at moderate."""
+        """Heuristic severity cannot reach critical without curated rule.
+
+        Phase 1: without curated bands the uncertainty gate now fires and
+        drops severity to normal entirely (low_confidence), superseding the
+        older heuristic-cap-at-moderate behavior.
+        """
         values = [{
             "test_name": "Unknown", "value": 100.0, "unit": "mg/dL",
             "loinc_code": None,
@@ -864,7 +884,8 @@ class TestSeverityCap:
         }]
         report = engine.interpret_report(values)
         assert report.values[0].severity != "critical"
-        assert report.values[0].severity == "moderate"
+        assert report.values[0].severity == "normal"
+        assert report.values[0].classification_state == "low_confidence"
 
 
 class TestPlausibilityChecker:
@@ -1306,6 +1327,66 @@ class TestDirectionConsistencyEnforcement:
         # range-text is not in _WEAK_DIRECTION_SOURCES → preserved
         assert report.values[0].direction == "high"
         assert report.values[0].range_source == "range-text"
+
+
+class TestOCRFlagFallbackLowConfidence:
+    """Judge-review Phase 4: ocr-flag-fallback rows without a curated rule
+    AND without a verifiable range must be stamped low_confidence with
+    severity reset to normal. This prevents the contradictory UI state
+    (e.g. eGFR card saying "lab flagged as high" alongside "mildly
+    reduced", NRBC 0.0 showing as mild-low).
+    """
+
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def _apply_stage_35(self, v):
+        """Replica of PlainPipeline Stage 3.5 weak-direction branch.
+        Kept in sync with src/lablens/orchestration/pipeline.py."""
+        _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
+        if (
+            v.range_source in _WEAK_DIRECTION_SOURCES
+            and v.reference_range_low is None
+            and v.reference_range_high is None
+            and v.direction in ("high", "low")
+        ):
+            v.source_flag = v.direction[0].upper()
+            v.confidence = "low"
+            v.classification_state = "low_confidence"
+            v.severity = "normal"
+            v.actionability = "routine"
+            v.is_panic = False
+        return v
+
+    def test_egfr_flag_high_stamped_low_confidence(self, engine):
+        """eGFR 75.11 flag=H without range → direction preserved,
+        classification_state=low_confidence, severity reset to normal."""
+        values = [{
+            "test_name": "Estimated Glomerular Filtration Rate (eGFR)",
+            "value": 75.11, "unit": "mL/min/1.73m2",
+            "loinc_code": None, "flag": "H",
+        }]
+        report = engine.interpret_report(values)
+        v = self._apply_stage_35(report.values[0])
+        assert v.direction == "high"
+        assert v.classification_state == "low_confidence"
+        assert v.severity == "normal"
+        assert v.actionability == "routine"
+        assert v.confidence == "low"
+
+    def test_nrbc_flag_low_stamped_low_confidence(self, engine):
+        """NRBC 0.0 flag=L without range → low_confidence, severity normal."""
+        values = [{
+            "test_name": "Nucleated Red Blood Cells (NRBC)",
+            "value": 0.0, "unit": "10^3/μL",
+            "loinc_code": None, "flag": "L",
+        }]
+        report = engine.interpret_report(values)
+        v = self._apply_stage_35(report.values[0])
+        assert v.direction == "low"
+        assert v.classification_state == "low_confidence"
+        assert v.severity == "normal"
 
 
 # ── Screening canonicalization ──

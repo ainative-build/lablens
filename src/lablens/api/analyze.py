@@ -97,6 +97,7 @@ async def export_analysis(job_id: str):
     writer = csv.writer(buf)
     writer.writerow([
         "test_name", "value", "unit", "direction", "severity",
+        "classification_state",
         "is_panic", "actionability", "confidence",
         "reference_range_low", "reference_range_high",
         "range_source", "range_trust",
@@ -108,6 +109,7 @@ async def export_analysis(job_id: str):
             v.get("unit", ""),
             v.get("direction", ""),
             v.get("severity", ""),
+            v.get("classification_state", "classified"),
             v.get("is_panic", ""),
             v.get("actionability", ""),
             v.get("confidence", ""),

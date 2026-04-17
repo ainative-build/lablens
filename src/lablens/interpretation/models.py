@@ -35,6 +35,14 @@ class InterpretedResult:
     unit_confidence: str = "high"
     source_flag: str | None = None  # Raw OCR flag (audit-only, not semantic)
 
+    # Classification state — first-class uncertainty tag surfaced in UI + export.
+    #   "classified"         — trustworthy direction + severity
+    #   "low_confidence"     — direction kept but severity suppressed to normal
+    #                          because rule support is weak (no curated bands,
+    #                          unvalidated lab range, etc.)
+    #   "could_not_classify" — direction is indeterminate; not enough data
+    classification_state: str = "classified"
+
     # Phase 1a: health-topic tagging (one of the 11 buckets in
     # health_topic_mapper.KNOWN_TOPICS). Stamped by the pipeline after
     # LOINC mapping. None until tagged.

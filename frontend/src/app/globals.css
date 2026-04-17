@@ -12,6 +12,11 @@
    ───────────────────────────────────────────────────────────────── */
 
 :root {
+  /* Force light chrome — form controls, scrollbars, and (on supporting
+     browsers) the tab title bar follow this hint regardless of the user's
+     OS dark-mode preference. Matches the app's light-only design. */
+  color-scheme: light;
+
   /* Light surface palette — refined for WCAG AAA contrast on body text.
      Logo is now transparent (white bg stripped) so page bg can be any
      calm tone. Settled on a near-white with a hint of cool. */

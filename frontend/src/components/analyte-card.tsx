@@ -52,6 +52,26 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
   const isIndet = value.direction === "indeterminate";
   const dirArrow = value.direction === "high" ? "▲" : value.direction === "low" ? "▼" : "·";
 
+  // Phase 3 state pill — only render when not fully classified. We hide it
+  // on `could_not_classify` rows whose severity badge already says "Unclear"
+  // so we don't double-up on the same signal.
+  const state = value.classification_state;
+  const showStatePill =
+    state === "low_confidence" ||
+    (state === "could_not_classify" && !isIndet);
+  const stateLabel =
+    state === "low_confidence"
+      ? t("state.low_confidence", language)
+      : state === "could_not_classify"
+        ? t("state.could_not_classify", language)
+        : "";
+  const stateTip =
+    state === "low_confidence"
+      ? t("state.low_confidence_tip", language)
+      : state === "could_not_classify"
+        ? t("state.could_not_classify_tip", language)
+        : "";
+
   const borderClass = value.is_panic
     ? "border-rose-500 border-2"
     : isAbnormal
@@ -90,26 +110,36 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
           <span className="mr-2 text-gray-500">{dirArrow}</span>
           {value.test_name}
         </h3>
-        <SeverityBadge
-          variant={
-            isIndet
-              ? "unclear"
-              : value.is_minor
-                ? "minor"
-                : (value.display_severity as
-                    | "normal"
-                    | "mild"
-                    | "moderate"
-                    | "critical"
-                    | undefined) ??
-                  (value.severity as
-                    | "normal"
-                    | "mild"
-                    | "moderate"
-                    | "critical")
-          }
-          language={language}
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          {showStatePill && (
+            <span
+              title={stateTip}
+              className="inline-flex items-center rounded-full border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:text-gray-300"
+            >
+              {stateLabel}
+            </span>
+          )}
+          <SeverityBadge
+            variant={
+              isIndet
+                ? "unclear"
+                : value.is_minor
+                  ? "minor"
+                  : (value.display_severity as
+                      | "normal"
+                      | "mild"
+                      | "moderate"
+                      | "critical"
+                      | undefined) ??
+                    (value.severity as
+                      | "normal"
+                      | "mild"
+                      | "moderate"
+                      | "critical")
+            }
+            language={language}
+          />
+        </div>
       </div>
 
       <div className="mt-2 flex items-baseline gap-2 text-sm">

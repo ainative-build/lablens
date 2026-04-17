@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Figtree, Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
@@ -27,6 +27,15 @@ export const metadata: Metadata = {
   title: "LabLens — Understand your lab report in plain English",
   description:
     "Upload a PDF, get a clear breakdown of what's normal, what's worth following up, and what to ask your doctor — in seconds.",
+};
+
+// Light-only design — pin both the tab-chrome color and the page's color
+// scheme so dark-OS users still see a light browser bar. Next.js 15+
+// requires themeColor/colorScheme under the `viewport` export, not
+// `metadata`.
+export const viewport: Viewport = {
+  themeColor: "#fafbfc",
+  colorScheme: "light",
 };
 
 export default function RootLayout({
