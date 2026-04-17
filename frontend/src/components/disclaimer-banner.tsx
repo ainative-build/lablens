@@ -17,13 +17,32 @@ const MEDICAL_DISCLAIMER: Record<Language, string> = {
 interface Props {
   type: "upload" | "results";
   language?: Language;
+  /** Visual variant. `compact` = quiet inline (used in landing footer) */
+  variant?: "default" | "compact";
 }
 
-export function DisclaimerBanner({ type, language = "en" }: Props) {
+/**
+ * Disclaimer + consent surface.
+ *
+ * - `default`: token-aligned amber-tinted card (used on `/results/[jobId]`)
+ * - `compact`: quiet text-only block — for landing footer where loud amber
+ *   would dominate the hero
+ */
+export function DisclaimerBanner({ type, language = "en", variant = "default" }: Props) {
   const lang = language in CONSENT_TEXT ? language : "en";
+
+  if (variant === "compact") {
+    return (
+      <div className="text-xs text-[var(--foreground-muted)] leading-relaxed space-y-1.5 max-w-prose mx-auto">
+        {type === "upload" && <p>{CONSENT_TEXT[lang]}</p>}
+        <p>{MEDICAL_DISCLAIMER[lang]}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-      {type === "upload" && <p className="mb-1">{CONSENT_TEXT[lang]}</p>}
+    <div className="rounded-[var(--radius-card)] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3 text-sm text-amber-900 dark:text-amber-200 space-y-1">
+      {type === "upload" && <p>{CONSENT_TEXT[lang]}</p>}
       <p>{MEDICAL_DISCLAIMER[lang]}</p>
     </div>
   );

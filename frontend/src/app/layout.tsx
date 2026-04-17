@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Figtree, Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
 
@@ -14,9 +14,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Figtree — healthcare-warm display face for headings + brand voice. Pairs
+// with Geist Sans on body. Loaded with display=swap; reserves layout space.
+const figtree = Figtree({
+  variable: "--font-figtree",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "LabLens — AI Lab Report Interpreter",
-  description: "Deterministic lab interpretation with AI-powered explanations",
+  title: "LabLens — Understand your lab report in plain English",
+  description:
+    "Upload a PDF, get a clear breakdown of what's normal, what's worth following up, and what to ask your doctor — in seconds.",
 };
 
 export default function RootLayout({
@@ -27,7 +37,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${figtree.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* AppShell uses useSearchParams → must be wrapped in Suspense (Next.js 16). */}
