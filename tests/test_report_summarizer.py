@@ -188,12 +188,13 @@ class TestHeadlineGuardrails:
         assert out is None, out
 
     def test_accepts_clean_red_headline(self):
-        text = "Important findings need attention; please review with clinician promptly."
+        # Calibrated wording: "follow up" satisfies red required word set.
+        text = "A few results stand out and may need follow-up with your clinician promptly."
         out = _validate_headline(text, "red", self._top("LDL"))
         assert out is None, out
 
     def test_rejects_diagnostic_verb_you_have(self):
-        text = "Your results show you have diabetes and need attention immediately."
+        text = "Your results show you have diabetes and need follow-up immediately."
         out = _validate_headline(text, "red", self._top("HbA1c"))
         assert out is not None
         assert "denied_verb" in out
@@ -204,13 +205,13 @@ class TestHeadlineGuardrails:
         assert out is not None
 
     def test_rejects_drug_mention(self):
-        text = "Consider starting metformin for elevated readings; review with attention now."
+        text = "Consider starting metformin for elevated readings; review with monitoring now."
         out = _validate_headline(text, "orange", self._top("HbA1c"))
         assert out is not None
         assert "drug:metformin" in out
 
     def test_rejects_dose_pattern(self):
-        text = "Recommend 500 mg daily for elevated values; review with attention."
+        text = "Recommend 500 mg daily for elevated values; review with monitoring soon."
         out = _validate_headline(text, "orange", self._top("LDL"))
         assert out is not None
         assert "dose_pattern" in out or "drug" in out
@@ -222,7 +223,7 @@ class TestHeadlineGuardrails:
         assert "word_count" in out
 
     def test_rejects_too_long(self):
-        text = " ".join(["word"] * 30) + " attention."
+        text = " ".join(["word"] * 30) + " monitor."
         out = _validate_headline(text, "orange", self._top("LDL"))
         assert out is not None
         assert "word_count" in out
@@ -282,10 +283,10 @@ class _StubHeadlineGenerator:
 async def test_build_summary_uses_llm_headline_when_valid():
     values = [make_value(severity="moderate", direction="high")]
     stub = _StubHeadlineGenerator(
-        headline="Important findings need attention; please review with clinician soon."
+        headline="A few results stand out and may need follow-up with your clinician."
     )
     s = await build_summary(values, headline_gen=stub)
-    assert s.headline.startswith("Important findings")
+    assert s.headline.startswith("A few results stand out")
 
 
 @pytest.mark.asyncio
@@ -293,7 +294,10 @@ async def test_build_summary_falls_back_when_llm_returns_none():
     values = [make_value(severity="critical", direction="high")]
     stub = _StubHeadlineGenerator(headline=None)
     s = await build_summary(values, headline_gen=stub)
-    assert s.headline == "Some important findings need attention."
+    # PR #6 calibrated tone: less alarmist than "need attention".
+    assert s.headline == (
+        "A few results stand out and may need follow-up with your clinician."
+    )
 
 
 @pytest.mark.asyncio
@@ -311,4 +315,74 @@ async def test_build_summary_skips_llm_for_green():
 async def test_build_summary_works_without_generator():
     values = [make_value(severity="moderate", direction="high")]
     s = await build_summary(values, headline_gen=None)
-    assert s.headline == "Most results normal; a few items need attention."
+    # PR #6 calibrated tone: monitoring/follow-up framing for orange status.
+    assert s.headline == (
+        "Most results are normal; a few are worth follow-up or monitoring."
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PR #6 calibration: low-clinical-impact filter + alarmist denylist
+# ─────────────────────────────────────────────────────────────────────────────
+class TestClinicalPriorityFilter:
+    def test_basophils_excluded_from_top_findings(self):
+        values = [
+            make_value(name="Basophils (BA SO) %", severity="moderate", direction="low"),
+            make_value(name="LDL Cholesterol", severity="mild", direction="high"),
+            make_value(name="25-OH Vitamin D", severity="mild", direction="low"),
+        ]
+        s = build_summary_sync(values)
+        names = [f.test_name for f in s.top_findings]
+        # Basophils filtered; LDL and Vit D survive
+        assert "Basophils (BA SO) %" not in names
+        assert "LDL Cholesterol" in names
+        assert "25-OH Vitamin D" in names
+
+    def test_pdw_pct_nrbc_excluded(self):
+        values = [
+            make_value(name="PDW", severity="moderate", direction="high"),
+            make_value(name="Plateletcrit", severity="moderate", direction="low"),
+            make_value(name="NRBC", severity="moderate", direction="high"),
+            make_value(name="LDL", severity="mild", direction="high"),
+        ]
+        s = build_summary_sync(values)
+        names = [f.test_name for f in s.top_findings]
+        assert names == ["LDL"]
+
+    def test_fallback_keeps_findings_when_filter_empties_list(self):
+        # Only low-impact findings → can't leave hero empty
+        values = [
+            make_value(name="Basophils (BA SO) %", severity="moderate", direction="low"),
+            make_value(name="MPV", severity="mild", direction="high"),
+        ]
+        s = build_summary_sync(values)
+        # Both should survive because filter would leave empty list otherwise
+        assert len(s.top_findings) == 2
+
+
+class TestAlarmistDenylist:
+    def _top(self, *names):
+        return [type("F", (), {"test_name": n})() for n in names]
+
+    def test_rejects_clinical_attention(self):
+        text = "These results need clinical attention from your provider soon."
+        out = _validate_headline(text, "orange", self._top("LDL"))
+        assert out is not None
+        assert "alarmist" in out
+
+    def test_rejects_medically_concerning(self):
+        text = "Several findings are medically concerning; review now and follow up."
+        out = _validate_headline(text, "orange", self._top("LDL"))
+        assert out is not None
+        assert "alarmist" in out
+
+    def test_rejects_urgent(self):
+        text = "Urgent review needed for several lab results listed in this report monitor."
+        out = _validate_headline(text, "orange", self._top("LDL"))
+        assert out is not None
+        assert "alarmist" in out
+
+    def test_accepts_calm_phrasing(self):
+        text = "A few results are worth follow-up with your clinician at a routine visit."
+        out = _validate_headline(text, "orange", self._top("LDL"))
+        assert out is None, out

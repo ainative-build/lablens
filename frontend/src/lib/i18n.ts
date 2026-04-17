@@ -34,20 +34,20 @@ export const translations: Record<Language, Record<string, string>> = {
     // Summary card (L1)
     "summary.status.green": "All normal",
     "summary.status.yellow": "Mostly normal",
-    "summary.status.orange": "Needs attention",
+    "summary.status.orange": "Worth follow-up",
     "summary.status.red": "Important findings",
     "summary.headline.green": "Most results are within expected range.",
     "summary.next_steps.green":
       "Routine follow-up; no action needed.",
     "summary.next_steps.yellow":
-      "Discuss with your clinician at your next visit.",
+      "Worth mentioning at your next routine visit.",
     "summary.next_steps.orange":
-      "Schedule a follow-up within a few weeks.",
+      "Worth a follow-up with your clinician at a routine visit.",
     "summary.next_steps.red":
-      "Contact a healthcare provider promptly.",
+      "Worth following up with a clinician soon.",
     "summary.indeterminate.note":
-      "{count} result(s) need closer review.",
-    "summary.top_findings": "Top findings",
+      "{count} result(s) are unclear (often missing a range or unit).",
+    "summary.top_findings": "Worth following up",
     // Direction labels (used by TopFinding plain_language_key)
     "direction.high": "high",
     "direction.low": "low",
@@ -65,9 +65,10 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.urinalysis_other": "Urine & other",
     "topic.other": "Other tests",
     // Group header summaries
-    "group.abnormal_count": "{abnormal} of {total} need attention",
+    "group.abnormal_count": "{abnormal} of {total} worth follow-up",
     "group.indeterminate_count":
-      "{abnormal} of {total} need attention; {indeterminate} unclear",
+      "{abnormal} worth follow-up · {indeterminate} unclear",
+    "group.unclear_only": "{indeterminate} of {total} unclear",
     "group.all_normal": "All normal ({total})",
     "group.expand": "Show details",
     "group.collapse": "Hide details",
@@ -75,6 +76,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // L4 audit panel
     "audit.show": "Show technical details",
     "audit.hide": "Hide technical details",
+    "audit.confidence": "Extraction confidence",
     "audit.range_source": "Range source",
     "audit.range_trust": "Range trust",
     "audit.verifier": "Verification",
@@ -130,21 +132,21 @@ export const translations: Record<Language, Record<string, string>> = {
     "results.export_csv": "Exporter CSV",
     "summary.status.green": "Tout normal",
     "summary.status.yellow": "Majoritairement normal",
-    "summary.status.orange": "Attention requise",
+    "summary.status.orange": "Suivi recommandé",
     "summary.status.red": "Constatations importantes",
     "summary.headline.green":
       "La plupart des résultats sont dans la plage attendue.",
     "summary.next_steps.green":
       "Suivi de routine; aucune action requise.",
     "summary.next_steps.yellow":
-      "Discutez avec votre médecin lors de votre prochaine visite.",
+      "À mentionner lors de votre prochaine visite de routine.",
     "summary.next_steps.orange":
-      "Planifiez un suivi dans les semaines à venir.",
+      "À discuter avec votre médecin lors d'une visite de routine.",
     "summary.next_steps.red":
-      "Contactez rapidement un professionnel de santé.",
+      "À discuter prochainement avec un professionnel de santé.",
     "summary.indeterminate.note":
-      "{count} résultat(s) à examiner de plus près.",
-    "summary.top_findings": "Constatations principales",
+      "{count} résultat(s) sont incertains (souvent à cause d'une plage ou unité manquante).",
+    "summary.top_findings": "À surveiller",
     "direction.high": "élevé",
     "direction.low": "bas",
     "direction.needs_review": "à examiner",
@@ -161,13 +163,15 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.other": "Autres tests",
     "group.abnormal_count": "{abnormal} sur {total} à surveiller",
     "group.indeterminate_count":
-      "{abnormal} sur {total} à surveiller; {indeterminate} incertain(s)",
+      "{abnormal} à surveiller · {indeterminate} incertain(s)",
+    "group.unclear_only": "{indeterminate} sur {total} incertain(s)",
     "group.all_normal": "Tout normal ({total})",
     "group.expand": "Voir les détails",
     "group.collapse": "Masquer les détails",
     "group.normal_collapsed": "{count} résultats normaux",
     "audit.show": "Afficher les détails techniques",
     "audit.hide": "Masquer les détails techniques",
+    "audit.confidence": "Fiabilité d'extraction",
     "audit.range_source": "Source de la plage",
     "audit.range_trust": "Fiabilité",
     "audit.verifier": "Vérification",
@@ -221,20 +225,20 @@ export const translations: Record<Language, Record<string, string>> = {
     "results.export_csv": "تصدير CSV",
     "summary.status.green": "كل شيء طبيعي",
     "summary.status.yellow": "أغلب النتائج طبيعية",
-    "summary.status.orange": "يحتاج اهتماماً",
+    "summary.status.orange": "يستحق المتابعة",
     "summary.status.red": "نتائج مهمة",
     "summary.headline.green": "معظم النتائج ضمن المعدل المتوقع.",
     "summary.next_steps.green":
       "متابعة روتينية؛ لا حاجة لإجراء.",
     "summary.next_steps.yellow":
-      "ناقش مع طبيبك في الزيارة القادمة.",
+      "يستحق الذكر في زيارتك الروتينية القادمة.",
     "summary.next_steps.orange":
-      "حدد موعداً للمتابعة خلال أسابيع قليلة.",
+      "يستحق المتابعة مع طبيبك في زيارة روتينية.",
     "summary.next_steps.red":
-      "اتصل بمقدم الرعاية الصحية فوراً.",
+      "يستحق متابعة قريبة مع مقدم الرعاية الصحية.",
     "summary.indeterminate.note":
-      "{count} نتيجة بحاجة إلى مراجعة أوثق.",
-    "summary.top_findings": "أهم النتائج",
+      "{count} نتيجة غير واضحة (غالباً بسبب نطاق أو وحدة مفقودة).",
+    "summary.top_findings": "تستحق المتابعة",
     "direction.high": "مرتفع",
     "direction.low": "منخفض",
     "direction.needs_review": "بحاجة لمراجعة",
@@ -249,15 +253,17 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.inflammation": "الالتهاب",
     "topic.urinalysis_other": "البول وأخرى",
     "topic.other": "اختبارات أخرى",
-    "group.abnormal_count": "{abnormal} من {total} بحاجة للانتباه",
+    "group.abnormal_count": "{abnormal} من {total} يستحق المتابعة",
     "group.indeterminate_count":
-      "{abnormal} من {total} بحاجة للانتباه؛ {indeterminate} غير واضح",
+      "{abnormal} يستحق المتابعة · {indeterminate} غير واضح",
+    "group.unclear_only": "{indeterminate} من {total} غير واضح",
     "group.all_normal": "كل شيء طبيعي ({total})",
     "group.expand": "عرض التفاصيل",
     "group.collapse": "إخفاء التفاصيل",
     "group.normal_collapsed": "{count} نتيجة طبيعية",
     "audit.show": "عرض التفاصيل التقنية",
     "audit.hide": "إخفاء التفاصيل التقنية",
+    "audit.confidence": "موثوقية الاستخراج",
     "audit.range_source": "مصدر النطاق",
     "audit.range_trust": "الموثوقية",
     "audit.verifier": "التحقق",
@@ -311,21 +317,21 @@ export const translations: Record<Language, Record<string, string>> = {
     "results.export_csv": "Xuất CSV",
     "summary.status.green": "Tất cả bình thường",
     "summary.status.yellow": "Chủ yếu bình thường",
-    "summary.status.orange": "Cần chú ý",
+    "summary.status.orange": "Nên theo dõi",
     "summary.status.red": "Phát hiện quan trọng",
     "summary.headline.green":
       "Phần lớn kết quả nằm trong khoảng mong đợi.",
     "summary.next_steps.green":
       "Theo dõi định kỳ; không cần hành động.",
     "summary.next_steps.yellow":
-      "Trao đổi với bác sĩ trong lần khám tới.",
+      "Nên trao đổi trong lần khám định kỳ tới.",
     "summary.next_steps.orange":
-      "Lên lịch tái khám trong vài tuần tới.",
+      "Nên trao đổi với bác sĩ trong lần khám định kỳ.",
     "summary.next_steps.red":
-      "Hãy liên hệ với cơ sở y tế ngay.",
+      "Nên trao đổi sớm với bác sĩ.",
     "summary.indeterminate.note":
-      "{count} kết quả cần xem xét kỹ hơn.",
-    "summary.top_findings": "Phát hiện chính",
+      "{count} kết quả chưa rõ (thường do thiếu khoảng tham chiếu hoặc đơn vị).",
+    "summary.top_findings": "Nên theo dõi",
     "direction.high": "cao",
     "direction.low": "thấp",
     "direction.needs_review": "cần xem xét",
@@ -340,15 +346,17 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.inflammation": "Viêm",
     "topic.urinalysis_other": "Nước tiểu & khác",
     "topic.other": "Xét nghiệm khác",
-    "group.abnormal_count": "{abnormal} trên {total} cần chú ý",
+    "group.abnormal_count": "{abnormal} trên {total} nên theo dõi",
     "group.indeterminate_count":
-      "{abnormal} trên {total} cần chú ý; {indeterminate} chưa rõ",
+      "{abnormal} nên theo dõi · {indeterminate} chưa rõ",
+    "group.unclear_only": "{indeterminate} trên {total} chưa rõ",
     "group.all_normal": "Tất cả bình thường ({total})",
     "group.expand": "Xem chi tiết",
     "group.collapse": "Ẩn chi tiết",
     "group.normal_collapsed": "{count} kết quả bình thường",
     "audit.show": "Hiện chi tiết kỹ thuật",
     "audit.hide": "Ẩn chi tiết kỹ thuật",
+    "audit.confidence": "Độ tin cậy trích xuất",
     "audit.range_source": "Nguồn khoảng",
     "audit.range_trust": "Độ tin cậy",
     "audit.verifier": "Xác minh",

@@ -1,0 +1,33 @@
+# Clinical-priority calibration for the report-summary "top findings" hero.
+#
+# Tests in `exclude_from_summary` are EXCLUDED from `summary.top_findings`
+# (the hero list at the top of the report) regardless of severity, because
+# isolated abnormalities in these analytes are usually clinically minor and
+# don't warrant hero-level prominence.
+#
+# These tests still appear in their topic groups and detail cards — we just
+# don't lead the report with them.
+#
+# Match is case-insensitive, substring-based on canonical test_name. Keep
+# entries narrow (e.g. "Basophils" matches "Basophils (BA SO) %").
+#
+# Source: clinical convention; see PR #6 calibration discussion.
+
+exclude_from_summary:
+  # CBC sub-indices that are routinely benign in isolation
+  - "Basophils"
+  - "Nucleated Red Blood Cells"
+  - "NRBC"
+  - "Platelets Distribution Width"
+  - "PDW"
+  - "Plateletcrit"
+  - "PCT"
+  - "Mean Platelet Volume"
+  - "MPV"
+  - "Immature Granulocytes"
+  - "RDW"
+  # Calibration: only excluded when isolated; if accompanied by other
+  # CBC-line abnormalities, the topic group surfaces them naturally.
+
+# Fallback rule: if `exclude_from_summary` filters EVERYTHING out, summary
+# still includes them — better to show something than an empty hero.

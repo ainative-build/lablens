@@ -22,6 +22,9 @@ export function AuditPanel({ value, language }: Props) {
       bodyClassName="mt-2 text-xs text-gray-600 space-y-1 bg-gray-50 dark:bg-gray-800 dark:text-gray-300 p-2 rounded border border-gray-200 dark:border-gray-700"
       trigger={open ? t("audit.hide", language) : t("audit.show", language)}
     >
+      {/* Confidence is per-value extraction confidence; moved here so the
+          card header carries one badge (severity), not two competing dimensions. */}
+      <Row label={t("audit.confidence", language)} value={value.confidence} />
       <Row label={t("audit.range_source", language)} value={value.range_source} />
       {value.range_trust && (
         <Row label={t("audit.range_trust", language)} value={value.range_trust} />

@@ -23,6 +23,11 @@ const STATUS_BORDER_LEFT: Record<Status, string> = {
   red: "border-l-rose-600",
 };
 
+// Unclear-only treatment (PR #6 calibration): when a group has zero abnormals
+// but does have indeterminates, give it a distinct gray-dashed border so it
+// doesn't read as "all-normal but hidden". The bucket is unresolved, not safe.
+const UNCLEAR_BORDER_LEFT = "border-l-gray-400 border-l-dashed";
+
 /** L2 — Health-topic accordion group. */
 export function TopicGroup({
   group,
@@ -36,19 +41,33 @@ export function TopicGroup({
   const initial = defaultOpen ?? hasAttention;
   const [open, setOpen] = useState(initial);
 
+  // PR #6: distinguish "unclear-only" groups (0 abnormal, ≥1 indeterminate)
+  // from real "needs follow-up" groups so users don't conflate them.
+  const isUnclearOnly =
+    group.abnormal_count === 0 && group.indeterminate_count > 0;
+
   const headerSummary =
     group.abnormal_count === 0 && group.indeterminate_count === 0
       ? t("group.all_normal", language, { total: group.total_count })
-      : group.indeterminate_count > 0
-        ? t("group.indeterminate_count", language, {
-            abnormal: group.abnormal_count,
-            total: group.total_count,
+      : isUnclearOnly
+        ? t("group.unclear_only", language, {
             indeterminate: group.indeterminate_count,
-          })
-        : t("group.abnormal_count", language, {
-            abnormal: group.abnormal_count,
             total: group.total_count,
-          });
+          })
+        : group.indeterminate_count > 0
+          ? t("group.indeterminate_count", language, {
+              abnormal: group.abnormal_count,
+              total: group.total_count,
+              indeterminate: group.indeterminate_count,
+            })
+          : t("group.abnormal_count", language, {
+              abnormal: group.abnormal_count,
+              total: group.total_count,
+            });
+
+  const borderClass = isUnclearOnly
+    ? UNCLEAR_BORDER_LEFT
+    : STATUS_BORDER_LEFT[group.status];
 
   // Split into needs-attention vs normal
   const attention = group.results.filter(
@@ -64,7 +83,7 @@ export function TopicGroup({
 
   return (
     <section
-      className={`rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 border-l-4 ${STATUS_BORDER_LEFT[group.status]}`}
+      className={`rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 border-l-4 ${borderClass}`}
     >
       <button
         type="button"
@@ -72,8 +91,17 @@ export function TopicGroup({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-lg"
       >
-        <SeverityDot status={group.status} size="md" />
-        <span className="font-semibold text-gray-900 dark:text-gray-100">
+        {isUnclearOnly ? (
+          <span
+            aria-hidden
+            className="inline-block h-3 w-3 rounded-full border-2 border-dashed border-gray-400"
+          />
+        ) : (
+          <SeverityDot status={group.status} size="md" />
+        )}
+        <span
+          className={`font-semibold text-gray-900 dark:text-gray-100 ${isUnclearOnly ? "italic" : ""}`}
+        >
           {t(group.topic_label_key, language)}
         </span>
         <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">

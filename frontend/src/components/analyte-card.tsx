@@ -2,7 +2,6 @@ import type { Explanation, InterpretedValue } from "@/lib/api-client";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import { AuditPanel } from "./audit-panel";
-import { ConfidenceBadge } from "./confidence-badge";
 import { SeverityBadge } from "./severity-badge";
 
 interface Props {
@@ -37,8 +36,9 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
           {value.test_name}
         </h3>
         <div className="flex gap-2 items-center">
+          {/* Single-meaning badge (PR #6 calibration): severity only.
+              Confidence moved to L4 audit so users don't see "Normal medium". */}
           <SeverityBadge severity={value.severity} language={language} />
-          <ConfidenceBadge confidence={value.confidence} />
         </div>
       </div>
 

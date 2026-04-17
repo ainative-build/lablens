@@ -18,7 +18,10 @@ import json
 import logging
 import re
 from functools import partial
+from pathlib import Path
 from typing import Iterable, Literal
+
+import yaml
 
 from lablens.config import Settings
 from lablens.interpretation.models import InterpretedResult
@@ -125,12 +128,44 @@ def _to_top_finding(v: InterpretedResult) -> TopFinding:
 # for next_steps and uncertainty_note.  Headlines must be naturalistic but are
 # only used when the LLM output is rejected or unavailable.
 
+# Calibrated tone (PR #6 review): less alarmist than "needs clinical attention".
+# Mild/moderate findings get monitoring language; only "red" status uses urgency.
 _FALLBACK_HEADLINES = {
     "green": "Most results are within expected range.",
-    "yellow": "Mostly normal results; a few items may need a closer look.",
-    "orange": "Most results normal; a few items need attention.",
-    "red": "Some important findings need attention.",
+    "yellow": "Most results are normal; a few are mildly outside the usual range.",
+    "orange": "Most results are normal; a few are worth follow-up or monitoring.",
+    "red": "A few results stand out and may need follow-up with your clinician.",
 }
+
+
+# ---------------------------------------------------------------------------
+# Clinical-priority filter — exclude isolated low-impact tests from top_findings
+# ---------------------------------------------------------------------------
+_CLINICAL_PRIORITY_PATH = (
+    Path(__file__).resolve().parents[3] / "data" / "clinical-priority.yaml"
+)
+
+
+def _load_exclude_from_summary() -> set[str]:
+    """Load the lowercased exclude-from-summary list from YAML."""
+    if not _CLINICAL_PRIORITY_PATH.exists():
+        return set()
+    try:
+        data = yaml.safe_load(_CLINICAL_PRIORITY_PATH.read_text()) or {}
+    except yaml.YAMLError as e:
+        logger.warning("Failed to parse clinical-priority.yaml: %s", e)
+        return set()
+    items = data.get("exclude_from_summary", []) or []
+    return {str(s).lower() for s in items if isinstance(s, str)}
+
+
+_EXCLUDE_FROM_SUMMARY: set[str] = _load_exclude_from_summary()
+
+
+def _is_low_clinical_priority(test_name: str) -> bool:
+    """True if test should be excluded from summary's top_findings hero."""
+    name = (test_name or "").lower()
+    return any(token in name for token in _EXCLUDE_FROM_SUMMARY)
 
 
 def _fallback_headline(status: Status, top: list[TopFinding]) -> str:
@@ -148,9 +183,13 @@ ABSOLUTE RULES — violating any will cause your output to be rejected:
 2. NEVER state a diagnosis. Forbidden phrases include: "you have", "you are diagnosed", "definitely", "confirmed", "means you have".
 3. NEVER mention drugs, dosages, or specific treatments.
 4. ONLY name analytes from the provided "top_findings" list. Do not invent test names.
-5. Use hedged, factual language: "appears", "suggests", "may", "needs review".
-6. Match the tone implied by the status word ("attention" for orange/red; "watch" for yellow; "normal" for green).
-7. Output JSON ONLY: {"headline": "<your sentence>"} — nothing else.
+5. Use calm, factual, hedged language: "appears", "may", "worth monitoring", "worth follow-up", "worth review with your clinician".
+6. AVOID alarmist phrasing: NEVER say "clinical attention", "medically concerning", "requires evaluation", "urgent", "alarming". Mild and moderate findings are typically monitoring/lifestyle territory, not emergencies.
+7. Tone by status:
+   - yellow: "mostly normal", "worth watching", "a few items mildly outside range"
+   - orange: "worth follow-up", "worth monitoring", "discuss at your next visit"
+   - red: "may need follow-up", "stand out", "discuss with your clinician"
+8. Output JSON ONLY: {"headline": "<your sentence>"} — nothing else.
 """
 
 SUMMARY_HEADLINE_USER = """Status: {status}
@@ -184,12 +223,22 @@ _DOSE_PATTERN = re.compile(r"\b\d+\s*(mg|mcg|μg|g|ml|iu|units?)\b", re.IGNORECA
 
 # Status word constraints — the headline for non-green should *contain* a
 # status-aligned word (positive constraint, prevents silent omission).
+# Calibrated (PR #6): tone words match calmness expected at each tier.
 _STATUS_REQUIRED_WORDS = {
-    "yellow": {"watch", "monitor", "follow", "minor", "look", "attention", "review"},
-    "orange": {"attention", "review", "watch", "follow"},
-    "red": {"attention", "important", "urgent", "review", "follow", "promptly"},
+    "yellow": {"watch", "monitor", "follow", "minor", "mild", "review", "mostly"},
+    "orange": {"monitor", "follow", "watch", "review", "discuss"},
+    "red": {"follow", "discuss", "review", "stand", "important", "promptly"},
     "green": set(),
 }
+
+# Alarmist words to reject (defense in depth; the prompt also forbids them).
+_ALARMIST_DENYLIST = [
+    re.compile(r"\bclinical attention\b", re.IGNORECASE),
+    re.compile(r"\bmedically concerning\b", re.IGNORECASE),
+    re.compile(r"\brequires? evaluation\b", re.IGNORECASE),
+    re.compile(r"\burgent\b", re.IGNORECASE),
+    re.compile(r"\balarming\b", re.IGNORECASE),
+]
 
 
 def _normalize_name(name: str) -> str:
@@ -218,6 +267,11 @@ def _validate_headline(text: str, status: Status, top: list[TopFinding]) -> str 
     for pat in _DENYLIST_VERBS:
         if re.search(pat, low):
             return f"denied_verb:{pat}"
+
+    # Denylist: alarmist phrasing (PR #6 calibration)
+    for pat in _ALARMIST_DENYLIST:
+        if pat.search(text):
+            return f"alarmist:{pat.pattern}"
 
     # Denylist: drug names
     for tok in re.findall(r"[a-zA-Z]+", low):
@@ -389,6 +443,13 @@ async def build_summary(
         v for v in values
         if v.severity in ("mild", "moderate", "critical") or v.is_panic
     ]
+    # PR #6 calibration: filter out low-clinical-impact tests (Basophils, NRBC,
+    # PDW, etc.) from the hero. They still appear in topic groups + cards.
+    # Fallback: if filtering empties the list, keep originals (better than no
+    # findings on a yellow/orange report).
+    filtered = [v for v in abnormal if not _is_low_clinical_priority(v.test_name)]
+    if filtered:
+        abnormal = filtered
     abnormal_sorted = sorted(abnormal, key=_top_finding_sort_key)
     top = [_to_top_finding(v) for v in abnormal_sorted[:3]]
 
@@ -420,6 +481,9 @@ def build_summary_sync(values: list[InterpretedResult]) -> ReportSummary:
         v for v in values
         if v.severity in ("mild", "moderate", "critical") or v.is_panic
     ]
+    filtered = [v for v in abnormal if not _is_low_clinical_priority(v.test_name)]
+    if filtered:
+        abnormal = filtered
     abnormal_sorted = sorted(abnormal, key=_top_finding_sort_key)
     top = [_to_top_finding(v) for v in abnormal_sorted[:3]]
     indeterminate_count = sum(1 for v in values if v.direction == "indeterminate")
