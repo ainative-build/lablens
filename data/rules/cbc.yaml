@@ -301,3 +301,59 @@
     moderate_high: "consult"
     critical_low: "urgent"
     critical_high: "urgent"
+
+- loinc_code: "37874-4"
+  test_name: "Plateletcrit (PCT)"
+  unit: "%"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 0.17
+      high: 0.35
+      source: "Mindray BC-5800 / common adult reference"
+  severity_bands:
+    normal: { low: 0.17, high: 0.35 }
+    mild_low: { low: 0.10, high: 0.169 }
+    mild_high: { low: 0.351, high: 0.45 }
+    moderate_low: { low: 0.05, high: 0.099 }
+    moderate_high: { low: 0.451, high: 0.60 }
+    critical_low: { low: 0, high: 0.049 }
+    critical_high: { low: 0.601, high: 999 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    mild_high: "monitor"
+    moderate_low: "monitor"
+    moderate_high: "monitor"
+    critical_low: "consult"
+    critical_high: "consult"
+
+- loinc_code: "32207-3"
+  test_name: "Platelet Distribution Width (PDW)"
+  unit: "%"
+  reference_ranges:
+    - population: "adult"
+      age_min: 18
+      age_max: 120
+      sex: "any"
+      low: 9.0
+      high: 17.0
+      source: "Mindray BC-5800 / common adult reference"
+  severity_bands:
+    normal: { low: 9.0, high: 17.0 }
+    mild_low: { low: 7.0, high: 8.9 }
+    mild_high: { low: 17.1, high: 19.0 }
+    moderate_low: { low: 5.0, high: 6.9 }
+    moderate_high: { low: 19.1, high: 22.0 }
+    critical_low: { low: 0, high: 4.9 }
+    critical_high: { low: 22.1, high: 999 }
+  actionability:
+    normal: "routine"
+    mild_low: "monitor"
+    mild_high: "monitor"
+    moderate_low: "monitor"
+    moderate_high: "monitor"
+    critical_low: "consult"
+    critical_high: "consult"

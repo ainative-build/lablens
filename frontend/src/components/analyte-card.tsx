@@ -36,9 +36,30 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
           {value.test_name}
         </h3>
         <div className="flex gap-2 items-center">
-          {/* Single-meaning badge (PR #6 calibration): severity only.
-              Confidence moved to L4 audit so users don't see "Normal medium". */}
-          <SeverityBadge severity={value.severity} language={language} />
+          {/* PR #6 calibration v2: badge variant routes by direction first
+              (indeterminate → "unclear"), then by display_severity (capped
+              for low-clinical-impact tests), then by raw severity. This
+              matches the explanation tone instead of the engine's raw math. */}
+          <SeverityBadge
+            variant={
+              isIndet
+                ? "unclear"
+                : value.is_minor
+                  ? "minor"
+                  : (value.display_severity as
+                      | "normal"
+                      | "mild"
+                      | "moderate"
+                      | "critical"
+                      | undefined) ??
+                    (value.severity as
+                      | "normal"
+                      | "mild"
+                      | "moderate"
+                      | "critical")
+            }
+            language={language}
+          />
         </div>
       </div>
 

@@ -49,6 +49,10 @@ class TopicGroup(BaseModel):
     summary: str  # ≤80 chars, e.g. "1 of 4 need attention" or "All normal (4)"
     abnormal_count: int = 0
     indeterminate_count: int = 0
+    # PR #6 calibration v2: minor_count tracks low-clinical-impact tests
+    # (Basophils, NRBC, PDW, etc.) that are technically abnormal but should
+    # not inflate "worth follow-up" count. Card UI shows them as "Minor".
+    minor_count: int = 0
     total_count: int = 0
     # results carry InterpretedResult dicts (vars(v)) — kept loose to avoid
     # round-tripping the dataclass through Pydantic.

@@ -50,6 +50,9 @@ export interface TopicGroup {
   summary: string;
   abnormal_count: number;
   indeterminate_count: number;
+  // PR #6 calibration v2: minor_count tracks low-clinical-impact abnormals
+  // (Basophils, NRBC, PDW, etc.) separately from "worth follow-up".
+  minor_count?: number;
   total_count: number;
   results: InterpretedValue[];
 }
@@ -78,6 +81,12 @@ export interface InterpretedValue {
   unit: string;
   direction: string;
   severity: string;
+  // PR #6 calibration v2: display_severity is severity capped for UI
+  // (low-clinical-impact tests never show "moderate"/"critical").
+  // is_minor flags low-clinical-impact abnormals so the card uses a
+  // "Minor" badge variant.
+  display_severity?: string;
+  is_minor?: boolean;
   is_panic: boolean;
   actionability: string;
   confidence: string;

@@ -18,14 +18,12 @@ import json
 import logging
 import re
 from functools import partial
-from pathlib import Path
 from typing import Iterable, Literal
-
-import yaml
 
 from lablens.config import Settings
 from lablens.interpretation.models import InterpretedResult
 from lablens.models.report_summary import ReportSummary, Status, TopFinding
+from lablens.retrieval.clinical_priority import is_low_clinical_priority
 
 logger = logging.getLogger(__name__)
 
@@ -138,34 +136,9 @@ _FALLBACK_HEADLINES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Clinical-priority filter — exclude isolated low-impact tests from top_findings
-# ---------------------------------------------------------------------------
-_CLINICAL_PRIORITY_PATH = (
-    Path(__file__).resolve().parents[3] / "data" / "clinical-priority.yaml"
-)
-
-
-def _load_exclude_from_summary() -> set[str]:
-    """Load the lowercased exclude-from-summary list from YAML."""
-    if not _CLINICAL_PRIORITY_PATH.exists():
-        return set()
-    try:
-        data = yaml.safe_load(_CLINICAL_PRIORITY_PATH.read_text()) or {}
-    except yaml.YAMLError as e:
-        logger.warning("Failed to parse clinical-priority.yaml: %s", e)
-        return set()
-    items = data.get("exclude_from_summary", []) or []
-    return {str(s).lower() for s in items if isinstance(s, str)}
-
-
-_EXCLUDE_FROM_SUMMARY: set[str] = _load_exclude_from_summary()
-
-
-def _is_low_clinical_priority(test_name: str) -> bool:
-    """True if test should be excluded from summary's top_findings hero."""
-    name = (test_name or "").lower()
-    return any(token in name for token in _EXCLUDE_FROM_SUMMARY)
+# Clinical-priority filter — see lablens.retrieval.clinical_priority
+# Re-exported here so existing test imports keep working.
+_is_low_clinical_priority = is_low_clinical_priority
 
 
 def _fallback_headline(status: Status, top: list[TopFinding]) -> str:

@@ -35,37 +35,53 @@ export function TopicGroup({
   language,
   defaultOpen,
 }: Props) {
-  // Default open if any abnormal/indeterminate; collapsed if all normal.
+  const minorCount = group.minor_count ?? 0;
+
+  // Default open if any abnormal/indeterminate; collapsed if all normal+minor.
+  // (Minor-only groups stay collapsed by default — they're low-impact.)
   const hasAttention =
     group.abnormal_count + group.indeterminate_count > 0;
   const initial = defaultOpen ?? hasAttention;
   const [open, setOpen] = useState(initial);
 
-  // PR #6: distinguish "unclear-only" groups (0 abnormal, ≥1 indeterminate)
-  // from real "needs follow-up" groups so users don't conflate them.
+  // PR #6 calibration v2: distinguish 3 states beyond "all normal":
+  //   - unclear-only: 0 abnormal AND 0 minor AND >0 indeterminate → gray dashed
+  //   - has follow-up: ≥1 abnormal → status color
+  //   - minor-only: 0 abnormal, ≥1 minor (no follow-up needed)
   const isUnclearOnly =
-    group.abnormal_count === 0 && group.indeterminate_count > 0;
+    group.abnormal_count === 0 &&
+    minorCount === 0 &&
+    group.indeterminate_count > 0;
+  const isMinorOnly =
+    group.abnormal_count === 0 && minorCount > 0;
 
+  // Compose header summary from non-zero parts (locked order:
+  // follow-up → minor → unclear). Localized via i18n.
+  const headerParts: string[] = [];
+  if (group.abnormal_count > 0) {
+    headerParts.push(
+      t("group.abnormal_count_inline", language, {
+        abnormal: group.abnormal_count,
+        total: group.total_count,
+      })
+    );
+  }
+  if (minorCount > 0) {
+    headerParts.push(t("group.minor_count", language, { minor: minorCount }));
+  }
+  if (group.indeterminate_count > 0) {
+    headerParts.push(
+      t("group.unclear_count", language, {
+        indeterminate: group.indeterminate_count,
+      })
+    );
+  }
   const headerSummary =
-    group.abnormal_count === 0 && group.indeterminate_count === 0
+    headerParts.length === 0
       ? t("group.all_normal", language, { total: group.total_count })
-      : isUnclearOnly
-        ? t("group.unclear_only", language, {
-            indeterminate: group.indeterminate_count,
-            total: group.total_count,
-          })
-        : group.indeterminate_count > 0
-          ? t("group.indeterminate_count", language, {
-              abnormal: group.abnormal_count,
-              total: group.total_count,
-              indeterminate: group.indeterminate_count,
-            })
-          : t("group.abnormal_count", language, {
-              abnormal: group.abnormal_count,
-              total: group.total_count,
-            });
+      : headerParts.join(" · ");
 
-  const borderClass = isUnclearOnly
+  const borderClass = isUnclearOnly || isMinorOnly
     ? UNCLEAR_BORDER_LEFT
     : STATUS_BORDER_LEFT[group.status];
 
@@ -91,7 +107,7 @@ export function TopicGroup({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-lg"
       >
-        {isUnclearOnly ? (
+        {isUnclearOnly || isMinorOnly ? (
           <span
             aria-hidden
             className="inline-block h-3 w-3 rounded-full border-2 border-dashed border-gray-400"
@@ -100,7 +116,7 @@ export function TopicGroup({
           <SeverityDot status={group.status} size="md" />
         )}
         <span
-          className={`font-semibold text-gray-900 dark:text-gray-100 ${isUnclearOnly ? "italic" : ""}`}
+          className={`font-semibold text-gray-900 dark:text-gray-100 ${isUnclearOnly || isMinorOnly ? "italic" : ""}`}
         >
           {t(group.topic_label_key, language)}
         </span>

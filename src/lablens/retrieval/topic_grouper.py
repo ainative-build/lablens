@@ -17,6 +17,10 @@ from typing import Iterable
 
 from lablens.interpretation.models import InterpretedResult
 from lablens.models.report_summary import TopicGroup
+from lablens.retrieval.clinical_priority import (
+    display_severity,
+    is_low_clinical_priority,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +53,13 @@ def _is_abnormal(v: InterpretedResult) -> bool:
 
 def _is_indeterminate(v: InterpretedResult) -> bool:
     return v.direction == "indeterminate"
+
+
+def _is_minor(v: InterpretedResult) -> bool:
+    """PR #6 calibration: low-clinical-impact tests that ARE technically
+    abnormal but don't warrant 'worth follow-up' classification.
+    """
+    return _is_abnormal(v) and is_low_clinical_priority(v.test_name)
 
 
 def _deviation_magnitude(v: InterpretedResult) -> float:
@@ -113,12 +124,23 @@ def _within_group_sort_key(v: InterpretedResult) -> tuple:
     return (tier, -panic_rank, -sev_rank, -dev, (v.test_name or "").lower())
 
 
-def _summary_string(abnormal_count: int, indeterminate_count: int, total: int) -> str:
-    """Short ≤80-char human summary."""
-    needs = abnormal_count + indeterminate_count
-    if needs == 0:
+def _summary_string(
+    abnormal_count: int,
+    indeterminate_count: int,
+    minor_count: int,
+    total: int,
+) -> str:
+    """Short ≤80-char human summary (frontend renders i18n version)."""
+    if abnormal_count + indeterminate_count + minor_count == 0:
         return f"All normal ({total})"
-    return f"{needs} of {total} need attention"
+    parts = []
+    if abnormal_count > 0:
+        parts.append(f"{abnormal_count} of {total} worth follow-up")
+    if minor_count > 0:
+        parts.append(f"{minor_count} minor")
+    if indeterminate_count > 0:
+        parts.append(f"{indeterminate_count} unclear")
+    return " · ".join(parts)
 
 
 def build_topic_groups(values: list[InterpretedResult]) -> list[TopicGroup]:
@@ -137,23 +159,39 @@ def build_topic_groups(values: list[InterpretedResult]) -> list[TopicGroup]:
     groups: list[TopicGroup] = []
     for topic, items in buckets.items():
         items_sorted = sorted(items, key=_within_group_sort_key)
-        abnormal_count = sum(1 for v in items_sorted if _is_abnormal(v))
+        # PR #6 calibration: low-clinical-impact abnormals (Basophils, NRBC,
+        # PDW, etc.) get counted as "minor", not "worth follow-up".
+        minor_count = sum(1 for v in items_sorted if _is_minor(v))
+        abnormal_count = sum(
+            1 for v in items_sorted if _is_abnormal(v) and not _is_minor(v)
+        )
         indeterminate_count = sum(
             1 for v in items_sorted
             if _is_indeterminate(v) and not _is_abnormal(v)
         )
         total = len(items_sorted)
         status = derive_group_status(items_sorted)
+        # Stamp display_severity per result (capped for low-impact tests),
+        # used by frontend AnalyteCard badge.
+        result_dicts = []
+        for v in items_sorted:
+            d = vars(v).copy()
+            d["display_severity"] = display_severity(v.test_name, v.severity)
+            d["is_minor"] = _is_minor(v)
+            result_dicts.append(d)
         groups.append(
             TopicGroup(
                 topic=topic,
                 topic_label_key=f"topic.{topic}",
                 status=status,
-                summary=_summary_string(abnormal_count, indeterminate_count, total),
+                summary=_summary_string(
+                    abnormal_count, indeterminate_count, minor_count, total
+                ),
                 abnormal_count=abnormal_count,
                 indeterminate_count=indeterminate_count,
+                minor_count=minor_count,
                 total_count=total,
-                results=[vars(v) for v in items_sorted],
+                results=result_dicts,
             )
         )
 

@@ -144,14 +144,32 @@ class TestSummaryString:
             _mk("C", "kidney", direction="high", severity="moderate"),
             _mk("D", "kidney"),
         ])
-        assert groups[0].summary == "2 of 4 need attention"
+        # PR #6 calibration: copy uses "worth follow-up" (less alarmist).
+        assert groups[0].summary == "2 of 4 worth follow-up"
 
-    def test_indeterminate_counts_toward_attention(self):
+    def test_indeterminate_only_summary(self):
         groups = build_topic_groups([
             _mk("A", "kidney", direction="indeterminate"),
             _mk("B", "kidney"),
         ])
-        assert groups[0].summary == "1 of 2 need attention"
+        # Calibrated: indeterminate-only group separates "unclear" from
+        # follow-up so it doesn't blend with abnormal items.
+        assert groups[0].summary == "1 unclear"
+
+    def test_minor_findings_separated_from_followup(self):
+        # Basophils is in clinical-priority exclude list → counts as minor,
+        # not as "worth follow-up".
+        groups = build_topic_groups([
+            _mk("Basophils", "blood_count", direction="low", severity="moderate"),
+            _mk("Hgb", "blood_count", direction="low", severity="mild"),
+        ])
+        g = groups[0]
+        assert g.minor_count == 1
+        assert g.abnormal_count == 1
+        # Display severity capped for low-impact tests
+        baso = next(r for r in g.results if r["test_name"] == "Basophils")
+        assert baso["display_severity"] == "mild"
+        assert baso["is_minor"] is True
 
     def test_summary_under_80_chars(self):
         groups = build_topic_groups([
