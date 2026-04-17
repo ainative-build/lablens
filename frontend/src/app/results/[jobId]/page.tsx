@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ChatDock } from "@/components/chat-dock";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { PanicStickyBanner } from "@/components/panic-sticky-banner";
 import { ResultsRightRail } from "@/components/results-right-rail";
@@ -10,8 +11,7 @@ import { ShowAbnormalToggle } from "@/components/show-abnormal-toggle";
 import { SummaryCard } from "@/components/summary-card";
 import { TopicGroup } from "@/components/topic-group";
 import type { AnalysisResult } from "@/lib/api-client";
-import { getExportUrl, pollResult } from "@/lib/api-client";
-import type { Language } from "@/lib/i18n";
+import { getExportUrl, JobNotFoundError, pollResult } from "@/lib/api-client";
 import { t } from "@/lib/i18n";
 
 const MAX_POLL_ATTEMPTS = 60; // ~ 10 min wall time
@@ -23,11 +23,10 @@ function nextDelay(attempt: number): number {
 
 export default function ResultsPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const jobId = params.jobId as string;
-  // Language is owned by AppShell; we read ?lang= for poll initialization
-  // and rendering. AppShell's selector updates the URL via push.
-  const language = (searchParams.get("lang") as Language) || "en";
+  // English-only for now; switcher removed in feat/polish-v1. Restore by
+  // reading ?lang= from URL when re-localizing.
+  const language = "en" as const;
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stillWorking, setStillWorking] = useState(false);
@@ -72,7 +71,13 @@ export default function ResultsPage() {
         }
       } catch (e) {
         if (cancelled) return;
-        // Network error → exponential backoff retry
+        // Job ID not on the server (backend restart or stale URL) — stop
+        // polling and surface a clear error so the user can re-upload.
+        if (e instanceof JobNotFoundError) {
+          setError("not_found");
+          return;
+        }
+        // Otherwise treat as transient network error and back off.
         timer = setTimeout(poll, nextDelay(attemptRef.current));
       }
     };
@@ -87,33 +92,50 @@ export default function ResultsPage() {
   // ── Loading / error states ──
   if (error === "timeout") {
     return (
-      <ErrorBox
-        message="Analysis is taking too long. Please try uploading again."
-        language={language}
-      />
+      <ErrorBox message="Analysis is taking too long. Please try uploading again." />
+    );
+  }
+  if (error === "not_found") {
+    return (
+      <ErrorBox message="This analysis has expired. Please upload the report again to continue." />
     );
   }
   if (error) {
-    return <ErrorBox message={`${t("error.analysis", language)}: ${error}`} language={language} />;
+    return <ErrorBox message={`${t("error.analysis", language)}: ${error}`} />;
   }
   if (!result || result.status === "queued" || result.status === "processing") {
+    // Centered loader: spinner + bold caption + timing hint + job id. No
+    // skeleton blocks — they read as empty/error cards more than "loading".
     return (
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div
-            role="status"
-            aria-live="polite"
-            className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"
-          />
-          <p className="text-gray-700 dark:text-gray-300 text-lg">
-            {t("upload.analyzing", language)}
+        <div
+          role="status"
+          aria-busy="true"
+          aria-live="polite"
+          className="text-center space-y-2"
+        >
+          <div className="inline-flex items-center gap-2 text-[var(--foreground)] font-semibold text-xl">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="h-6 w-6 animate-spin text-[var(--color-brand-600)]"
+            >
+              <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+            </svg>
+            <span>{t("upload.analyzing", language)}</span>
+          </div>
+          <p className="text-sm text-[var(--foreground)] opacity-70">
+            {t("upload.timing_hint", language)}
           </p>
           {stillWorking && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Still working...
+            <p className="text-sm text-[var(--color-brand-600)] font-medium">
+              {t("upload.still_working", language)}
             </p>
           )}
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-[11px] text-[var(--foreground)] opacity-40">
             Job: {jobId}
           </p>
         </div>
@@ -121,7 +143,7 @@ export default function ResultsPage() {
     );
   }
   if (result.status === "failed") {
-    return <ErrorBox message={`${t("error.analysis", language)}: ${result.error ?? ""}`} language={language} />;
+    return <ErrorBox message={`${t("error.analysis", language)}: ${result.error ?? ""}`} />;
   }
 
   // ── Success: render summary + grouped layout ──
@@ -147,11 +169,31 @@ export default function ResultsPage() {
       {/* Two-column layout on lg+; main fixed-width centered, right rail fixed */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 max-w-[1180px] mx-auto">
         <div className="space-y-5 min-w-0">
-          {/* Toolbar — page-level actions */}
+          {/* SR-only page heading — visible affordance is the back link below. */}
+          <h1 className="sr-only">{t("results.title", language)}</h1>
+
+          {/* Toolbar — page-level actions. Left side carries the
+              "Analyze another report" affordance so users always see how
+              to start over. Right side: filter + export. */}
           <div className="flex justify-between items-center flex-wrap gap-3">
-            <h1 className="text-2xl font-bold text-[var(--foreground)]">
-              {t("results.title", language)}
-            </h1>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-brand-700)] hover:text-[var(--color-brand-600)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded-md px-2 py-1 -mx-2"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              {t("results.back", language)}
+            </Link>
             <div className="flex items-center gap-3">
               <ShowAbnormalToggle
                 value={abnormalOnly}
@@ -182,9 +224,29 @@ export default function ResultsPage() {
                 : groups;
               if (visible.length === 0) {
                 return (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 italic px-4 py-6 text-center bg-[var(--color-surface)] rounded-[var(--radius-card)] border border-[var(--color-border)]">
-                    {t("filter.empty_state", language)}
-                  </p>
+                  <div
+                    role="status"
+                    className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-card)] p-6 text-center flex flex-col items-center gap-2"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="h-6 w-6 text-emerald-600 dark:text-emerald-400"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <p className="text-[var(--foreground)] font-medium">
+                      {t("results.empty.all_normal_title", language)}
+                    </p>
+                    <p className="text-sm text-[var(--foreground)] opacity-70">
+                      {t("filter.empty_state", language)}
+                    </p>
+                  </div>
                 );
               }
               return visible.map((g) => (
@@ -216,21 +278,42 @@ export default function ResultsPage() {
           </div>
         </aside>
       </div>
-      {/* Sticky chat bar lives in AppShell — auto-shown for /results/* routes. */}
+      {/* Floating chat dock — only mounted now that results are confirmed
+          ready. While scanning, the CTA is intentionally hidden. */}
+      <ChatDock jobId={jobId} language={language} />
     </div>
   );
 }
 
-function ErrorBox({ message, language }: { message: string; language: Language }) {
+function ErrorBox({ message }: { message: string }) {
+  // Token-aligned: surface-sunken + border tokens match SummaryCard tone.
+  // Error tone is conveyed by the icon, not by tinting the whole panel.
+  // Hardcoded "en" since the app is English-only for now.
+  const language = "en" as const;
   return (
     <div className="flex-1 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-4">
-        <div className="bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 rounded-md p-4">
-          {message}
+        <div
+          role="alert"
+          className="bg-[var(--color-surface-sunken)] border border-[var(--color-border)] rounded-[var(--radius-card)] p-4 flex items-start gap-3"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-5 w-5 mt-0.5 shrink-0 text-rose-600 dark:text-rose-400"
+          >
+            <path
+              fillRule="evenodd"
+              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a1 1 0 011 1v3a1 1 0 11-2 0V7a1 1 0 011-1zm0 8a1 1 0 100-2 1 1 0 000 2z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <p className="text-[var(--foreground)] text-sm">{message}</p>
         </div>
         <Link
           href="/"
-          className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+          className="text-[var(--color-brand-600)] hover:underline text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded"
         >
           {t("results.back", language)}
         </Link>

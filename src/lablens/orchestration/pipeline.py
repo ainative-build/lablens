@@ -563,27 +563,34 @@ class PlainPipeline:
             )
 
         # Stage 3.5: Pre-explanation consistency enforcement
-        # Values whose direction was derived from weak evidence (OCR flag
-        # fallback with no numeric range) produce contradictions: the
-        # structured row says "high" but the LLM explanation says "cannot
-        # classify." Resolve by downgrading direction to indeterminate
-        # while preserving the OCR flag hint for audit transparency.
+        # Values whose direction was derived from a weak source (OCR flag
+        # fallback with no numeric range) keep their direction — the lab's
+        # H/L flag IS clinically meaningful even without a verifiable range.
+        # We just keep severity soft (mild) since we can't compute magnitude,
+        # mark confidence "low", and surface "source_flag" in evidence_trace
+        # so the frontend can render a "lab-flagged, range unverified"
+        # caveat. Earlier behavior downgraded direction → indeterminate
+        # which buried clearly-abnormal lab-flagged values as "Could not
+        # classify" and confused users.
         #
         # Also refine verification verdicts now that range_source is
         # available (verifier ran before interpretation set this field).
         _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
         _CAUTION_RANGE_SOURCES = {"range-text", "lab-provided-suspicious"}
         for idx, v in enumerate(interpreted.values):
-            # Direction consistency: weak source → indeterminate
+            # Lab-flagged direction with no curated range:
+            #   keep direction, soften severity, mark low confidence.
             if (
                 v.range_source in _WEAK_DIRECTION_SOURCES
                 and v.reference_range_low is None
                 and v.reference_range_high is None
-                and v.direction not in ("in-range", "indeterminate")
+                and v.direction in ("high", "low")
             ):
-                v.source_flag = v.direction[0].upper() if v.direction else None
-                v.direction = "indeterminate"
-                v.severity = "normal"
+                v.source_flag = v.direction[0].upper()
+                # Severity capped at "mild" — we honor the lab's flag but
+                # without a range we can't claim moderate/critical magnitude.
+                if v.severity in (None, "normal"):
+                    v.severity = "mild"
                 v.confidence = "low"
 
             # Post-interpretation verdict refinement: upgrade accepted

@@ -1,107 +1,68 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChatDock } from "@/components/chat-dock";
-import { Sidebar } from "@/components/sidebar";
-import { type Language } from "@/lib/i18n";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface Props {
   children: React.ReactNode;
 }
 
 /**
- * Top-level layout shell (BloodGPT-inspired).
- * - Persistent left sidebar (logo + upload + language)
- * - Main column (children)
- * - Right rail slot (filled by results page when present — handled by children)
- * - Sticky bottom chat bar (only on /results/[jobId] routes)
- * - Mobile (<md): sidebar off-canvas drawer behind hamburger
+ * Top-level layout shell. English-only — language switcher removed in
+ * feat/polish-v1 follow-up (was premature; bring back when we re-localize).
+ * Slim top header (logo only) + full-width main.
+ *
+ * ChatDock used to mount here for any /results/* route, but that meant the
+ * "Ask about your results" CTA appeared while the report was still being
+ * scanned. ChatDock is now mounted from the results page itself, gated on
+ * a successful analysis — so the CTA never shows until there are actual
+ * results to ask about.
  */
 export function AppShell({ children }: Props) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Language is shared between sidebar + chat. We initialise from ?lang=,
-  // fall back to "en". The results page also reads ?lang= so they stay in sync.
-  const initialLang = (searchParams.get("lang") as Language) || "en";
-  const [language, setLanguage] = useState<Language>(initialLang);
-
-  // Re-sync if the user navigates with a different ?lang.
-  useEffect(() => {
-    const next = (searchParams.get("lang") as Language) || "en";
-    setLanguage(next);
-  }, [searchParams]);
-
-  // Sync <html lang/dir> for a11y + RTL.
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.lang = language;
-    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
-  }, [language]);
-
-  // Esc closes mobile drawer.
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawerOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [drawerOpen]);
-
-  // Extract jobId from /results/[jobId] for chat bar.
-  const jobIdMatch = pathname?.match(/^\/results\/([^/]+)/);
-  const jobId = jobIdMatch?.[1];
-
-  // ChatDock is a floating button (bottom-right) — not a full-width bar — so
-  // we no longer need to reserve bottom padding for it. Reserve a little
-  // for safe-area + breathing room.
-  const bottomPad = jobId ? "pb-20" : "pb-4";
+  // Reserve a little bottom space on results routes for the floating chat
+  // button so it never overlaps the last paragraph.
+  const onResults = pathname?.startsWith("/results/") ?? false;
+  const bottomPad = onResults ? "pb-20" : "pb-4";
 
   return (
-    <div className="min-h-dvh flex flex-col">
-      {/* Mobile top bar with hamburger */}
-      <div className="md:hidden flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Open menu"
-          className="inline-flex items-center justify-center h-9 w-9 rounded hover:bg-[var(--color-surface-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
-        >
-          ☰
-        </button>
-        <span className="font-semibold text-[var(--foreground)]">LabLens</span>
-        <span className="w-9" /> {/* spacer */}
-      </div>
-
-      <div className="flex-1 flex">
-        {/* Sidebar — inline on md+, off-canvas drawer on mobile */}
-        <div className="hidden md:block w-[var(--sidebar-width)] shrink-0">
-          <Sidebar language={language} onLanguageChange={setLanguage} />
-        </div>
-        {drawerOpen && (
-          <>
-            <div
-              className="fixed inset-0 bg-black/40 z-50 md:hidden"
-              onClick={() => setDrawerOpen(false)}
-              aria-hidden
+    <div className="min-h-dvh flex flex-col bg-radial-brand">
+      {/* Sticky top header — logo only. Language switcher removed; restore
+          here when re-localizing (multi-lang select goes on the right side). */}
+      <header
+        className="sticky top-0 z-40 backdrop-blur-md bg-[var(--color-surface)]/85 border-b border-[var(--color-border)]"
+        style={{ height: "var(--header-height)" }}
+      >
+        <div className="mx-auto h-full flex items-center justify-between gap-3 px-4 sm:px-6 max-w-[var(--container-max)]">
+          <Link
+            href="/"
+            className="flex items-center rounded-md px-1 -mx-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
+            aria-label="LabLens home"
+          >
+            {/* Logo includes the LabLens wordmark + tagline. Transparent
+                bg so it sits cleanly on light + dark surfaces. next/image
+                serves WebP/AVIF at the actual render size. */}
+            <Image
+              src="/logo1.png"
+              alt="LabLens"
+              width={1600}
+              height={394}
+              priority
+              sizes="(max-width: 640px) 144px, 176px"
+              className="h-9 w-auto sm:h-10"
             />
-            <div className="fixed inset-y-0 left-0 w-[280px] z-50 md:hidden">
-              <Sidebar language={language} onLanguageChange={setLanguage} />
-            </div>
-          </>
-        )}
+          </Link>
 
-        {/* Main column */}
-        <main className={`flex-1 min-w-0 ${bottomPad}`}>
-          {children}
-        </main>
-      </div>
+          <ThemeToggle />
+        </div>
+      </header>
 
-      {/* Floating chat button + dialog — only on results pages */}
-      {jobId && <ChatDock jobId={jobId} language={language} />}
+      <main className={`flex-1 min-w-0 ${bottomPad}`}>
+        {children}
+      </main>
     </div>
   );
 }

@@ -10,6 +10,11 @@ interface Props {
   language: Language;
 }
 
+/**
+ * PDF dropzone — brand-token styled. Larger touch surface, clear hover/drag
+ * affordance via brand-green border + tinted bg. Icon is an inline SVG so it
+ * inherits theme color on light/dark.
+ */
 export function PDFUploader({ onUpload, isLoading, language }: Props) {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -28,19 +33,59 @@ export function PDFUploader({ onUpload, isLoading, language }: Props) {
 
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+      role="button"
+      tabIndex={0}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragActive(true);
+      }}
       onDragLeave={() => setDragActive(false)}
       onDrop={handleDrop}
       onClick={handleClick}
-      className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors
-        ${dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+      aria-label={t("upload.dropzone", language)}
+      aria-busy={isLoading}
+      className={`group relative w-full rounded-[var(--radius-card)] border-2 border-dashed cursor-pointer transition-all duration-200 px-6 py-12 sm:py-16 text-center min-h-[44px] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand-500)]/30
+        ${
+          dragActive
+            ? "border-[var(--color-brand-500)] bg-[var(--color-brand-50)] shadow-[var(--shadow-hero)]"
+            : "border-[var(--color-border-strong)] bg-[var(--color-surface)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-50)]/50"
+        }
         ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
     >
-      <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      {/* Document upload icon — brand tinted on hover/drag */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 48 48"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`mx-auto h-12 w-12 mb-4 transition-colors ${
+          dragActive
+            ? "text-[var(--color-brand-600)]"
+            : "text-[var(--foreground-muted)] group-hover:text-[var(--color-brand-600)]"
+        }`}
+      >
+        <path d="M30 6H12a3 3 0 0 0-3 3v30a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3V15z" />
+        <path d="M30 6v9h9" />
+        <path d="M24 33V21" />
+        <path d="m18 27 6-6 6 6" />
       </svg>
-      <p className="text-lg font-medium text-gray-700">{t("upload.dropzone", language)}</p>
-      <p className="text-sm text-gray-500 mt-2">{t("upload.browse", language)}</p>
+
+      <p className="text-base sm:text-lg font-semibold text-[var(--foreground)]">
+        {t("upload.dropzone", language)}
+      </p>
+      <p className="mt-1.5 text-sm text-[var(--foreground-muted)]">
+        {t("upload.browse", language)}
+      </p>
+
       <input
         ref={inputRef}
         type="file"
