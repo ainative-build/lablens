@@ -33,6 +33,9 @@ deploy:
 	$(SSH) "cd $(APP_DIR) && git fetch origin && git reset --hard origin/$(BRANCH) && $(COMPOSE) up -d --build"
 	@echo "→ Waiting 20s for services to settle…"
 	@sleep 20
+	@echo "→ Restarting nginx to refresh upstream DNS (frontend/backend may have new container IPs)…"
+	$(SSH) "cd $(APP_DIR) && $(COMPOSE) restart nginx"
+	@sleep 3
 	@$(MAKE) smoke-test
 	@echo "✓ Deploy complete"
 
