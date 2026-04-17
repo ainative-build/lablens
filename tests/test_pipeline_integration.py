@@ -406,6 +406,84 @@ class TestDirectionFromText:
         report = engine.interpret_report(values)
         assert report.values[0].direction == "low"
 
+    def test_printed_numeric_range_text_recovers_bounds(self, engine):
+        """Precedence fix: 'low - high' in reference_range_text should populate
+        numeric bounds and classify fully, not fall to ocr-flag-fallback."""
+        values = [{
+            "test_name": "Uric Acid", "value": 649.6, "unit": "µmol/L",
+            "loinc_code": None, "flag": "H",
+            "reference_range_text": "220 - 450",
+            "reference_range_low": None, "reference_range_high": None,
+        }]
+        report = engine.interpret_report(values)
+        r = report.values[0]
+        assert r.direction == "high"
+        assert r.range_source == "range-text"
+        assert r.reference_range_low == 220.0
+        assert r.reference_range_high == 450.0
+
+
+# ── Precedence: visible flag + visible range wins over fallback ──
+
+
+class TestPrecedenceVisibleRangeWinsOverFallback:
+    """Judge-review pseudo-rule: if has_visible_flag && has_visible_range &&
+    parseable_value && parseable_unit → classify_normally (no fallback)."""
+
+    @pytest.fixture
+    def engine(self):
+        return InterpretationEngine()
+
+    def test_uric_acid_from_text_range_and_loinc_classifies(self, engine):
+        """Uric Acid / Blood: 649.6 µmol/L, flag H, printed range 220-450 in text —
+        the full flow (preprocessor lifts bounds + terminology matches slash
+        specimen) classifies as high with curated-aware severity, not
+        could_not_classify / ocr-flag-fallback."""
+        raw = {
+            "test_name": "Uric Acid / Blood", "value": 649.6, "unit": "µmol/L",
+            "flag": "H", "reference_range_text": "220 - 450",
+            "reference_range_low": None, "reference_range_high": None,
+        }
+        lifted = fix_range_fields(dict(raw))
+        assert lifted["reference_range_low"] == 220.0
+        assert lifted["reference_range_high"] == 450.0
+
+        mapper = TerminologyMapper()
+        loinc, _ = mapper.match(raw["test_name"])
+        assert loinc == "3084-1", "slash-specimen normalization should match Uric Acid"
+
+        lifted["loinc_code"] = loinc
+        report = engine.interpret_report([lifted])
+        r = report.values[0]
+        assert r.direction == "high"
+        assert r.classification_state == "classified"
+        assert r.severity in ("mild", "moderate")
+        assert r.reference_range_low == 220.0
+        assert r.reference_range_high == 450.0
+        assert r.range_source.startswith("lab-provided")
+
+    def test_glucose_random_still_ambiguous(self, engine):
+        """Glucose Random with no range, no flag, ambiguous context stays
+        could_not_classify — the fix is scoped to rows with full evidence."""
+        values = [{
+            "test_name": "Glucose Random", "value": 140, "unit": "mg/dL",
+            "loinc_code": None, "flag": None,
+            "reference_range_low": None, "reference_range_high": None,
+        }]
+        report = engine.interpret_report(values)
+        r = report.values[0]
+        assert r.classification_state == "could_not_classify"
+
+    def test_threshold_text_does_not_hijack_numeric_bounds(self):
+        """'Desirable: < 1.7' text should not populate numeric fields — only a
+        bare 'low - high' pattern qualifies for recovery."""
+        v = fix_range_fields({
+            "reference_range_text": "Desirable: < 1.7",
+            "reference_range_low": None, "reference_range_high": None,
+        })
+        assert v.get("reference_range_low") is None
+        assert v.get("reference_range_high") is None
+
 
 # ── PDF validation ──
 

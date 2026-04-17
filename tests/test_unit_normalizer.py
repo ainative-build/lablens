@@ -81,3 +81,26 @@ def test_french_report_loinc_keyed(normalizer):
     result = normalizer.normalize("2345-7", 5.5, "mmol/L")
     assert result.converted is True
     assert result.unit == "mg/dL"
+
+
+def test_greek_mu_folds_to_micro_sign_uric_acid(normalizer):
+    """Real OCR/LLM output uses U+03BC (Greek mu 'μ') but conversions config
+    keys off U+00B5 (micro sign 'µ'). Both must convert identically —
+    otherwise LOINC gets cleared downstream and the row drops to
+    ocr-flag-fallback. Regression for real PDF upload bug.
+    """
+    greek_mu = normalizer.normalize("3084-1", 649.6, "\u03bcmol/L")
+    micro_sign = normalizer.normalize("3084-1", 649.6, "\u00b5mol/L")
+    assert greek_mu.converted is True
+    assert greek_mu.confidence == "high"
+    assert greek_mu.unit == "mg/dL"
+    assert abs(greek_mu.value - 10.92) < 0.01  # 649.6 * 0.01681
+    # Both codepoints must produce identical output
+    assert greek_mu.value == micro_sign.value
+    assert greek_mu.unit == micro_sign.unit
+
+
+def test_greek_mu_normalize_unit_direct(normalizer):
+    """normalize_unit() must fold Greek mu to micro sign before alias lookup."""
+    assert normalizer.normalize_unit("\u03bcmol/L") == "\u00b5mol/L"
+    assert normalizer.normalize_unit("\u03bcg/dL") == "ug/dL"

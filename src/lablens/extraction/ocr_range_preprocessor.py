@@ -79,6 +79,24 @@ def fix_range_fields(v: dict) -> dict:
         v["reference_range_text"] = val
         v[field] = None
 
+    # Recovery: LLM sometimes emits the printed range only as text (leaving the
+    # numeric fields None) — e.g. Uric Acid "220 - 450" ending up in
+    # `reference_range_text` alone. Lift the numbers so the engine can classify
+    # deterministically instead of dropping to ocr-flag-fallback. Embedded-in-
+    # prose and threshold-style ranges are handled downstream (validator clears
+    # them when keywords like "Normal:" / "Prediabetes" are present).
+    if (
+        v.get("reference_range_low") is None
+        and v.get("reference_range_high") is None
+    ):
+        ref_text = v.get("reference_range_text")
+        if ref_text and isinstance(ref_text, str):
+            text = _normalize_decimal_comma(ref_text.strip())
+            m = _RANGE_PATTERN.match(text)
+            if m:
+                v["reference_range_low"] = float(m.group(1))
+                v["reference_range_high"] = float(m.group(2))
+
     return v
 
 

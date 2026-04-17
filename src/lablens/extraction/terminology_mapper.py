@@ -18,6 +18,12 @@ _SPECIMEN_PATTERN = re.compile(
     r"\s*[\[\(]\s*(serum|plasma|whole blood|blood|urine|huyết thanh|"
     r"máu|nước tiểu|sang|urina)\s*[\]\)]", re.I
 )
+# Also handle "Uric Acid / Blood" / "Glucose / Plasma" — specimen type after slash.
+# Vietnamese labs commonly prefix specimen this way on the print-out.
+_SPECIMEN_SLASH = re.compile(
+    r"\s*/\s*(serum|plasma|whole\s+blood|blood|urine|huyết\s+thanh|"
+    r"máu|nước\s+tiểu|sang|urina)\s*$", re.I
+)
 # Parenthetical abbreviations like (NEU), (HCT), (Ca), (Fe)
 _PAREN_ABBREV = re.compile(r"\s*\([A-Za-z\s]{1,10}\)\s*")
 _TRAILING_JUNK = re.compile(r"[\s*#†‡§]+$")
@@ -88,6 +94,8 @@ def normalize_test_name(name: str) -> str:
     s = name.lower().strip()
     # Remove specimen info in brackets/parens
     s = _SPECIMEN_PATTERN.sub("", s)
+    # Remove trailing "/ Blood", "/ Serum" specimen separator (common on VN lab reports)
+    s = _SPECIMEN_SLASH.sub("", s)
     # Remove trailing % (differential CBC)
     s = _TRAILING_PCT.sub("", s)
     # Remove parenthetical abbreviations like (NEU), (HCT), (Ca)

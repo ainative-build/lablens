@@ -51,7 +51,14 @@ class UnitNormalizer:
         }
 
     def normalize_unit(self, unit: str) -> str:
-        """Normalize unit alias to canonical form (case-insensitive)."""
+        """Normalize unit alias to canonical form (case-insensitive).
+
+        Also folds Greek small-letter mu (U+03BC, 'μ') — which most OCR/LLM
+        output produces — to the micro sign (U+00B5, 'µ') that the conversions
+        table keys off. Identical glyph, different codepoint; without this,
+        µmol/L lookups miss and LOINC gets cleared downstream.
+        """
+        unit = unit.replace("\u03bc", "\u00b5")
         return (
             self._unit_aliases.get(unit)
             or self._unit_aliases_lower.get(unit.lower().strip())

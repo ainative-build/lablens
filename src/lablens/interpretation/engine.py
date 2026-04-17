@@ -17,6 +17,7 @@ from lablens.interpretation.qualitative import (
 from lablens.interpretation.range_selection import (
     determine_direction,
     direction_from_text,
+    parse_numeric_range_text,
     select_range,
 )
 from lablens.interpretation.severity import (
@@ -354,7 +355,29 @@ class InterpretationEngine:
             if direction:
                 result.direction = direction
                 result.range_source = "range-text"
-                result.confidence = "low"
+                # Precedence fix: when the text is a printed "low - high" range
+                # (as opposed to a < / > threshold), lift the numbers so the UI
+                # renders a real range bar and run the full severity pipeline
+                # — the row has enough evidence to stay `classified`, matching
+                # the pseudo-rule: visible flag + visible range + parseable
+                # value + parseable unit → classify deterministically.
+                bounds = parse_numeric_range_text(ref_text)
+                if bounds is not None:
+                    lo, hi = bounds
+                    result.reference_range_low = lo
+                    result.reference_range_high = hi
+                    self._apply_severity_and_actionability(
+                        result, value, lo, hi, rule,
+                        "lab-provided-validated",
+                        v.get("range_trust", "high"),
+                    )
+                    result.confidence = calculate_confidence(
+                        match_confidence=match_confidence,
+                        range_source="lab-provided-validated",
+                        unit_confidence=v.get("unit_confidence", "high"),
+                    )
+                else:
+                    result.confidence = "low"
                 result.evidence_trace = build_evidence_trace(result, rule, match_confidence)
                 return result
 
