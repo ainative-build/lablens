@@ -15,6 +15,37 @@ PDF → Page Classification → Qwen-VL-OCR → Noise Filter → Range Preproces
 
 **Core principle**: Deterministic engine owns clinical logic (direction, severity, panic); LLM owns only OCR extraction and explanation phrasing. Semantic verifier bridges both with deterministic checks + optional model fallback.
 
+## Qwen Integration
+
+Three Qwen models are used, each with a narrow, audited responsibility. Clinical decisions never depend on model output — the deterministic engine always has the final say.
+
+| Stage | Qwen Model | Role | Why this model |
+|-------|-----------|------|----------------|
+| **Primary OCR** | `qwen-vl-ocr` | Extract test name / value / unit / range / H‑L flag from each PDF page | Document‑specialized VL model tuned for tabular/form OCR; returns structured key‑value rows |
+| **Suspicious‑page reparse** | `qwen-vl-max-latest` (Qwen3‑VL) | Re‑extract when page fails plausibility or has incomplete rows | Stronger reasoning + better handling of ambiguous layouts (HPLC blocks, scanned charts) |
+| **Explanation** | `qwen-plus` | Write patient‑facing `what_it_means` + `next_steps` prose from already‑interpreted values | Chat‑tier model; fast, cheap, hedged‑tone when guarded by prompt |
+
+### How each call is wired
+
+- **Transport**: Alibaba DashScope Python SDK (`dashscope.MultiModalConversation.call` for VL; `dashscope.Generation.call` for chat). Default endpoint is the international edge (`dashscope-intl.aliyuncs.com`), overridable via `LABLENS_DASHSCOPE_API_BASE` for Mainland deployments.
+- **Auth**: `LABLENS_DASHSCOPE_API_KEY` from `.env` (pydantic‑settings). No key = hard fail at startup.
+- **Async bridge**: all calls run in a thread pool (`loop.run_in_executor`) so the FastAPI event loop stays unblocked during OCR batches.
+- **Error surfacing**: `_call_dashscope_ocr` inspects `resp.status_code` + `resp.output` and raises `RuntimeError` with the SDK's `code` / `message` / `request_id` instead of letting a `NoneType` crash leak through — real DashScope errors (auth, quota, throttle) surface cleanly in the UI as `extraction_empty`.
+
+### Guardrails around Qwen output
+
+Nothing Qwen returns is trusted without verification:
+
+1. **Schema enforcement** — OCR responses pass through `response_parser` (noise filter, dedup, flag allowlist `{H, L, A}`).
+2. **Plausibility bounds** — values are rejected or unit‑corrected against two‑tier physiological ceilings before interpretation.
+3. **Reparse trigger** — `semantic_verifier` flags low‑quality pages; the pipeline re‑OCRs them with `qwen-vl-max-latest` and merges row‑level, preserving known‑good rows.
+4. **Explanation prompt contract** — section‑aware prompts (standard / HPLC / screening) forbid clinical staging language, enforce hedged framing ("suggests", "may indicate"), and never hand Qwen the authority to change direction/severity — only to phrase what the deterministic engine already decided.
+5. **Mathematical fallback** — HPLC fields (NGSP / IFCC / eAG) derive missing values from NGSP.org formulas when OCR drops them, so a single bad extraction doesn't lose the panel.
+
+### Language coverage
+
+OCR prompts are language‑specific (English, French, Arabic, Vietnamese). The same three models handle all four; explanation prose is generated in the requested output language. UI surface is currently English‑only; the `i18n.ts` key map retains French / Arabic / Vietnamese for re‑localization.
+
 ### Extraction Pipeline
 
 | Stage | Module | Purpose |
@@ -78,6 +109,22 @@ Checks cover: missing fields, unit-value plausibility, flag-range consistency (a
 7. **Evidence trace** — full audit trail for every decision
 8. **Panel analysis** — CBC, CMP, BMP, lipid, thyroid, liver, kidney panel completeness
 
+### Classification State
+
+Every interpreted value carries a `classification_state` that drives the UI badge and CSV export:
+
+| State | When stamped | UI treatment |
+|-------|--------------|--------------|
+| `classified` | Curated rule supports direction + severity | Normal severity badge |
+| `low_confidence` | Direction supported but evidence is weak (OCR‑extracted range with no curated rule, or lab H/L flag with no verifiable range) | "Low confidence" pill, severity suppressed to normal |
+| `could_not_classify` | Indeterminate — no range, unclear unit, or unreconcilable evidence | "Unclear" badge, no direction arrow |
+
+The state is enforced at two layers: the engine (`uncertainty gate` — suppresses severity when no curated bands exist) and the orchestration pipeline (Stage 3.5 — aligns `ocr-flag-fallback` rows without a curated rule to `low_confidence`). This keeps UI semantics consistent with CSV export and prevents contradictions like "lab flagged as high" displayed alongside "mildly reduced".
+
+### Severity Cap
+
+Low‑clinical‑impact analytes (Basophils, NRBC, NRBC%, PDW, MPV, Plateletcrit) have a canonical severity ceiling defined in `retrieval/clinical_priority.py::get_severity_cap`. Even if bands would produce `moderate` or `critical`, these analytes cap at `mild` — prevents alarming users about findings that are not clinically actionable in isolation. The raw pre‑cap severity is preserved in `evidence_trace.severity_source_raw` for audit.
+
 ### Safety Guards
 
 - **Two-tier plausibility bounds**: unit-level hard-impossible ceilings (30 units) + analyte-specific LOINC-keyed physiological limits (31 LOINCs); LOINC bounds override generic when available
@@ -98,10 +145,11 @@ Checks cover: missing fields, unit-value plausibility, flag-range consistency (a
 
 ### Output Design
 
+- **`classification_state`**: `classified` / `low_confidence` / `could_not_classify` — drives UI state pills + CSV semantics
 - **`source_flag`**: Raw OCR flag moved to `evidence_trace` (audit-only), not in top-level output
 - **`verification_verdict`**: Per-row verdict string from semantic verifier
-- **`range_source`**: Provenance of reference range used for interpretation
-- **`evidence_trace`**: Full decision audit trail including severity source, match confidence, range trust
+- **`range_source`**: Provenance of reference range (`lab-provided-validated`, `curated-fallback`, `range-text`, `lab-provided-suspicious`, `ocr-flag-fallback`, `no-range`)
+- **`evidence_trace`**: Full decision audit trail including severity source, match confidence, range trust, severity cap raw value when applied
 
 ## Tech Stack
 
@@ -220,7 +268,7 @@ Captured from expert review for follow-up work (non-blockers — safe to defer):
 
 1. **Tumor marker semantics (CA 19-9, etc.)** — currently flagged via numeric range only. Need assay-native interpretation (clinical decision points, "elevated above reference" framing instead of just `high`), and proper context that tumor markers are non-diagnostic in isolation.
 
-2. **Chemistry long-tail indeterminates** — tests like `Calcium [Serum]`, `Non-HDL Cholesterol`, `Free Testosterone Index`, `Plateletcrit (PCT)`, `PDW`, `NRBC %` still resolve to indeterminate due to missing curated ranges or unit-system gaps. Requires expanding `data/rules/*.yaml` and unit-conversion coverage.
+2. **Chemistry long-tail curated coverage** — `Calcium [Serum]`, `Non-HDL Cholesterol`, `Free Testosterone Index` still lack curated bands so resolve to `low_confidence` or `could_not_classify`. `Plateletcrit (PCT)`, `PDW`, `NRBC %` now correctly surface as `low_confidence` via the severity cap + uncertainty gate; expanding `data/rules/*.yaml` would upgrade them to `classified` where clinical consensus exists.
 
 3. **Qualitative assay-native semantics** — minimal `interpret_qualitative()` covers positive/negative keywords. Need full assay-native semantics for HBsAg (negative=expected normal), urinalysis grades (`Trace`, `1+`, `2+`), titer routing for HCV/HIV, and proper direction/severity for categorical assays. Plan stub at `plans/260416-1958-qualitative-semantics`.
 
@@ -246,7 +294,7 @@ Tracks: direction accuracy, severity calibration, indeterminate rate, false abno
 
 ## Languages
 
-Extraction validated on English, French, Arabic, and Vietnamese with language-specific OCR prompts.
+OCR + explanation generation validated on English, French, Arabic, and Vietnamese with language‑specific Qwen prompts. UI surface is currently English‑only — the `frontend/src/lib/i18n.ts` key map retains the other three languages for re‑localization.
 
 ## Configuration
 
