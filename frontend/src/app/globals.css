@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
-/* Bind Tailwind's `dark:` variant to our manual [data-theme="dark"] toggle
-   instead of @media (prefers-color-scheme: dark). Without this, OS dark
-   mode triggers `dark:*` utilities even when the user has explicitly
-   toggled the app to light — components render dark on a light page. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* App is light-only by design (toggle removed feat/polish-v1 follow-up).
+   Tailwind's `dark:` variant is rebound to a never-matching selector so
+   leftover `dark:*` classes throughout the codebase silently no-op
+   instead of firing on the user's OS preference. */
+@custom-variant dark (&:where([data-theme="dark"]));
 
 /* ─────────────────────────────────────────────────────────────────
    LabLens design tokens — BloodGPT-inspired (PR #6 v4 polish)
@@ -66,23 +66,9 @@
   --font-display: var(--font-display);
 }
 
-/* Dark mode is now driven by [data-theme="dark"] on <html> instead of the
-   prefers-color-scheme media query. The inline init script in layout.tsx
-   sets the attribute before paint based on saved preference -> system fallback
-   so there's no FOUC. ThemeToggle in the header flips it on click. */
-:root[data-theme="dark"] {
-  --background: #0b0d10;
-  --foreground: #f3f4f6;
-  --foreground-muted: #9ca3af;
-  --color-surface: #16191c;
-  --color-surface-muted: #1c2024;
-  --color-surface-sunken: #21252a;
-  --color-border: #2a2f35;
-  --color-border-strong: #3a4049;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 1px 6px rgb(0 0 0 / 0.20);
-  --shadow-elevated: 0 6px 24px rgb(0 0 0 / 0.40);
-  --shadow-hero: 0 24px 64px -24px rgb(25 195 125 / 0.32);
-}
+/* Dark mode disabled in favor of single, predictable light theme. Block
+   removed; if dark theme is ever re-introduced, restore the variables
+   here and re-add the toggle (theme-toggle.tsx in git history). */
 
 body {
   background: var(--background);

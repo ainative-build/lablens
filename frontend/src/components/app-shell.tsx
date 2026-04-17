@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 interface Props {
   children: React.ReactNode;
@@ -55,8 +54,6 @@ export function AppShell({ children }: Props) {
               className="h-9 w-auto sm:h-10"
             />
           </Link>
-
-          <ThemeToggle />
         </div>
       </header>
 
