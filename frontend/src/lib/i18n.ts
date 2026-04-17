@@ -109,6 +109,14 @@ export const translations: Record<Language, Record<string, string>> = {
       "The unit on the report was unclear, so it could not be classified confidently.",
     "unclear.generic":
       "Could not classify confidently from the available range or unit info.",
+    // Phase 3 classification_state pills (shown on analyte cards when the
+    // row is not fully classified).
+    "state.low_confidence": "Low confidence",
+    "state.low_confidence_tip":
+      "Not enough clinical context to confirm severity.",
+    "state.could_not_classify": "Could not classify",
+    "state.could_not_classify_tip":
+      "Reference range missing or unit unclear.",
     // Topic labels (10 buckets + other)
     "topic.blood_sugar": "Blood sugar",
     "topic.heart_lipids": "Heart & cholesterol",

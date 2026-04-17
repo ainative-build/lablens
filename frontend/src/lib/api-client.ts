@@ -90,6 +90,11 @@ export interface InterpretedValue {
   is_panic: boolean;
   actionability: string;
   confidence: string;
+  // Phase 3 uncertainty tag. "classified" is the baseline trustworthy
+  // state; low_confidence means severity was suppressed to normal
+  // because rule support was weak; could_not_classify means the
+  // direction itself is indeterminate. Absent on older payloads.
+  classification_state?: "classified" | "low_confidence" | "could_not_classify";
   reference_range_low: number | null;
   reference_range_high: number | null;
   range_source: string;

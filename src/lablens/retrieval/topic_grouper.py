@@ -52,6 +52,14 @@ def _is_abnormal(v: InterpretedResult) -> bool:
 
 
 def _is_indeterminate(v: InterpretedResult) -> bool:
+    """True when we explicitly could not classify this row.
+
+    Phase 3: prefer the first-class `classification_state` tag over
+    direction alone so the UI "unclear" counter matches the CSV.
+    Falls back to direction for rows that predate the tag.
+    """
+    if getattr(v, "classification_state", "classified") == "could_not_classify":
+        return True
     return v.direction == "indeterminate"
 
 
