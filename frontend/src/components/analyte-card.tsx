@@ -11,6 +11,37 @@ interface Props {
   cardId?: string;
 }
 
+/**
+ * Derive a one-line friendly helper for indeterminate rows.
+ * Calm tone, concrete reason — so users see uncertainty as an intentional
+ * state, not a missing feature. Matches backend signals already exposed.
+ */
+function unclearHelper(value: InterpretedValue, language: Language): string {
+  const flag = (value.evidence_trace?.source_flag as string | undefined) ?? "";
+  const directionHint =
+    flag === "H"
+      ? t("direction.high", language)
+      : flag === "L"
+        ? t("direction.low", language)
+        : "";
+
+  if (value.range_source === "no-range") {
+    return t("unclear.no_range", language);
+  }
+  if (value.range_source === "ocr-flag-fallback" && directionHint) {
+    return t("unclear.ocr_flag_with_direction", language, {
+      direction: directionHint,
+    });
+  }
+  if (value.range_source === "ocr-flag-fallback") {
+    return t("unclear.ocr_flag", language);
+  }
+  if (value.unit_confidence === "low") {
+    return t("unclear.unit_low_confidence", language);
+  }
+  return t("unclear.generic", language);
+}
+
 /** L3 — single analyte card with value, range, plain explanation, and L4 audit. */
 export function AnalyteCard({ value, explanation, language, cardId }: Props) {
   const isAbnormal = value.direction === "high" || value.direction === "low";
@@ -97,6 +128,14 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
             </p>
           )}
         </div>
+      )}
+
+      {/* Indeterminate rows rarely have an LLM explanation — show a calm
+          helper line so users see uncertainty as intentional, not missing. */}
+      {isIndet && !(explanation && (explanation.summary || explanation.what_it_means)) && (
+        <p className="mt-3 text-xs text-gray-600 dark:text-gray-400 italic border-l-2 border-gray-300 dark:border-gray-600 pl-2">
+          {unclearHelper(value, language)}
+        </p>
       )}
 
       {value.is_panic && (

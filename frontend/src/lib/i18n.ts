@@ -54,6 +54,17 @@ export const translations: Record<Language, Record<string, string>> = {
     "direction.high": "high",
     "direction.low": "low",
     "direction.needs_review": "needs review",
+    // Helper text shown on indeterminate rows (PR #6 v3 calibration)
+    "unclear.no_range":
+      "No reference range was available for this test, so it could not be classified.",
+    "unclear.ocr_flag":
+      "Could not classify confidently from the available range or unit info.",
+    "unclear.ocr_flag_with_direction":
+      "The lab flagged this as {direction}, but the numeric range needed to verify it was not available.",
+    "unclear.unit_low_confidence":
+      "The unit on the report was unclear, so it could not be classified confidently.",
+    "unclear.generic":
+      "Could not classify confidently from the available range or unit info.",
     // Topic labels (10 buckets + other)
     "topic.blood_sugar": "Blood sugar",
     "topic.heart_lipids": "Heart & cholesterol",
@@ -157,6 +168,16 @@ export const translations: Record<Language, Record<string, string>> = {
     "direction.high": "élevé",
     "direction.low": "bas",
     "direction.needs_review": "à examiner",
+    "unclear.no_range":
+      "Aucune plage de référence n'était disponible pour ce test, il n'a donc pas pu être classé.",
+    "unclear.ocr_flag":
+      "Impossible de classer avec confiance à partir des informations de plage ou d'unité disponibles.",
+    "unclear.ocr_flag_with_direction":
+      "Le laboratoire l'a marqué comme {direction}, mais la plage numérique nécessaire à la vérification n'était pas disponible.",
+    "unclear.unit_low_confidence":
+      "L'unité sur le rapport était peu claire, il n'a donc pas pu être classé avec confiance.",
+    "unclear.generic":
+      "Impossible de classer avec confiance à partir des informations de plage ou d'unité disponibles.",
     "topic.blood_sugar": "Glycémie",
     "topic.heart_lipids": "Cœur & cholestérol",
     "topic.kidney": "Reins",
@@ -254,6 +275,16 @@ export const translations: Record<Language, Record<string, string>> = {
     "direction.high": "مرتفع",
     "direction.low": "منخفض",
     "direction.needs_review": "بحاجة لمراجعة",
+    "unclear.no_range":
+      "لم يكن هناك نطاق مرجعي متاح لهذا الاختبار، لذا لم يمكن تصنيفه.",
+    "unclear.ocr_flag":
+      "تعذر التصنيف بثقة من معلومات النطاق أو الوحدة المتاحة.",
+    "unclear.ocr_flag_with_direction":
+      "وضع المختبر علامة على هذا بأنه {direction}، لكن النطاق الرقمي اللازم للتحقق لم يكن متاحاً.",
+    "unclear.unit_low_confidence":
+      "الوحدة في التقرير كانت غير واضحة، لذا لم يمكن تصنيفه بثقة.",
+    "unclear.generic":
+      "تعذر التصنيف بثقة من معلومات النطاق أو الوحدة المتاحة.",
     "topic.blood_sugar": "سكر الدم",
     "topic.heart_lipids": "القلب والكوليسترول",
     "topic.kidney": "الكلى",
@@ -352,6 +383,16 @@ export const translations: Record<Language, Record<string, string>> = {
     "direction.high": "cao",
     "direction.low": "thấp",
     "direction.needs_review": "cần xem xét",
+    "unclear.no_range":
+      "Không có khoảng tham chiếu cho xét nghiệm này, nên chưa thể phân loại.",
+    "unclear.ocr_flag":
+      "Chưa thể phân loại chắc chắn từ thông tin khoảng tham chiếu hoặc đơn vị hiện có.",
+    "unclear.ocr_flag_with_direction":
+      "Phòng xét nghiệm đánh dấu là {direction}, nhưng không có khoảng số để xác minh.",
+    "unclear.unit_low_confidence":
+      "Đơn vị trên báo cáo không rõ, nên chưa thể phân loại chắc chắn.",
+    "unclear.generic":
+      "Chưa thể phân loại chắc chắn từ thông tin khoảng tham chiếu hoặc đơn vị hiện có.",
     "topic.blood_sugar": "Đường huyết",
     "topic.heart_lipids": "Tim & cholesterol",
     "topic.kidney": "Thận",
