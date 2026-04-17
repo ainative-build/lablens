@@ -138,16 +138,29 @@ export function ChatDock({ jobId, language }: Props) {
 
   return (
     <>
-      {/* Floating button — only visible when dialog closed */}
+      {/* Floating button — only visible when dialog closed.
+          Icon is an inline SVG (not emoji) so it baseline-aligns with the
+          text and matches the rest of the icon system. */}
       {!open && (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-4 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] text-white px-5 py-3 text-sm font-medium shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] pb-safe"
+          className="fixed bottom-4 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] text-white px-5 py-3 text-sm font-medium leading-none shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] pb-safe"
           aria-label={t("chat.cta_open", language)}
         >
-          <span aria-hidden>💬</span>
-          {t("chat.cta_open", language)}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4 shrink-0"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>{t("chat.cta_open", language)}</span>
         </button>
       )}
 
@@ -184,9 +197,20 @@ export function ChatDock({ jobId, language }: Props) {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close chat"
-              className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded text-lg leading-none"
+              className="inline-flex items-center justify-center h-8 w-8 rounded-md text-[var(--foreground-muted)] hover:text-[var(--foreground)] hover:bg-[var(--color-surface-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
             >
-              ✕
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
             </button>
           </header>
 
