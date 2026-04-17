@@ -140,18 +140,38 @@ export default function HomePage() {
         <TrustCard
           icon={
             <>
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+              {/* Code-braces glyph — signals "deterministic engine + open code" */}
+              <path d="m8 6-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="m16 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="m14 4-4 16" strokeLinecap="round" strokeLinejoin="round" />
             </>
           }
-          title={t("trust.languages.title", language)}
-          body={t("trust.languages.body", language)}
+          title={t("trust.open.title", language)}
+          body={t("trust.open.body", language)}
         />
       </section>
 
-      {/* Quiet disclaimer — bottom, low visual weight, full legal text */}
-      <footer className="mt-16 sm:mt-24 pb-10 border-t border-[var(--color-border)] pt-8">
+      {/* Quiet disclaimer + source link — bottom, low visual weight */}
+      <footer className="mt-16 sm:mt-24 pb-10 border-t border-[var(--color-border)] pt-8 space-y-5">
         <DisclaimerBanner type="upload" language={language} variant="compact" />
+        <div className="text-center">
+          <a
+            href="https://github.com/ainative-build/lablens"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-[var(--foreground-muted)] hover:text-[var(--color-brand-700)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded px-1"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="h-4 w-4"
+            >
+              <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.42c.58.1.79-.25.79-.56v-1.96c-3.2.7-3.88-1.54-3.88-1.54-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.3-.52-1.48.11-3.08 0 0 .98-.31 3.2 1.18a11.1 11.1 0 0 1 5.83 0c2.22-1.49 3.2-1.18 3.2-1.18.63 1.6.23 2.78.11 3.08.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.27 5.69.42.36.78 1.07.78 2.16v3.2c0 .31.21.67.8.55A11.5 11.5 0 0 0 12 .5z" />
+            </svg>
+            <span>{t("footer.github", language)}</span>
+          </a>
+        </div>
       </footer>
     </div>
   );
