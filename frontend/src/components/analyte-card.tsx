@@ -135,6 +135,15 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
         </div>
       )}
 
+      {/* Lab-flagged but no curated range — surface the limitation so users
+          understand why we trusted the lab's H/L without showing a range bar. */}
+      {value.range_source === "ocr-flag-fallback" &&
+        (value.direction === "high" || value.direction === "low") && (
+          <p className="mt-2 text-xs text-[var(--foreground-muted)] italic border-l-2 border-[var(--color-border-strong)] pl-2">
+            {unclearHelper(value, language)}
+          </p>
+        )}
+
       {/* PR #6 v6: tightened "why it matters" + "what to do" lines */}
       {whyItMatters && (
         <p className="mt-3 text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
