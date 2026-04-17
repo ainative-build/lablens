@@ -14,19 +14,35 @@ interface Props {
   language: Language;
   /** Default-collapsed override (mobile defaults to collapsed). */
   defaultOpen?: boolean;
+  /** Hide normal in-range rows when true (page-level filter). */
+  abnormalOnly?: boolean;
 }
 
-const STATUS_BORDER_LEFT: Record<Status, string> = {
-  green: "border-l-emerald-400",
-  yellow: "border-l-amber-400",
-  orange: "border-l-orange-500",
-  red: "border-l-rose-600",
+// Status-pill style (BloodGPT-inspired framing per Phase 3).
+// Wraps the section in a soft colored frame, with a status pill at the top.
+const STATUS_FRAME: Record<Status, string> = {
+  green: "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800/50 dark:bg-emerald-950/20",
+  yellow: "border-amber-300 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-950/20",
+  orange: "border-orange-400 bg-orange-50/50 dark:border-orange-800/50 dark:bg-orange-950/20",
+  red: "border-rose-500 bg-rose-50/50 dark:border-rose-800/50 dark:bg-rose-950/20",
 };
 
-// Unclear-only treatment (PR #6 calibration): when a group has zero abnormals
-// but does have indeterminates, give it a distinct gray-dashed border so it
-// doesn't read as "all-normal but hidden". The bucket is unresolved, not safe.
-const UNCLEAR_BORDER_LEFT = "border-l-gray-400 border-l-dashed";
+const STATUS_PILL: Record<Status, string> = {
+  green: "bg-emerald-500 text-white",
+  yellow: "bg-amber-500 text-white",
+  orange: "bg-orange-500 text-white",
+  red: "bg-rose-600 text-white",
+};
+
+const STATUS_LABEL_KEY: Record<Status, string> = {
+  green: "group.pill.optimal",
+  yellow: "group.pill.mostly_normal",
+  orange: "group.pill.worth_followup",
+  red: "group.pill.important",
+};
+
+const UNCLEAR_FRAME = "border-gray-300 dark:border-gray-700 bg-[var(--color-surface)] border-dashed";
+const UNCLEAR_PILL = "bg-gray-300 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
 
 /** L2 — Health-topic accordion group. */
 export function TopicGroup({
@@ -34,6 +50,7 @@ export function TopicGroup({
   explanations,
   language,
   defaultOpen,
+  abnormalOnly = false,
 }: Props) {
   const minorCount = group.minor_count ?? 0;
 
@@ -81,9 +98,17 @@ export function TopicGroup({
       ? t("group.all_normal", language, { total: group.total_count })
       : headerParts.join(" · ");
 
-  const borderClass = isUnclearOnly || isMinorOnly
-    ? UNCLEAR_BORDER_LEFT
-    : STATUS_BORDER_LEFT[group.status];
+  const frameClass = isUnclearOnly || isMinorOnly
+    ? UNCLEAR_FRAME
+    : STATUS_FRAME[group.status];
+  const pillClass = isUnclearOnly || isMinorOnly
+    ? UNCLEAR_PILL
+    : STATUS_PILL[group.status];
+  const pillLabel = isUnclearOnly
+    ? t("group.pill.unclear", language)
+    : isMinorOnly
+      ? t("group.pill.minor", language)
+      : t(STATUS_LABEL_KEY[group.status], language);
 
   // Split into needs-attention vs normal
   const attention = group.results.filter(
@@ -99,24 +124,26 @@ export function TopicGroup({
 
   return (
     <section
-      className={`rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 border-l-4 ${borderClass}`}
+      className={`rounded-[var(--radius-card)] border-2 shadow-[var(--shadow-card)] ${frameClass}`}
     >
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-lg"
+        className="w-full flex items-center gap-3 px-4 pt-3 pb-2 text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded-t-[var(--radius-card)]"
       >
-        {isUnclearOnly || isMinorOnly ? (
-          <span
-            aria-hidden
-            className="inline-block h-3 w-3 rounded-full border-2 border-dashed border-gray-400"
-          />
-        ) : (
-          <SeverityDot status={group.status} size="md" />
-        )}
         <span
-          className={`font-semibold text-gray-900 dark:text-gray-100 ${isUnclearOnly || isMinorOnly ? "italic" : ""}`}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${pillClass}`}
+        >
+          {isUnclearOnly || isMinorOnly ? (
+            <span aria-hidden>○</span>
+          ) : (
+            <SeverityDot status={group.status} size="sm" />
+          )}
+          {pillLabel}
+        </span>
+        <span
+          className={`font-semibold text-[var(--foreground)] ${isUnclearOnly || isMinorOnly ? "italic" : ""}`}
         >
           {t(group.topic_label_key, language)}
         </span>
@@ -142,7 +169,7 @@ export function TopicGroup({
               />
             );
           })}
-          {normal.length > 0 && (
+          {normal.length > 0 && !abnormalOnly && (
             <NormalCollapsedRow
               values={normal}
               explanations={explanations}

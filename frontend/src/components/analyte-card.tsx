@@ -2,6 +2,7 @@ import type { Explanation, InterpretedValue } from "@/lib/api-client";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import { AuditPanel } from "./audit-panel";
+import { RangeBar } from "./range-bar";
 import { SeverityBadge } from "./severity-badge";
 
 interface Props {
@@ -94,21 +95,28 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
         </div>
       </div>
 
-      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <div className="text-gray-700 dark:text-gray-200">
-          <strong className="text-gray-900 dark:text-gray-50">
-            {String(value.value)}
-            {value.unit ? ` ${value.unit}` : ""}
-          </strong>
-        </div>
-        {(value.reference_range_low !== null ||
-          value.reference_range_high !== null) && (
-          <div className="text-gray-600 dark:text-gray-400 text-xs">
-            {t("results.range", language)}:{" "}
-            {value.reference_range_low ?? "—"} – {value.reference_range_high ?? "—"}
-          </div>
+      <div className="mt-2 flex items-baseline gap-2 text-sm">
+        <strong className="text-2xl font-semibold text-[var(--foreground)] tabular-nums">
+          {String(value.value)}
+        </strong>
+        {value.unit && (
+          <span className="text-gray-600 dark:text-gray-400">
+            {value.unit}
+          </span>
         )}
       </div>
+
+      {/* Range bar — Phase 3: replaces the text "Reference Range: low – high" */}
+      {value.reference_range_low !== null && value.reference_range_high !== null && (
+        <div className="mt-3">
+          <RangeBar
+            value={typeof value.value === "number" ? value.value : Number(value.value) || 0}
+            low={value.reference_range_low}
+            high={value.reference_range_high}
+            unit={value.unit}
+          />
+        </div>
+      )}
 
       {explanation && (explanation.summary || explanation.what_it_means) && (
         <div className="mt-3 bg-gray-50 dark:bg-gray-800 rounded p-3 text-sm space-y-1">

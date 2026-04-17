@@ -6,6 +6,7 @@ import Link from "next/link";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { PanicStickyBanner } from "@/components/panic-sticky-banner";
 import { ResultsRightRail } from "@/components/results-right-rail";
+import { ShowAbnormalToggle } from "@/components/show-abnormal-toggle";
 import { SummaryCard } from "@/components/summary-card";
 import { TopicGroup } from "@/components/topic-group";
 import type { AnalysisResult } from "@/lib/api-client";
@@ -30,7 +31,25 @@ export default function ResultsPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stillWorking, setStillWorking] = useState(false);
+  const [abnormalOnly, setAbnormalOnly] = useState(false);
   const attemptRef = useRef(0);
+
+  // Restore abnormal-only preference from localStorage on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("lablens.filter.abnormalOnly");
+    if (v === "1") setAbnormalOnly(true);
+  }, []);
+
+  const setAbnormalOnlyPersisted = (next: boolean) => {
+    setAbnormalOnly(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        "lablens.filter.abnormalOnly",
+        next ? "1" : "0"
+      );
+    }
+  };
 
   useEffect(() => {
     if (!jobId) return;
@@ -129,17 +148,24 @@ export default function ResultsPage() {
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 max-w-[1180px] mx-auto">
         <div className="space-y-5 min-w-0">
           {/* Toolbar — page-level actions */}
-          <div className="flex justify-between items-center flex-wrap gap-2">
+          <div className="flex justify-between items-center flex-wrap gap-3">
             <h1 className="text-2xl font-bold text-[var(--foreground)]">
               {t("results.title", language)}
             </h1>
-            <a
-              href={getExportUrl(jobId)}
-              download
-              className="px-3 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-muted)] text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
-            >
-              {t("results.export_csv", language)}
-            </a>
+            <div className="flex items-center gap-3">
+              <ShowAbnormalToggle
+                value={abnormalOnly}
+                onChange={setAbnormalOnlyPersisted}
+                language={language}
+              />
+              <a
+                href={getExportUrl(jobId)}
+                download
+                className="px-3 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-muted)] text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
+              >
+                {t("results.export_csv", language)}
+              </a>
+            </div>
           </div>
 
           <DisclaimerBanner type="results" language={language} />
@@ -147,14 +173,30 @@ export default function ResultsPage() {
           {summary && <SummaryCard summary={summary} language={language} />}
 
           <div className="space-y-3">
-            {groups.map((g) => (
-              <TopicGroup
-                key={g.topic}
-                group={g}
-                explanations={data.explanations}
-                language={language}
-              />
-            ))}
+            {(() => {
+              const visible = abnormalOnly
+                ? groups.filter(
+                    (g) =>
+                      g.abnormal_count + g.indeterminate_count + (g.minor_count ?? 0) > 0
+                  )
+                : groups;
+              if (visible.length === 0) {
+                return (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 italic px-4 py-6 text-center bg-[var(--color-surface)] rounded-[var(--radius-card)] border border-[var(--color-border)]">
+                    {t("filter.empty_state", language)}
+                  </p>
+                );
+              }
+              return visible.map((g) => (
+                <TopicGroup
+                  key={g.topic}
+                  group={g}
+                  explanations={data.explanations}
+                  language={language}
+                  abnormalOnly={abnormalOnly}
+                />
+              ));
+            })()}
           </div>
 
           <div className="pt-4 border-t border-[var(--color-border)] text-center">
