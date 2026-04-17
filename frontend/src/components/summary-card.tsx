@@ -90,13 +90,18 @@ export function SummaryCard({ summary, language }: Props) {
         </>
       )}
 
-      {/* 4. Suggested next step — labeled, more prominent */}
+      {/* 4. Suggested next step — labeled, more prominent.
+           Phase 6: prefer server-templated sentence naming specific tests
+           ("ask about LDL cholesterol, vitamin D, and eGFR") so users leave
+           with an actionable ask. Falls back to generic status-keyed copy. */}
       <div className="mt-5">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">
           {t("summary.next_step_label", language)}
         </h3>
         <p className="text-sm text-[var(--foreground)] leading-relaxed">
-          {t(`summary.next_steps.${summary.next_steps_key}`, language)}
+          {summary.next_step_detailed
+            ? summary.next_step_detailed
+            : t(`summary.next_steps.${summary.next_steps_key}`, language)}
         </p>
       </div>
 

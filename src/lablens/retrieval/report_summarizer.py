@@ -136,6 +136,58 @@ _FALLBACK_HEADLINES = {
 }
 
 
+def _short_test_name(name: str) -> str:
+    """Trim verbose extracted test names to a readable form for prose.
+
+    Raw names from some labs look like "Cholesterol, Low-Density Lipoprotein
+    (LDL-C)" — fine inside a table cell but clumsy in a sentence. Strip
+    parentheticals and anything after the first comma, then collapse
+    whitespace. Returns the original when already short (≤28 chars, no
+    delimiter) so common names like "eGFR" or "Vitamin D" pass through
+    untouched.
+    """
+    n = (name or "").strip()
+    if not n:
+        return n
+    # Drop parentheticals like "(LDL-C)".
+    n = re.sub(r"\s*\([^)]*\)", "", n).strip()
+    # Drop anything past the first comma ("Cholesterol, Low-Density…" -> "Cholesterol").
+    if "," in n:
+        n = n.split(",", 1)[0].strip()
+    return re.sub(r"\s+", " ", n)
+
+
+def _join_with_and(items: list[str]) -> str:
+    """English list joiner: [a] → 'a', [a,b] → 'a and b', [a,b,c] → 'a, b, and c'."""
+    items = [i for i in items if i]
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
+def _build_next_step_detailed(status: Status, top: list[TopFinding]) -> str | None:
+    """Templated next-step sentence naming specific tests. Pure string; no LLM.
+
+    - green: None (static deterministic copy is fine).
+    - yellow: routine-visit language.
+    - orange: routine-visit language.
+    - red: urgent-but-calm language.
+    """
+    if status == "green" or not top:
+        return None
+    names = _join_with_and([_short_test_name(f.test_name) for f in top[:3]])
+    if not names:
+        return None
+    if status == "red":
+        return f"Talk to a doctor about {names}."
+    # yellow + orange
+    return f"At your next routine visit, ask about {names}."
+
+
 # Clinical-priority filter — see lablens.retrieval.clinical_priority
 # Re-exported here so existing test imports keep working.
 _is_low_clinical_priority = is_low_clinical_priority
@@ -444,6 +496,7 @@ async def build_summary(
         uncertainty_note_key=(
             "summary.indeterminate.note" if indeterminate_count > 0 else None
         ),
+        next_step_detailed=_build_next_step_detailed(status, top),
     )
 
 
@@ -469,4 +522,5 @@ def build_summary_sync(values: list[InterpretedResult]) -> ReportSummary:
         uncertainty_note_key=(
             "summary.indeterminate.note" if indeterminate_count > 0 else None
         ),
+        next_step_detailed=_build_next_step_detailed(status, top),
     )
