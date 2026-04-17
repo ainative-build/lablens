@@ -7,8 +7,6 @@ Handles Step 1 (range selection) and Step 2 (direction) of the
 import logging
 import re
 
-from lablens.knowledge.rules_loader import get_rule
-
 logger = logging.getLogger(__name__)
 
 
@@ -59,8 +57,29 @@ def determine_direction(value: float, low: float, high: float) -> str:
     return "in-range"
 
 
+_NUMERIC_RANGE_TEXT = re.compile(r"^\s*([\d.]+)\s*[-–—]\s*([\d.]+)\s*$")
+
+
+def parse_numeric_range_text(ref_text: str) -> tuple[float, float] | None:
+    """Parse a printed 'low - high' numeric range (e.g. '220 - 450').
+
+    Returns (low, high) when the text is a well-formed range with low < high,
+    otherwise None. Does not handle comparison operators — that's
+    `direction_from_text`'s job.
+    """
+    if not ref_text:
+        return None
+    m = _NUMERIC_RANGE_TEXT.match(ref_text.strip())
+    if not m:
+        return None
+    low = float(m.group(1))
+    high = float(m.group(2))
+    return (low, high) if low < high else None
+
+
 def direction_from_text(value: float, ref_text: str) -> str | None:
-    """Try to extract direction from reference_range_text like '<= 39', '< 200'.
+    """Try to extract direction from reference_range_text like '<= 39', '< 200',
+    or a printed numeric range like '220 - 450'.
 
     Returns direction string or None if text is not parseable.
     """
@@ -75,4 +94,15 @@ def direction_from_text(value: float, ref_text: str) -> str | None:
     if m:
         threshold = float(m.group(1))
         return "low" if value < threshold else "in-range"
+    # Pattern: "220 - 450" / "220–450" / "220—450" — printed numeric ranges.
+    # Safety net for rows where the preprocessor couldn't lift the range into
+    # numeric fields; lets _handle_no_range still classify with range-text.
+    bounds = parse_numeric_range_text(text)
+    if bounds is not None:
+        low, high = bounds
+        if value < low:
+            return "low"
+        if value > high:
+            return "high"
+        return "in-range"
     return None
