@@ -57,15 +57,30 @@ export default function HomePage() {
             aria-live="polite"
             className="space-y-3"
           >
-            {/* Skeleton mirrors the results layout: 1 summary card + 2 topic groups.
-                Same radius/border tokens as real components → minimal CLS on swap. */}
-            <div className="h-32 rounded-[var(--radius-card)] border-2 border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
-            <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
-            <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
-            <p className="text-center text-sm text-[var(--foreground)] opacity-70">
-              {t("upload.skeleton.label", language)}
-            </p>
-            <span className="sr-only">{t("upload.analyzing", language)}</span>
+            {/* Skeleton mirrors results layout (1 summary + 2 topic groups). */}
+            <div className="h-32 rounded-[var(--radius-card)] border-2 border-[var(--color-border)] skeleton-shimmer" />
+            <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" />
+            <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" />
+            {/* Visible progress signal — without this, static-looking skeletons
+                read as an empty/error state. Spinner + bold label + timing hint. */}
+            <div className="text-center pt-1 space-y-1">
+              <div className="inline-flex items-center gap-2 text-[var(--foreground)] font-medium">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className="h-4 w-4 animate-spin text-[var(--color-brand-600)]"
+                >
+                  <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                </svg>
+                <span>{t("upload.analyzing", language)}</span>
+              </div>
+              <p className="text-xs text-[var(--foreground)] opacity-70">
+                {t("upload.timing_hint", language)}
+              </p>
+            </div>
           </div>
         )}
 

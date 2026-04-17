@@ -33,17 +33,18 @@ export function ResultsRightRail(props: Props) {
   const { language } = props;
 
   if (props.isLoading) {
-    // 3 stat-panel-shaped skeletons match the height of the loaded variant
-    // (~h-28 each) so swap-in causes minimal layout shift.
+    // 3 stat-panel-shaped skeletons match the loaded height (~h-28) so swap-in
+    // causes minimal layout shift. Use shimmer so they read as "loading", not
+    // "empty cards".
     return (
       <div
         role="status"
         aria-label={t("upload.skeleton.label", language)}
         className="space-y-3"
       >
-        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" aria-hidden="true" />
-        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" aria-hidden="true" />
-        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" aria-hidden="true" />
+        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" aria-hidden="true" />
+        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" aria-hidden="true" />
+        <div className="h-28 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" aria-hidden="true" />
       </div>
     );
   }

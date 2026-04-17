@@ -64,12 +64,25 @@ export function Sidebar({ language, onLanguageChange }: Props) {
         </p>
         <CompactUpload onUpload={handleUpload} language={language} />
         {uploadingFile && (
-          <p
-            className="mt-2 text-xs text-gray-600 dark:text-gray-400 truncate"
+          <div
+            role="status"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-[var(--foreground)] font-medium"
             title={uploadingFile}
           >
-            {t("upload.analyzing", language)}
-          </p>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="h-3 w-3 animate-spin text-[var(--color-brand-600)] shrink-0"
+            >
+              <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+            </svg>
+            <span className="truncate">
+              {t("upload.analyzing", language)}
+            </span>
+          </div>
         )}
         {uploadError && (
           <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">

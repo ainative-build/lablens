@@ -120,24 +120,38 @@ export default function ResultsPage() {
           <div className="space-y-5 min-w-0">
             {/* Toolbar placeholder */}
             <div className="flex justify-between items-center flex-wrap gap-3">
-              <div className="h-7 w-48 rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] animate-pulse" />
-              <div className="h-7 w-28 rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] animate-pulse" />
+              <div className="h-7 w-48 rounded-[var(--radius-pill)] skeleton-shimmer" />
+              <div className="h-7 w-28 rounded-[var(--radius-pill)] skeleton-shimmer" />
             </div>
             {/* Summary card placeholder */}
-            <div className="h-40 rounded-[var(--radius-card)] border-2 border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
+            <div className="h-40 rounded-[var(--radius-card)] border-2 border-[var(--color-border)] skeleton-shimmer" />
             {/* 3 topic group placeholders */}
             <div className="space-y-3">
-              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
-              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
-              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface-sunken)] animate-pulse" />
+              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" />
+              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" />
+              <div className="h-20 rounded-[var(--radius-card)] border border-[var(--color-border)] skeleton-shimmer" />
             </div>
-            {/* Progress label */}
-            <div className="text-center space-y-1 pt-2">
-              <p className="text-sm text-[var(--foreground)] opacity-80">
-                {t("upload.analyzing", language)}
+            {/* Progress signal — visible spinner + bold label so the loading
+                state can never be mistaken for an error/empty state. */}
+            <div className="text-center pt-2 space-y-1.5">
+              <div className="inline-flex items-center gap-2 text-[var(--foreground)] font-medium text-base">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className="h-5 w-5 animate-spin text-[var(--color-brand-600)]"
+                >
+                  <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                </svg>
+                <span>{t("upload.analyzing", language)}</span>
+              </div>
+              <p className="text-xs text-[var(--foreground)] opacity-70">
+                {t("upload.timing_hint", language)}
               </p>
               {stillWorking && (
-                <p className="text-xs text-[var(--foreground)] opacity-60">
+                <p className="text-xs text-[var(--color-brand-600)] font-medium">
                   {t("upload.still_working", language)}
                 </p>
               )}
