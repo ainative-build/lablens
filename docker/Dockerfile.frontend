@@ -27,6 +27,11 @@ RUN pnpm build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# Next.js standalone server reads HOSTNAME + PORT. Without HOSTNAME, it falls
+# back to the container hostname (random hex) so other containers + the host
+# health probe can't reach it. Bind to all interfaces.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 # Standalone output produces a self-contained server.js + node_modules subset.
 COPY --from=builder /app/.next/standalone ./
