@@ -52,6 +52,14 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
   const isIndet = value.direction === "indeterminate";
   const dirArrow = value.direction === "high" ? "▲" : value.direction === "low" ? "▼" : "·";
 
+  // Low-confidence rows must never wear a severity tier badge — the engine
+  // has already flagged the classification as weak, so surfacing "Mild" or
+  // "Minor" would contradict the low_confidence state pill and the Qwen
+  // copy (which correctly reasons the value is within range).
+  const isWeakClassification =
+    value.classification_state === "low_confidence" ||
+    value.classification_state === "could_not_classify";
+
   // Phase 3 state pill — only render when not fully classified. We hide it
   // on `could_not_classify` rows whose severity badge already says "Unclear"
   // so we don't double-up on the same signal.
@@ -121,7 +129,7 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
           )}
           <SeverityBadge
             variant={
-              isIndet
+              isIndet || isWeakClassification
                 ? "unclear"
                 : value.is_minor
                   ? "minor"

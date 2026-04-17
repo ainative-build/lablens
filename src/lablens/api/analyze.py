@@ -48,17 +48,31 @@ async def analyze_report(
             # green "all normal" summary that misleads the user — they'd think
             # their report is fine when in fact nothing was extracted.
             if not result.get("values"):
+                diag = result.get("extraction_diagnostics") or {}
+                raw = int(diag.get("raw_extracted_count") or 0)
+                filtered = int(diag.get("filtered_noise_count") or 0)
                 logger.warning(
-                    "Job %s: extraction returned 0 values — marking failed", job_id
+                    "Job %s: extraction returned 0 values (raw=%d, filtered=%d) — marking failed",
+                    job_id, raw, filtered,
                 )
-                job_store.update(
-                    job_id,
-                    JobStatus.FAILED,
-                    error=(
+                if raw > 0 and filtered == raw:
+                    # OCR did find things, but every entry looked like metadata
+                    # or a reference range rather than a patient measurement.
+                    # Usually means the PDF is a lab menu / reference sheet, or
+                    # the OCR picked up the wrong column on a multi-column report.
+                    error_msg = (
+                        f"extraction_unusable: OCR extracted {raw} entries but none "
+                        "looked like patient measurements — they appeared to be "
+                        "reference ranges, test menu entries, or metadata. "
+                        "Please verify the PDF is an actual lab result (with your "
+                        "values), not a lab service list or reference sheet, then try again."
+                    )
+                else:
+                    error_msg = (
                         "extraction_empty: no test values were extracted from the PDF. "
                         "This usually means an OCR service error. Please try again."
-                    ),
-                )
+                    )
+                job_store.update(job_id, JobStatus.FAILED, error=error_msg)
                 return
             job_store.update(job_id, JobStatus.COMPLETED, result=result)
         except Exception as e:

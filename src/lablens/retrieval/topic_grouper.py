@@ -43,12 +43,25 @@ _STATUS_RANK = {"green": 0, "yellow": 1, "orange": 2, "red": 3}
 _SEVERITY_RANK = {"normal": 0, "mild": 1, "moderate": 2, "critical": 3}
 
 
+def _is_classified(v: InterpretedResult) -> bool:
+    """Only fully-classified rows count toward abnormal/minor tallies.
+
+    Judge-review P0: a row tagged `low_confidence` (Phase 1 gate fired) or
+    `could_not_classify` (unit/range mismatch) must never contribute to
+    `worth follow-up` or `minor` counts — even if some vestigial severity
+    stuck around. Those rows belong to the unclear bucket.
+    """
+    return getattr(v, "classification_state", "classified") == "classified"
+
+
 def _needs_attention(v: InterpretedResult) -> bool:
-    return v.severity in ("moderate", "critical") or v.is_panic
+    return _is_classified(v) and (
+        v.severity in ("moderate", "critical") or v.is_panic
+    )
 
 
 def _is_abnormal(v: InterpretedResult) -> bool:
-    return _needs_attention(v) or v.severity == "mild"
+    return _needs_attention(v) or (_is_classified(v) and v.severity == "mild")
 
 
 def _is_indeterminate(v: InterpretedResult) -> bool:

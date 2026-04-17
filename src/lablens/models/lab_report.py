@@ -36,3 +36,9 @@ class LabReport(BaseModel):
     screening_results: list[dict] = []  # Typed ScreeningResult in Phase 3
     raw_text: str | None = None
     page_count: int = 1
+    # Extraction diagnostics — lets the API distinguish "OCR returned nothing"
+    # from "parser rejected everything as noise" (common with lab menus or
+    # multi-column reports where OCR picked up reference ranges instead of
+    # patient values).
+    raw_extracted_count: int = 0
+    filtered_noise_count: int = 0
