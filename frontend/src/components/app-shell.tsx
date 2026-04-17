@@ -60,7 +60,12 @@ export function AppShell({ children }: Props) {
         </div>
       </header>
 
-      <main className={`flex-1 min-w-0 ${bottomPad}`}>
+      {/* main is a flex column so pages that want to fill the viewport
+          (results loading state) can use `flex-1` on a child. Pages with
+          their own scrolling content (success results, landing) still
+          render as regular block children — flex-col just changes the
+          axis, not whether children shrink to content. */}
+      <main className={`flex-1 flex flex-col min-w-0 ${bottomPad}`}>
         {children}
       </main>
     </div>

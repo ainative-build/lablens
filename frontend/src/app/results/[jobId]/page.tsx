@@ -118,16 +118,11 @@ export default function ResultsPage() {
     return <ErrorBox message={`${t("error.analysis", language)}: ${error}`} />;
   }
   if (isProcessing) {
-    // Centered loader, vertically filling viewport minus the header.
-    // Uses min-h-[calc(100dvh-var(--header-height))] because the outer
-    // <main> is a block element — `flex-1` on a child wouldn't work without
-    // making <main> a flex column (cascading change we don't want).
+    // Centered loader, fills remaining height under the header via flex-1
+    // (AppShell now makes <main> a flex column).
     const tipKey = `upload.tip.${tipIndex + 1}`;
     return (
-      <div
-        className="flex items-center justify-center p-4"
-        style={{ minHeight: "calc(100dvh - var(--header-height))" }}
-      >
+      <div className="flex-1 flex items-center justify-center p-4">
         <div
           role="status"
           aria-busy="true"
