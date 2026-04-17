@@ -45,16 +45,17 @@ export function AppShell({ children }: Props) {
             className="flex items-center rounded-md px-1 -mx-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
             aria-label="LabLens home"
           >
-            {/* Logo includes the LabLens wordmark + tagline. next/image
-                serves an optimized WebP/AVIF at the actual render size, so
-                the source PNG (2816x1536, 5 MB) doesn't ship verbatim. */}
+            {/* Logo includes the LabLens wordmark + tagline. White bg
+                stripped via ImageMagick floodfill so it sits cleanly on
+                light + dark page surfaces. next/image serves WebP/AVIF
+                at the actual render size. */}
             <Image
               src="/logo.png"
               alt="LabLens"
-              width={2816}
-              height={1536}
+              width={1400}
+              height={764}
               priority
-              sizes="(max-width: 640px) 110px, 140px"
+              sizes="(max-width: 640px) 80px, 96px"
               className="h-10 w-auto sm:h-11"
             />
           </Link>
