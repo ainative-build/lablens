@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Bind Tailwind's `dark:` variant to our manual [data-theme="dark"] toggle
+   instead of @media (prefers-color-scheme: dark). Without this, OS dark
+   mode triggers `dark:*` utilities even when the user has explicitly
+   toggled the app to light — components render dark on a light page. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* ─────────────────────────────────────────────────────────────────
    LabLens design tokens — BloodGPT-inspired (PR #6 v4 polish)
    See plans/260417-0937-bloodgpt-style-ui-polish/phase-01-app-shell-and-tokens.md
