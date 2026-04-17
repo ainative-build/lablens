@@ -117,8 +117,22 @@ export interface Panel {
   missing: string[];
 }
 
+/**
+ * Thrown when polling for a job ID that the backend has no record of.
+ * Happens after a backend restart (in-memory job_store wiped) or when the
+ * job ID in the URL was never valid. Distinct from network errors so the
+ * polling loop can stop retrying and surface a clear error to the user.
+ */
+export class JobNotFoundError extends Error {
+  constructor() {
+    super("job_not_found");
+    this.name = "JobNotFoundError";
+  }
+}
+
 export async function pollResult(jobId: string): Promise<AnalysisResult> {
   const resp = await fetch(`${API_BASE}/analysis/${jobId}`);
+  if (resp.status === 404) throw new JobNotFoundError();
   if (!resp.ok) throw new Error(`Poll failed: ${resp.status}`);
   return resp.json();
 }

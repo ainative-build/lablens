@@ -11,7 +11,7 @@ import { ShowAbnormalToggle } from "@/components/show-abnormal-toggle";
 import { SummaryCard } from "@/components/summary-card";
 import { TopicGroup } from "@/components/topic-group";
 import type { AnalysisResult } from "@/lib/api-client";
-import { getExportUrl, pollResult } from "@/lib/api-client";
+import { getExportUrl, JobNotFoundError, pollResult } from "@/lib/api-client";
 import { t } from "@/lib/i18n";
 
 const MAX_POLL_ATTEMPTS = 60; // ~ 10 min wall time
@@ -71,7 +71,13 @@ export default function ResultsPage() {
         }
       } catch (e) {
         if (cancelled) return;
-        // Network error → exponential backoff retry
+        // Job ID not on the server (backend restart or stale URL) — stop
+        // polling and surface a clear error so the user can re-upload.
+        if (e instanceof JobNotFoundError) {
+          setError("not_found");
+          return;
+        }
+        // Otherwise treat as transient network error and back off.
         timer = setTimeout(poll, nextDelay(attemptRef.current));
       }
     };
@@ -87,6 +93,11 @@ export default function ResultsPage() {
   if (error === "timeout") {
     return (
       <ErrorBox message="Analysis is taking too long. Please try uploading again." />
+    );
+  }
+  if (error === "not_found") {
+    return (
+      <ErrorBox message="This analysis has expired. Please upload the report again to continue." />
     );
   }
   if (error) {
