@@ -50,6 +50,13 @@ export const translations: Record<Language, Record<string, string>> = {
     "summary.indeterminate.note":
       "{count} result(s) are unclear (often missing a range or unit).",
     "summary.top_findings": "Worth following up",
+    // Right-rail stats (Phase 2 BloodGPT polish)
+    "stats.normal": "Normal results",
+    "stats.normal_caption": "{count} of {total} are within typical range.",
+    "stats.worth_followup": "Worth follow-up",
+    "stats.followup_caption": "{count} flagged for follow-up · {minor} minor.",
+    "stats.unclear": "Unclear",
+    "stats.unclear_caption": "{count} need more information.",
     // Direction labels (used by TopFinding plain_language_key)
     "direction.high": "high",
     "direction.low": "low",
@@ -165,6 +172,12 @@ export const translations: Record<Language, Record<string, string>> = {
     "summary.indeterminate.note":
       "{count} résultat(s) sont incertains (souvent à cause d'une plage ou unité manquante).",
     "summary.top_findings": "À surveiller",
+    "stats.normal": "Résultats normaux",
+    "stats.normal_caption": "{count} sur {total} sont dans la plage typique.",
+    "stats.worth_followup": "À surveiller",
+    "stats.followup_caption": "{count} à surveiller · {minor} mineur(s).",
+    "stats.unclear": "Incertain",
+    "stats.unclear_caption": "{count} nécessite(nt) plus d'informations.",
     "direction.high": "élevé",
     "direction.low": "bas",
     "direction.needs_review": "à examiner",
@@ -272,6 +285,12 @@ export const translations: Record<Language, Record<string, string>> = {
     "summary.indeterminate.note":
       "{count} نتيجة غير واضحة (غالباً بسبب نطاق أو وحدة مفقودة).",
     "summary.top_findings": "تستحق المتابعة",
+    "stats.normal": "نتائج طبيعية",
+    "stats.normal_caption": "{count} من {total} ضمن النطاق الطبيعي.",
+    "stats.worth_followup": "يستحق المتابعة",
+    "stats.followup_caption": "{count} يستحق المتابعة · {minor} بسيط.",
+    "stats.unclear": "غير واضح",
+    "stats.unclear_caption": "{count} بحاجة إلى مزيد من المعلومات.",
     "direction.high": "مرتفع",
     "direction.low": "منخفض",
     "direction.needs_review": "بحاجة لمراجعة",
@@ -380,6 +399,12 @@ export const translations: Record<Language, Record<string, string>> = {
     "summary.indeterminate.note":
       "{count} kết quả chưa rõ (thường do thiếu khoảng tham chiếu hoặc đơn vị).",
     "summary.top_findings": "Nên theo dõi",
+    "stats.normal": "Kết quả bình thường",
+    "stats.normal_caption": "{count} trên {total} nằm trong khoảng mong đợi.",
+    "stats.worth_followup": "Nên theo dõi",
+    "stats.followup_caption": "{count} nên theo dõi · {minor} nhỏ.",
+    "stats.unclear": "Chưa rõ",
+    "stats.unclear_caption": "{count} cần thêm thông tin.",
     "direction.high": "cao",
     "direction.low": "thấp",
     "direction.needs_review": "cần xem xét",

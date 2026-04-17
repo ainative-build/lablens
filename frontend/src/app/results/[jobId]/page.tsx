@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { PanicStickyBanner } from "@/components/panic-sticky-banner";
+import { ResultsRightRail } from "@/components/results-right-rail";
 import { SummaryCard } from "@/components/summary-card";
 import { TopicGroup } from "@/components/topic-group";
 import type { AnalysisResult } from "@/lib/api-client";
@@ -110,45 +111,68 @@ export default function ResultsPage() {
   const groups = data.topic_groups ?? [];
 
   return (
-    <div className="p-4 max-w-3xl mx-auto space-y-5">
+    <div className="px-4 py-5">
       <PanicStickyBanner values={data.values} language={language} />
 
-      {/* Toolbar — page-level actions (header text moved to AppShell). */}
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">
-          {t("results.title", language)}
-        </h1>
-        <a
-          href={getExportUrl(jobId)}
-          download
-          className="px-3 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-muted)] text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
-        >
-          {t("results.export_csv", language)}
-        </a>
+      {/* Mobile/tablet: right-rail content collapses into a horizontal scroll
+          strip ABOVE the main content. Desktop ≥lg: hidden here, shown as
+          a true side panel below. */}
+      <div className="lg:hidden mb-4 -mx-4 px-4 overflow-x-auto snap-x">
+        <div className="flex gap-3 min-w-max pb-1">
+          <div className="w-72 shrink-0 snap-start">
+            <ResultsRightRail result={data} language={language} />
+          </div>
+        </div>
       </div>
 
-      <DisclaimerBanner type="results" language={language} />
+      {/* Two-column layout on lg+; main fixed-width centered, right rail fixed */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 max-w-[1180px] mx-auto">
+        <div className="space-y-5 min-w-0">
+          {/* Toolbar — page-level actions */}
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <h1 className="text-2xl font-bold text-[var(--foreground)]">
+              {t("results.title", language)}
+            </h1>
+            <a
+              href={getExportUrl(jobId)}
+              download
+              className="px-3 py-1.5 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface-muted)] text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]"
+            >
+              {t("results.export_csv", language)}
+            </a>
+          </div>
 
-      {summary && <SummaryCard summary={summary} language={language} />}
+          <DisclaimerBanner type="results" language={language} />
 
-      <div className="space-y-3">
-        {groups.map((g) => (
-          <TopicGroup
-            key={g.topic}
-            group={g}
-            explanations={data.explanations}
-            language={language}
-          />
-        ))}
-      </div>
+          {summary && <SummaryCard summary={summary} language={language} />}
 
-      <div className="pt-4 border-t border-[var(--color-border)] text-center">
-        <Link
-          href="/"
-          className="text-[var(--color-brand-600)] hover:underline text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded"
-        >
-          {t("results.back", language)}
-        </Link>
+          <div className="space-y-3">
+            {groups.map((g) => (
+              <TopicGroup
+                key={g.topic}
+                group={g}
+                explanations={data.explanations}
+                language={language}
+              />
+            ))}
+          </div>
+
+          <div className="pt-4 border-t border-[var(--color-border)] text-center">
+            <Link
+              href="/"
+              className="text-[var(--color-brand-600)] hover:underline text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)] rounded"
+            >
+              {t("results.back", language)}
+            </Link>
+          </div>
+        </div>
+
+        {/* Right rail — desktop only (mobile shows it above as scroll strip) */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-4">
+            <ResultsRightRail result={data} language={language} />
+          </div>
+        </aside>
       </div>
       {/* Sticky chat bar lives in AppShell — auto-shown for /results/* routes. */}
     </div>
