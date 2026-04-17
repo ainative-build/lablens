@@ -386,3 +386,64 @@ class TestAlarmistDenylist:
         text = "A few results are worth follow-up with your clinician at a routine visit."
         out = _validate_headline(text, "orange", self._top("LDL"))
         assert out is None, out
+
+
+class TestNextStepDetailed:
+    """Phase 6 — templated next-step sentence naming top-finding tests."""
+
+    def test_green_has_no_detailed_next_step(self):
+        values = [make_value(severity="normal") for _ in range(3)]
+        s = build_summary_sync(values)
+        assert s.next_step_detailed is None
+
+    def test_yellow_uses_routine_visit_copy_with_one_test(self):
+        values = [make_value(name="LDL", severity="mild", direction="high")]
+        s = build_summary_sync(values)
+        assert s.next_step_detailed == "At your next routine visit, ask about LDL."
+
+    def test_yellow_two_tests_uses_and_joiner(self):
+        values = [
+            make_value(name="LDL", severity="mild", direction="high"),
+            make_value(name="Vitamin D", severity="mild", direction="low"),
+        ]
+        s = build_summary_sync(values)
+        assert s.next_step_detailed == (
+            "At your next routine visit, ask about LDL and Vitamin D."
+        )
+
+    def test_yellow_three_tests_uses_oxford_comma(self):
+        values = [
+            make_value(name="LDL", severity="mild", direction="high"),
+            make_value(name="Vitamin D", severity="mild", direction="low"),
+            make_value(name="eGFR", severity="mild", direction="low"),
+        ]
+        s = build_summary_sync(values)
+        # All three mild → top_findings ranked by deviation; exact order is
+        # implementation detail, but all three names must appear with
+        # Oxford-comma join.
+        assert s.next_step_detailed is not None
+        assert s.next_step_detailed.startswith("At your next routine visit, ask about ")
+        assert s.next_step_detailed.endswith(".")
+        assert ", and " in s.next_step_detailed
+        for name in ("LDL", "Vitamin D", "eGFR"):
+            assert name in s.next_step_detailed
+
+    def test_red_uses_doctor_copy(self):
+        values = [make_value(name="Potassium", severity="critical", direction="high")]
+        s = build_summary_sync(values)
+        assert s.next_step_detailed == "Talk to a doctor about Potassium."
+
+    def test_verbose_name_is_shortened(self):
+        # Raw extracted names sometimes carry parentheticals / commas — we
+        # strip those for prose so the sentence reads naturally.
+        values = [
+            make_value(
+                name="Cholesterol, Low-Density Lipoprotein (LDL-C)",
+                severity="mild",
+                direction="high",
+            )
+        ]
+        s = build_summary_sync(values)
+        assert s.next_step_detailed == (
+            "At your next routine visit, ask about Cholesterol."
+        )

@@ -5,6 +5,7 @@ import type { Explanation, InterpretedValue } from "@/lib/api-client";
 import type { Language } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import { AuditPanel } from "./audit-panel";
+import { ConfidenceBadge } from "./confidence-badge";
 import { RangeBar } from "./range-bar";
 import { SeverityBadge } from "./severity-badge";
 
@@ -118,7 +119,7 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
           <span className="mr-2 text-gray-500">{dirArrow}</span>
           {value.test_name}
         </h3>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap max-w-full">
           {showStatePill && (
             <span
               title={stateTip}
@@ -126,6 +127,17 @@ export function AnalyteCard({ value, explanation, language, cardId }: Props) {
             >
               {stateLabel}
             </span>
+          )}
+          {/* Phase 4 — provenance badge. Only rendered for rows that are NOT
+              fully classified OR where the range provenance is worth flagging
+              (lab-only, rule-based). Pure function; returns null otherwise. */}
+          {(isAbnormal || isIndet || isWeakClassification) && (
+            <ConfidenceBadge
+              confidence={value.confidence}
+              range_source={value.range_source}
+              classification_state={value.classification_state}
+              language={language}
+            />
           )}
           <SeverityBadge
             variant={

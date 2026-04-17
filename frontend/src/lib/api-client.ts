@@ -41,6 +41,10 @@ export interface ReportSummary {
   next_steps_key: Status;
   indeterminate_count: number;
   uncertainty_note_key: string | null;
+  // Phase 6: server-templated next-step sentence naming specific tests.
+  // When present, frontend renders this instead of the generic status-keyed
+  // copy. Fallback to next_steps_key when null/absent.
+  next_step_detailed?: string | null;
 }
 
 export interface TopicGroup {

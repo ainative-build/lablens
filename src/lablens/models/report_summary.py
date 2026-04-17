@@ -38,6 +38,11 @@ class ReportSummary(BaseModel):
     next_steps_key: Status
     indeterminate_count: int = 0
     uncertainty_note_key: str | None = None
+    # Phase 6: templated, test-name-specific next step sentence. When present,
+    # the frontend renders this instead of the generic `next_steps_key` copy.
+    # e.g. "At your next routine visit, ask about LDL cholesterol, vitamin D,
+    # and eGFR." Deterministic string (no LLM). None for green / empty top.
+    next_step_detailed: str | None = None
 
 
 class TopicGroup(BaseModel):

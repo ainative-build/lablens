@@ -82,6 +82,19 @@ export const translations: Record<Language, Record<string, string>> = {
     "stats.followup_caption": "{count} need follow-up · {minor} minor",
     "stats.unclear": "Could not classify",
     "stats.unclear_caption": "{count} need more information",
+    // Phase 5 — compact counts strip (replaces right-rail stats on default view).
+    // Human-tuned: leads with "things to discuss" instead of denominator ratios.
+    "strip.main_items": "{count} main items to discuss",
+    "strip.main_item_single": "1 main item to discuss",
+    "strip.minor": "{count} minor findings",
+    "strip.minor_single": "1 minor finding",
+    "strip.unclear": "{count} unclear",
+    "strip.unclear_single": "1 unclear",
+    "strip.rest_normal": "Most other results are within expected range.",
+    "strip.all_normal": "All results are within expected range.",
+    // Phase 5 — disclosure toggle for "All results" (reveals normal rows too).
+    "disclosure.all_results_show": "View all results",
+    "disclosure.all_results_hide": "Hide normal results",
     // Card-level (PR #6 v6 calibration)
     "card.next_step": "Next step",
     "card.learn_more": "Learn more ▾",
@@ -117,6 +130,20 @@ export const translations: Record<Language, Record<string, string>> = {
     "state.could_not_classify": "Could not classify",
     "state.could_not_classify_tip":
       "Reference range missing or unit unclear.",
+    // Phase 4 provenance badges — paired with classification_state pill on
+    // analyte cards so users see *why* a row is trustworthy (or isn't).
+    "badge.high": "High confidence",
+    "badge.high.tip":
+      "Curated clinical range used; standard interpretation.",
+    "badge.lab_flagged": "Lab-flagged only",
+    "badge.lab_flagged.tip":
+      "Based on the lab's own flag; no independent numeric range to cross-check.",
+    "badge.missing_range": "Missing range",
+    "badge.missing_range.tip":
+      "No reference range available on the report; cannot classify.",
+    "badge.rule_based": "Rule-based estimate",
+    "badge.rule_based.tip":
+      "Using built-in clinical rules; verify against your lab's range.",
     // Topic labels (10 buckets + other)
     "topic.blood_sugar": "Blood sugar",
     "topic.heart_lipids": "Heart & cholesterol",

@@ -30,7 +30,10 @@ export default function ResultsPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stillWorking, setStillWorking] = useState(false);
-  const [abnormalOnly, setAbnormalOnly] = useState(false);
+  // Phase 5 — default ON: the page should open with only abnormal + unclear
+  // rows visible so users see "the few things that matter" without scanning
+  // past dozens of normal rows. Overridden by persisted preference if any.
+  const [abnormalOnly, setAbnormalOnly] = useState(true);
   const [tipIndex, setTipIndex] = useState(0);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -84,10 +87,12 @@ export default function ResultsPage() {
   }, [isProcessing]);
 
   // Restore abnormal-only preference from localStorage on mount.
+  // Default is ON (Phase 5). Only flip to OFF when the user has explicitly
+  // opted out before — that way first-time users get the calm default view.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const v = window.localStorage.getItem("lablens.filter.abnormalOnly");
-    if (v === "1") setAbnormalOnly(true);
+    if (v === "0") setAbnormalOnly(false);
   }, []);
 
   const setAbnormalOnlyPersisted = (next: boolean) => {
@@ -229,19 +234,11 @@ export default function ResultsPage() {
     <div className="px-4 py-5">
       <PanicStickyBanner values={data.values} language={language} />
 
-      {/* Mobile/tablet: right-rail content collapses into a horizontal scroll
-          strip ABOVE the main content. Desktop ≥lg: hidden here, shown as
-          a true side panel below. */}
-      <div className="lg:hidden mb-4 -mx-4 px-4 overflow-x-auto snap-x">
-        <div className="flex gap-3 min-w-max pb-1">
-          <div className="w-72 shrink-0 snap-start">
-            <ResultsRightRail result={data} language={language} />
-          </div>
-        </div>
-      </div>
-
-      {/* Two-column layout on lg+; main fixed-width centered, right rail fixed */}
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 max-w-[1180px] mx-auto">
+      {/* Phase 5 — single-column calm layout. The old right-rail aside is
+          gone; its role is now served by the compact counts strip directly
+          under the SummaryCard. Keeps L1 focused on "am I okay · what
+          matters · what to do" without competing panels. */}
+      <div className="max-w-[760px] mx-auto">
         <div className="space-y-5 min-w-0">
           {/* SR-only page heading — visible affordance is the back link below. */}
           <h1 className="sr-only">{t("results.title", language)}</h1>
@@ -320,6 +317,10 @@ export default function ResultsPage() {
 
           {summary && <SummaryCard summary={summary} language={language} />}
 
+          {/* Phase 5 — compact counts strip (single line). Replaces the
+              old right-rail donut panels so L1 is calmer. */}
+          <ResultsRightRail result={data} language={language} />
+
           <div className="space-y-3">
             {(() => {
               const visible = abnormalOnly
@@ -376,13 +377,6 @@ export default function ResultsPage() {
             </Link>
           </div>
         </div>
-
-        {/* Right rail — desktop only (mobile shows it above as scroll strip) */}
-        <aside className="hidden lg:block">
-          <div className="sticky top-4">
-            <ResultsRightRail result={data} language={language} />
-          </div>
-        </aside>
       </div>
       {/* Floating chat dock — only mounted now that results are confirmed
           ready. While scanning, the CTA is intentionally hidden. */}
