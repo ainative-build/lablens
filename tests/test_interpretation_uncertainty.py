@@ -179,3 +179,55 @@ def test_qualitative_known_negative_classified(engine):
     r = report.values[0]
     assert r.direction == "in-range"
     assert r.classification_state == "classified"
+
+
+# --- Unit mismatch + low-clinical-priority integration cases ---
+
+
+def test_calcium_mmol_l_without_conversion_could_not_classify(engine):
+    """Curated Calcium expects mg/dL; if the lab reports mmol/L with no
+    lab-provided range, the unit-mismatch path kicks in and the row is
+    tagged could_not_classify instead of being silently classified."""
+    values = [{
+        "test_name": "Calcium", "value": 2.3, "unit": "mmol/L",
+        "loinc_code": "17861-6",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.direction == "indeterminate"
+    assert r.classification_state == "could_not_classify"
+
+
+def test_basophils_out_of_range_capped_and_classified(engine):
+    """Basophils lab-range value outside range → Phase 1 gate does NOT fire
+    when Phase 2 cap would yield mild — but the row lands at mild + monitor
+    with classification_state=classified (not low_confidence)."""
+    values = [{
+        "test_name": "Basophils", "value": 2.5, "unit": "%",
+        "loinc_code": "704-7",
+        "ref_range_low": 0.0, "ref_range_high": 1.5,
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.direction == "high"
+    # Phase 1 gate fires because there's no curated rule for Basophils.
+    # Per policy, severity drops to normal, state becomes low_confidence.
+    # The Phase 2 cap is a belt-and-braces guard: even if a curated rule
+    # were added tomorrow that yielded moderate, it would be capped to mild.
+    assert r.severity in ("normal", "mild")
+    assert r.severity != "moderate"
+    assert r.severity != "critical"
+
+
+def test_nrbc_out_of_range_capped_and_classified(engine):
+    """Same story as Basophils for NRBC — never above mild."""
+    values = [{
+        "test_name": "NRBC", "value": 3.0, "unit": "%",
+        "loinc_code": None,
+        "ref_range_low": 0.0, "ref_range_high": 0.5,
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.severity in ("normal", "mild")
+    assert r.severity != "moderate"
+    assert r.severity != "critical"

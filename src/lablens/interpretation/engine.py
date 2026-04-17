@@ -181,6 +181,21 @@ class InterpretationEngine:
             )
             ref_low, ref_high, range_source = None, None, "no-range"
 
+        # Guard: curated fallback with a unit that disagrees with the rule
+        # (e.g. Calcium reported in mmol/L while the curated band is mg/dL).
+        # Silently classifying 2.3 mmol/L against an 8.5-10.5 mg/dL band
+        # would produce a dramatically wrong "low" reading.
+        if range_source == "curated-fallback" and rule:
+            curated_unit = (rule.get("unit") or "").strip().lower()
+            value_unit = unit_str.strip().lower()
+            if curated_unit and value_unit and curated_unit != value_unit:
+                logger.info(
+                    "Unit mismatch for %s — curated '%s' vs value '%s',"
+                    " clearing curated fallback range",
+                    v.get("test_name", "?"), curated_unit, value_unit,
+                )
+                ref_low, ref_high, range_source = None, None, "no-range"
+
         # Suspicious lab range override: prefer curated only if unit-compatible
         if range_source == "lab-provided" and range_trust == "low":
             if rule:
