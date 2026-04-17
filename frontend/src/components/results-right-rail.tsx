@@ -32,8 +32,11 @@ export function ResultsRightRail({ result, language }: Props) {
 
   // PR #6 v6 calibration: human counts in donut center ("12 of 75") instead
   // of percentages. Captions get one-line action context.
+  // lg:pb-24 = bottom safety so the floating chat FAB (fixed bottom-4, 56px)
+  // doesn't visually overlap the last panel on viewports in the ~1024-1400px
+  // range where FAB + right rail share screen space.
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 lg:pb-24">
       <StatPanel
         title={t("stats.normal", language)}
         percent={pct(normal)}

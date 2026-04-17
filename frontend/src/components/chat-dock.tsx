@@ -162,11 +162,14 @@ export function ChatDock({ jobId, language }: Props) {
     <>
       {/* Teaser bubble — Intercom-style. Sits above the FAB; carries the
           "Ask about your results" copy so the CTA text isn't lost when the
-          button became icon-only. Dismissible (× button), persistent. */}
+          button became icon-only. Dismissible (× button), persistent.
+          Hidden on lg+ because the right rail already renders a pinned
+          SuggestedQuestions panel — teaser would overlap/duplicate it
+          (judge-review: "floating chat overlap with the right rail"). */}
       {!open && teaserVisible && (
         <div
           role="status"
-          className="fixed bottom-24 right-4 md:right-6 z-30 max-w-[280px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-card)] shadow-[var(--shadow-elevated)] p-3 pr-7 animate-fade-in"
+          className="hidden md:block lg:hidden fixed bottom-24 right-4 md:right-6 z-30 max-w-[280px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-card)] shadow-[var(--shadow-elevated)] p-3 pr-7 animate-fade-in"
         >
           <button
             type="button"

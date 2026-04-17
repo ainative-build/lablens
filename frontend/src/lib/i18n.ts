@@ -102,9 +102,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "unclear.no_range":
       "No reference range was available for this test, so it could not be classified.",
     "unclear.ocr_flag":
-      "Could not classify confidently from the available range or unit info.",
+      "The original lab flag could not be verified from the available reference range.",
     "unclear.ocr_flag_with_direction":
-      "The lab flagged this as {direction}, but the numeric range needed to verify it was not available.",
+      "The original lab flag ({direction}) could not be verified from the available reference range.",
     "unclear.unit_low_confidence":
       "The unit on the report was unclear, so it could not be classified confidently.",
     "unclear.generic":
@@ -130,8 +130,8 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.urinalysis_other": "Urine & other",
     "topic.other": "Other tests",
     // Group header summaries
-    "group.abnormal_count": "{abnormal} of {total} worth follow-up",
-    "group.abnormal_count_inline": "{abnormal} of {total} worth follow-up",
+    "group.abnormal_count": "{abnormal} findings to review",
+    "group.abnormal_count_inline": "{abnormal} findings to review",
     "group.minor_count": "{minor} minor",
     "group.unclear_count": "{indeterminate} unclear",
     "group.indeterminate_count":
@@ -168,7 +168,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "panic.dismiss": "Hide",
     // Errors
     "error.upload": "Upload failed. Please try again.",
-    "error.analysis": "Analysis failed.",
+    "error.analysis": "Analysis failed",
     "error.session_expired": "Your report session has ended. Upload again to continue.",
     "error.try_again": "Try Again",
     // Chat (Phase 4)
@@ -275,9 +275,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "unclear.no_range":
       "Aucune plage de référence n'était disponible pour ce test, il n'a donc pas pu être classé.",
     "unclear.ocr_flag":
-      "Impossible de classer avec confiance à partir des informations de plage ou d'unité disponibles.",
+      "L'indicateur d'origine du laboratoire n'a pas pu être vérifié à partir de la plage de référence disponible.",
     "unclear.ocr_flag_with_direction":
-      "Le laboratoire l'a marqué comme {direction}, mais la plage numérique nécessaire à la vérification n'était pas disponible.",
+      "L'indicateur d'origine du laboratoire ({direction}) n'a pas pu être vérifié à partir de la plage de référence disponible.",
     "unclear.unit_low_confidence":
       "L'unité sur le rapport était peu claire, il n'a donc pas pu être classé avec confiance.",
     "unclear.generic":
@@ -293,8 +293,8 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.inflammation": "Inflammation",
     "topic.urinalysis_other": "Urine & autres",
     "topic.other": "Autres tests",
-    "group.abnormal_count": "{abnormal} sur {total} à surveiller",
-    "group.abnormal_count_inline": "{abnormal} sur {total} à surveiller",
+    "group.abnormal_count": "{abnormal} résultats à examiner",
+    "group.abnormal_count_inline": "{abnormal} résultats à examiner",
     "group.minor_count": "{minor} mineur(s)",
     "group.unclear_count": "{indeterminate} incertain(s)",
     "group.indeterminate_count":
@@ -326,7 +326,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "panic.view": "Voir",
     "panic.dismiss": "Masquer",
     "error.upload": "Échec du téléchargement. Veuillez réessayer.",
-    "error.analysis": "Échec de l'analyse.",
+    "error.analysis": "Échec de l'analyse",
     "error.session_expired":
       "Votre session de rapport est terminée. Téléchargez à nouveau pour continuer.",
     "error.try_again": "Réessayer",
@@ -432,9 +432,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "unclear.no_range":
       "لم يكن هناك نطاق مرجعي متاح لهذا الاختبار، لذا لم يمكن تصنيفه.",
     "unclear.ocr_flag":
-      "تعذر التصنيف بثقة من معلومات النطاق أو الوحدة المتاحة.",
+      "تعذر التحقق من علامة المختبر الأصلية من النطاق المرجعي المتاح.",
     "unclear.ocr_flag_with_direction":
-      "وضع المختبر علامة على هذا بأنه {direction}، لكن النطاق الرقمي اللازم للتحقق لم يكن متاحاً.",
+      "تعذر التحقق من علامة المختبر الأصلية ({direction}) من النطاق المرجعي المتاح.",
     "unclear.unit_low_confidence":
       "الوحدة في التقرير كانت غير واضحة، لذا لم يمكن تصنيفه بثقة.",
     "unclear.generic":
@@ -450,8 +450,8 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.inflammation": "الالتهاب",
     "topic.urinalysis_other": "البول وأخرى",
     "topic.other": "اختبارات أخرى",
-    "group.abnormal_count": "{abnormal} من {total} يستحق المتابعة",
-    "group.abnormal_count_inline": "{abnormal} من {total} يستحق المتابعة",
+    "group.abnormal_count": "{abnormal} نتائج للمراجعة",
+    "group.abnormal_count_inline": "{abnormal} نتائج للمراجعة",
     "group.minor_count": "{minor} بسيط",
     "group.unclear_count": "{indeterminate} غير واضح",
     "group.indeterminate_count":
@@ -483,7 +483,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "panic.view": "عرض",
     "panic.dismiss": "إخفاء",
     "error.upload": "فشل التحميل. يرجى المحاولة مرة أخرى.",
-    "error.analysis": "فشل التحليل.",
+    "error.analysis": "فشل التحليل",
     "error.session_expired":
       "انتهت جلسة التقرير الخاصة بك. حمل مرة أخرى للاستمرار.",
     "error.try_again": "حاول مرة أخرى",
@@ -590,9 +590,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "unclear.no_range":
       "Không có khoảng tham chiếu cho xét nghiệm này, nên chưa thể phân loại.",
     "unclear.ocr_flag":
-      "Chưa thể phân loại chắc chắn từ thông tin khoảng tham chiếu hoặc đơn vị hiện có.",
+      "Không thể xác minh dấu hiệu gốc từ phòng xét nghiệm dựa trên khoảng tham chiếu hiện có.",
     "unclear.ocr_flag_with_direction":
-      "Phòng xét nghiệm đánh dấu là {direction}, nhưng không có khoảng số để xác minh.",
+      "Không thể xác minh dấu hiệu gốc từ phòng xét nghiệm ({direction}) dựa trên khoảng tham chiếu hiện có.",
     "unclear.unit_low_confidence":
       "Đơn vị trên báo cáo không rõ, nên chưa thể phân loại chắc chắn.",
     "unclear.generic":
@@ -608,8 +608,8 @@ export const translations: Record<Language, Record<string, string>> = {
     "topic.inflammation": "Viêm",
     "topic.urinalysis_other": "Nước tiểu & khác",
     "topic.other": "Xét nghiệm khác",
-    "group.abnormal_count": "{abnormal} trên {total} nên theo dõi",
-    "group.abnormal_count_inline": "{abnormal} trên {total} nên theo dõi",
+    "group.abnormal_count": "{abnormal} kết quả cần xem",
+    "group.abnormal_count_inline": "{abnormal} kết quả cần xem",
     "group.minor_count": "{minor} nhỏ",
     "group.unclear_count": "{indeterminate} chưa rõ",
     "group.indeterminate_count":
@@ -641,7 +641,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "panic.view": "Xem",
     "panic.dismiss": "Ẩn",
     "error.upload": "Tải lên thất bại. Vui lòng thử lại.",
-    "error.analysis": "Phân tích thất bại.",
+    "error.analysis": "Phân tích thất bại",
     "error.session_expired":
       "Phiên báo cáo đã kết thúc. Tải lên lại để tiếp tục.",
     "error.try_again": "Thử lại",

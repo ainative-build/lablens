@@ -100,9 +100,11 @@ export function SummaryCard({ summary, language }: Props) {
         </p>
       </div>
 
-      {/* 5. Uncertainty footnote — smallest, separated */}
+      {/* 5. Uncertainty footnote — quietest line on the card. Judge-review:
+           "'X results are unclear' is useful but should not compete with
+           the main takeaway" — italic, lighter gray, no separator. */}
       {summary.uncertainty_note_key && (
-        <p className="mt-4 pt-3 border-t border-black/[0.06] dark:border-white/[0.06] text-xs text-gray-600 dark:text-gray-400">
+        <p className="mt-3 text-[11px] italic text-gray-500 dark:text-gray-500 leading-snug">
           {t(summary.uncertainty_note_key, language, {
             count: summary.indeterminate_count,
           })}
