@@ -536,7 +536,12 @@ class OCRExtractor:
         return merged, patched
 
     async def _call_dashscope_ocr(self, model: str, messages: list) -> str:
-        """Call DashScope multimodal API in executor to avoid blocking event loop."""
+        """Call DashScope multimodal API in executor to avoid blocking event loop.
+
+        Raises RuntimeError with the API's error code/message on failure
+        instead of letting a cryptic `NoneType has no 'choices'` bubble up
+        when the SDK returns an error response (auth, quota, throttle, etc).
+        """
         from dashscope import MultiModalConversation
 
         loop = asyncio.get_event_loop()
@@ -549,6 +554,15 @@ class OCRExtractor:
                 api_key=self.api_key,
             ),
         )
+        status = getattr(resp, "status_code", None)
+        if status != 200 or getattr(resp, "output", None) is None:
+            code = getattr(resp, "code", None) or "unknown"
+            message = getattr(resp, "message", None) or "no error message"
+            req_id = getattr(resp, "request_id", None) or "?"
+            raise RuntimeError(
+                f"DashScope {model} status={status} code={code} "
+                f"request_id={req_id}: {message}"
+            )
         return resp.output.choices[0].message.content[0]["text"]
 
     @staticmethod

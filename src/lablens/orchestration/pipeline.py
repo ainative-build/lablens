@@ -563,15 +563,14 @@ class PlainPipeline:
             )
 
         # Stage 3.5: Pre-explanation consistency enforcement
-        # Values whose direction was derived from a weak source (OCR flag
-        # fallback with no numeric range) keep their direction — the lab's
-        # H/L flag IS clinically meaningful even without a verifiable range.
-        # We just keep severity soft (mild) since we can't compute magnitude,
-        # mark confidence "low", and surface "source_flag" in evidence_trace
-        # so the frontend can render a "lab-flagged, range unverified"
-        # caveat. Earlier behavior downgraded direction → indeterminate
-        # which buried clearly-abnormal lab-flagged values as "Could not
-        # classify" and confused users.
+        # Lab-flagged rows with no verifiable range AND no curated rule
+        # keep their direction — the H/L flag IS meaningful — but we can't
+        # substantiate a severity. Stamp low_confidence + reset severity to
+        # normal so the card shows the direction arrow + a "Low confidence"
+        # pill instead of an unsubstantiated "Mild" badge that contradicted
+        # the LLM's clinical narrative (judge-review: eGFR card said
+        # "lab flagged as high" alongside "mildly reduced"; NRBC 0.0 showed
+        # as mild/low though 0.0 is the clinical floor).
         #
         # Also refine verification verdicts now that range_source is
         # available (verifier ran before interpretation set this field).
@@ -579,7 +578,7 @@ class PlainPipeline:
         _CAUTION_RANGE_SOURCES = {"range-text", "lab-provided-suspicious"}
         for idx, v in enumerate(interpreted.values):
             # Lab-flagged direction with no curated range:
-            #   keep direction, soften severity, mark low confidence.
+            #   keep direction, mark low_confidence, reset severity.
             if (
                 v.range_source in _WEAK_DIRECTION_SOURCES
                 and v.reference_range_low is None
@@ -587,11 +586,11 @@ class PlainPipeline:
                 and v.direction in ("high", "low")
             ):
                 v.source_flag = v.direction[0].upper()
-                # Severity capped at "mild" — we honor the lab's flag but
-                # without a range we can't claim moderate/critical magnitude.
-                if v.severity in (None, "normal"):
-                    v.severity = "mild"
                 v.confidence = "low"
+                v.classification_state = "low_confidence"
+                v.severity = "normal"
+                v.actionability = "routine"
+                v.is_panic = False
 
             # Post-interpretation verdict refinement: upgrade accepted
             # to accepted_with_warning for caution-tier range sources
