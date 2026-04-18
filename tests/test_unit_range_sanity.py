@@ -5,8 +5,6 @@ case-insensitive unit aliases, post-conversion plausibility guard,
 cross-unit mismatch detection.
 """
 
-import pytest
-
 from lablens.extraction.semantic_verifier import check_unit_value_plausibility
 from lablens.extraction.plausibility_validator import (
     HUMAN_POSSIBLE_BOUNDS,
@@ -198,17 +196,27 @@ class TestCommaDecimalParsing:
         assert v["reference_range_low"] == 3.2
         assert v["reference_range_high"] == 7.4
 
-    def test_thousands_separator_not_mangled(self):
-        """'3,200' should NOT become '3.200' (it's thousands, not decimal)."""
-        v = {"reference_range_low": "3,200", "reference_range_high": "5,000"}
+    def test_pure_numeric_with_comma_decimal_parsed(self):
+        """European labs emit bounds as pure numeric fields with comma decimals
+        (French TSH range_low='0,3500', range_high='4,9400'). These must be
+        coerced to floats even when multiple digits follow the comma — lab
+        values don't use comma as a thousands separator in practice, so any
+        isolated comma in a whole-number-only string is a decimal."""
+        v = {
+            "reference_range_low": "0,3500",
+            "reference_range_high": "4,9400",
+        }
         fix_range_fields(v)
-        # These won't parse as a range pattern, but the commas should not
-        # be converted to dots since they have 3 digits after
-        # The values may end up as None (unparseable) — that's fine
-        # The key assertion: they should NOT become 3.200 and 5.0
-        low = v.get("reference_range_low")
-        if isinstance(low, (int, float)):
-            assert low != 3.2  # Must not have mangled thousands separator
+        assert v["reference_range_low"] == 0.35
+        assert v["reference_range_high"] == 4.94
+
+    def test_value_with_european_comma_decimal_coerced(self):
+        """TSH 0,1697 mUI/L regression: value must be normalized to float so
+        the noise filter doesn't reject it as an unparseable string."""
+        v = {"test_name": "TSH", "value": "0,1697", "unit": "mUI/L"}
+        fix_range_fields(v)
+        assert v["value"] == 0.1697
+        assert isinstance(v["value"], float)
 
     def test_mixed_comma_and_dash(self):
         """'1,5 - 4,5' should parse correctly."""
