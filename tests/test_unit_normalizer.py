@@ -104,3 +104,17 @@ def test_greek_mu_normalize_unit_direct(normalizer):
     """normalize_unit() must fold Greek mu to micro sign before alias lookup."""
     assert normalizer.normalize_unit("\u03bcmol/L") == "\u00b5mol/L"
     assert normalizer.normalize_unit("\u03bcg/dL") == "ug/dL"
+
+
+def test_superscript_folds_to_ascii_egfr(normalizer):
+    """Real OCR/LLM output uses U+00B2 (superscript '²') in units like
+    'mL/min/1.73m²', but alias tables and curated rules key off ASCII
+    'mL/min/1.73m2'. Without this fold, engine.py's unit-mismatch guard
+    wipes curated-fallback → eGFR falls through to OCR-flag-fallback →
+    direction gets suppressed → a real CKD-stage-2 finding disappears
+    from "main items to discuss". Regression for Vietnamese-report bug.
+    """
+    assert normalizer.normalize_unit("mL/min/1.73m\u00b2") == "mL/min/1.73m2"
+    assert normalizer.normalize_unit("mL/min/1.73 m\u00b2") == "mL/min/1.73m2"
+    # Bare superscripts fold too (defensive for other units).
+    assert normalizer.normalize_unit("g/m\u00b3") == "g/m3"
