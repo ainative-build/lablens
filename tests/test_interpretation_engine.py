@@ -41,6 +41,41 @@ def test_no_range_available(engine):
     assert report.values[0].range_source == "no-range"
 
 
+def test_curated_fallback_uses_sex_union_band_for_hemoglobin(engine):
+    """Arabic-report regression: female patient, Hb 12.8 g/dL, no printed range.
+    reference_ranges[0] is male-default [13.5-17.5] by convention, but
+    severity_bands.normal is the sex-union [12.0-17.5]. Using ranges[0] would
+    mark 12.8 as 'low' and the override at engine._apply_severity_and_actionability
+    would re-run heuristic_severity → 'moderate'. Must use severity_bands.normal
+    so 12.8 lands in-range/normal."""
+    values = [{
+        "test_name": "Hemoglobin", "value": 12.8, "unit": "g/dL",
+        "loinc_code": "718-7",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.range_source == "curated-fallback"
+    assert r.direction == "in-range"
+    assert r.severity == "normal"
+    assert r.actionability == "routine"
+
+
+def test_curated_fallback_uses_sex_union_band_for_hematocrit(engine):
+    """Arabic-report regression: female patient, HCT 37.0%, no printed range.
+    Male range [38.8-50] would mark 37 as low → moderate. Sex-union band
+    [36.0-50] says normal."""
+    values = [{
+        "test_name": "Hematocrit", "value": 37.0, "unit": "%",
+        "loinc_code": "4544-3",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.range_source == "curated-fallback"
+    assert r.direction == "in-range"
+    assert r.severity == "normal"
+    assert r.actionability == "routine"
+
+
 # --- Step 2: Direction ---
 
 
