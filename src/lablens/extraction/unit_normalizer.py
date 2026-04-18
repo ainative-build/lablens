@@ -57,8 +57,15 @@ class UnitNormalizer:
         output produces — to the micro sign (U+00B5, 'µ') that the conversions
         table keys off. Identical glyph, different codepoint; without this,
         µmol/L lookups miss and LOINC gets cleared downstream.
+
+        Superscript digits (²/³) are folded to ASCII (2/3) for the same
+        reason — `mL/min/1.73m²` would otherwise miss the `mL/min/1.73m2`
+        alias and trip engine.py's unit-mismatch guard, which would wipe
+        the curated-fallback range (e.g. hiding eGFR 75 — a real CKD-stage-2
+        signal — behind an OCR-flag-fallback classification).
         """
         unit = unit.replace("\u03bc", "\u00b5")
+        unit = unit.replace("\u00b2", "2").replace("\u00b3", "3")
         return (
             self._unit_aliases.get(unit)
             or self._unit_aliases_lower.get(unit.lower().strip())

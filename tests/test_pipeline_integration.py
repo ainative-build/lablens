@@ -1406,6 +1406,38 @@ class TestDirectionConsistencyEnforcement:
         assert v.actionability == "routine"
         assert v.source_flag == "H"
 
+    def test_egfr_superscript_unit_classifies_via_curated(self, engine):
+        """Follow-up to Phase 8: when the unit passes through the real
+        UnitNormalizer (as it does in production via PlainPipeline._enrich),
+        'mL/min/1.73m²' folds to 'mL/min/1.73m2' → engine's unit-mismatch
+        guard stops firing → curated-fallback (90-999) is retained →
+        eGFR 75.11 classifies as a real clinical finding (low/mild), not
+        an ocr-flag-fallback artefact.
+
+        Without this path, Phase 8's direction suppression hides a real
+        CKD-stage-2 signal from "main items to discuss".
+        """
+        from lablens.extraction.unit_normalizer import UnitNormalizer
+        normalizer = UnitNormalizer()
+        raw_unit = "mL/min/1.73m\u00b2"
+        values = [{
+            "test_name": "Estimated Glomerular Filtration Rate (eGFR)",
+            "value": 75.11,
+            "unit": normalizer.normalize_unit(raw_unit),
+            "loinc_code": "33914-3",
+            "flag": "L",
+            "unit_confidence": "high",
+            "range_trust": "high",
+        }]
+        report = engine.interpret_report(values, match_confidences={0: "high"})
+        v = report.values[0]
+        assert v.range_source == "curated-fallback"
+        assert v.direction == "low"
+        assert v.severity == "mild"
+        assert v.classification_state == "classified"
+        assert v.reference_range_low == 90
+        assert v.reference_range_high == 999
+
     def test_range_text_direction_preserved(self, engine):
         """Range-text direction is NOT downgraded for non-qualitative analytes.
 
