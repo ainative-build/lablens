@@ -60,6 +60,97 @@ def test_curated_fallback_uses_sex_union_band_for_hemoglobin(engine):
     assert r.actionability == "routine"
 
 
+def test_neutrophils_curated_fallback_mild_high(engine):
+    """Arabic-report regression: Neutrophils 80% printed but range dropped by
+    LLM. Curated rule 751-8 should fire → direction=high, severity=mild."""
+    values = [{
+        "test_name": "Neutrophils %", "value": 80, "unit": "%",
+        "loinc_code": "751-8",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.range_source == "curated-fallback"
+    assert r.direction == "high"
+    assert r.severity == "mild"
+    assert r.classification_state == "classified"
+
+
+def test_lymphocytes_curated_fallback_fixes_wrong_flag(engine):
+    """Arabic-report regression: Lymphocytes 16% — LLM stamped flag='H' but
+    the value is actually LOW (normal 20-40). Curated rule 731-0 must see
+    the value and override the bad flag → direction=low."""
+    values = [{
+        "test_name": "Lymphocytes %", "value": 16, "unit": "%",
+        "loinc_code": "731-0", "flag": "H",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.range_source == "curated-fallback"
+    assert r.direction == "low"
+    assert r.severity == "mild"
+    assert r.classification_state == "classified"
+
+
+def test_monocytes_curated_fallback_normal(engine):
+    """Arabic-report regression: Monocytes 2% — LLM stamped flag='H' but
+    normal range is 2-8. Curated rule 742-7 should classify as in-range."""
+    values = [{
+        "test_name": "Monocytes %", "value": 2, "unit": "%",
+        "loinc_code": "742-7", "flag": "H",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.range_source == "curated-fallback"
+    assert r.direction == "in-range"
+    assert r.severity == "normal"
+    assert r.classification_state == "classified"
+
+
+def test_eosinophils_curated_fallback_normal(engine):
+    """Eosinophils 2% should be normal (range 0-4)."""
+    values = [{
+        "test_name": "Eosinophils %", "value": 2, "unit": "%",
+        "loinc_code": "711-2",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.range_source == "curated-fallback"
+    assert r.direction == "in-range"
+    assert r.severity == "normal"
+
+
+def test_basophils_curated_fallback_mild_high(engine):
+    """Basophils 2.5% should be mild high (normal 0-1, mild_high 2-2.9)."""
+    values = [{
+        "test_name": "Basophils %", "value": 2.5, "unit": "%",
+        "loinc_code": "704-7", "flag": "H",
+    }]
+    report = engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.range_source == "curated-fallback"
+    assert r.direction == "high"
+    assert r.severity == "mild"
+    assert r.classification_state == "classified"
+
+
+def test_leukocyte_fraction_guard_blocks_flag_without_rule(engine):
+    """Defense-in-depth guard: if a leukocyte-fraction LOINC somehow arrives
+    with no curated rule loaded AND no printed range, a bare OCR flag must
+    not produce a directional arrow. This protects against future refactors
+    that might accidentally drop a rule, and documents the design rule that
+    OCR flags alone are insufficient for differential %."""
+    empty_engine = InterpretationEngine(rules={})
+    values = [{
+        "test_name": "Lymphocytes %", "value": 16, "unit": "%",
+        "loinc_code": "731-0", "flag": "H",
+    }]
+    report = empty_engine.interpret_report(values, {0: "high"})
+    r = report.values[0]
+    assert r.direction == "indeterminate"
+    assert r.range_source == "no-range"
+    assert r.classification_state == "could_not_classify"
+
+
 def test_curated_fallback_uses_sex_union_band_for_hematocrit(engine):
     """Arabic-report regression: female patient, HCT 37.0%, no printed range.
     Male range [38.8-50] would mark 37 as low → moderate. Sex-union band
