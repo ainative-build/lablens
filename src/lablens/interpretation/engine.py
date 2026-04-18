@@ -31,6 +31,14 @@ from lablens.retrieval.clinical_priority import get_severity_cap
 
 _SEVERITY_ORDER = {"normal": 0, "mild": 1, "moderate": 2, "critical": 3}
 
+# CBC differential leukocyte-fraction LOINCs (percent values). When one of
+# these arrives with no curated rule AND no trusted printed range, the
+# OCR-flag fallback is unsafe: LLM extractors have been seen to copy the
+# same H/L flag across adjacent differential rows (Arabic-report regression
+# stamped 'H' on Lymphocytes 16% which is actually low). Guard blocks the
+# flag from producing a directional arrow for these uncovered fractions.
+LEUKOCYTE_FRACTION_LOINCS = frozenset({"751-8", "731-0", "742-7", "711-2", "704-7"})
+
 logger = logging.getLogger(__name__)
 
 
@@ -391,6 +399,14 @@ class InterpretationEngine:
             result.direction = "indeterminate"
             result.classification_state = "could_not_classify"
         elif restricted_flag or is_decision_threshold:
+            result.direction = "indeterminate"
+            result.range_source = "no-range"
+            result.classification_state = "could_not_classify"
+        elif (
+            (v.get("loinc_code") or "") in LEUKOCYTE_FRACTION_LOINCS
+            and unit.strip() == "%"
+            and rule is None
+        ):
             result.direction = "indeterminate"
             result.range_source = "no-range"
             result.classification_state = "could_not_classify"
