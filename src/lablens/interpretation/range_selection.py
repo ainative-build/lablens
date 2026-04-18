@@ -41,6 +41,19 @@ def select_range(v: dict, rule: dict | None) -> tuple:
                     return cur_low, cur_high, "curated-fallback"
         return low, high, "lab-provided"
     if rule:
+        # Prefer severity_bands.normal over reference_ranges[0]. When a rule
+        # has sex-differentiated ranges (Hb, HCT, RBC, Uric Acid, Ferritin,
+        # Iron), ranges[0] is male by convention, while severity_bands.normal
+        # is the sex-union. Using the male range for sex-unknown patients
+        # misclassifies half the population — a female with Hb 12.8 shows
+        # as "low" vs male [13.5-17.5] but the band normal=[12.0-17.5]
+        # (the clinically correct range) says in-range. The severity pipeline
+        # already trusts severity_bands.normal as ground truth; align the
+        # direction signal with it so direction and severity stop contradicting.
+        bands = rule.get("severity_bands") or {}
+        normal = bands.get("normal")
+        if normal and "low" in normal and "high" in normal:
+            return normal["low"], normal["high"], "curated-fallback"
         ranges = rule.get("reference_ranges", [])
         if ranges:
             default = ranges[0]
