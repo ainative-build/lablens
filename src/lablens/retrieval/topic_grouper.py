@@ -69,9 +69,14 @@ def _is_indeterminate(v: InterpretedResult) -> bool:
 
     Phase 3: prefer the first-class `classification_state` tag over
     direction alone so the UI "unclear" counter matches the CSV.
-    Falls back to direction for rows that predate the tag.
+    Round-2: `low_confidence` also rolls up to unclear — those rows
+    have suppressed severity and a provenance badge, not a verified
+    classification, so they don't belong to the "worth follow-up" or
+    "minor" buckets either. Falls back to direction for rows that
+    predate the tag.
     """
-    if getattr(v, "classification_state", "classified") == "could_not_classify":
+    state = getattr(v, "classification_state", "classified")
+    if state in ("could_not_classify", "low_confidence"):
         return True
     return v.direction == "indeterminate"
 
