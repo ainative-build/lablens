@@ -16,6 +16,36 @@ class PipelineProtocol(Protocol):
     async def analyze(self, pdf_bytes: bytes, language: str = "en") -> dict: ...
 
 
+_WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
+_CAUTION_RANGE_SOURCES = {"range-text", "lab-provided-suspicious"}
+
+
+def enforce_direction_consistency(values: list) -> None:
+    """Round-2 fix: suppress direction for OCR-flag-only rows with no range.
+
+    eGFR 75 stamped flag=H but value is below the normal threshold — the
+    lab OCR flag alone is not a trustworthy direction signal without a
+    numeric range to cross-check. Preserves `source_flag` for the
+    provenance badge; nulls direction; marks low_confidence.
+
+    Mutates rows in place. Safe to call multiple times (idempotent).
+    """
+    for v in values:
+        if (
+            v.range_source in _WEAK_DIRECTION_SOURCES
+            and v.reference_range_low is None
+            and v.reference_range_high is None
+            and v.direction in ("high", "low")
+        ):
+            v.source_flag = v.direction[0].upper()
+            v.direction = "indeterminate"
+            v.confidence = "low"
+            v.classification_state = "low_confidence"
+            v.severity = "normal"
+            v.actionability = "routine"
+            v.is_panic = False
+
+
 class PlainPipeline:
     """Direct async pipeline without AgentScope dependency."""
 
@@ -563,35 +593,12 @@ class PlainPipeline:
             )
 
         # Stage 3.5: Pre-explanation consistency enforcement
-        # Lab-flagged rows with no verifiable range AND no curated rule
-        # keep their direction — the H/L flag IS meaningful — but we can't
-        # substantiate a severity. Stamp low_confidence + reset severity to
-        # normal so the card shows the direction arrow + a "Low confidence"
-        # pill instead of an unsubstantiated "Mild" badge that contradicted
-        # the LLM's clinical narrative (judge-review: eGFR card said
-        # "lab flagged as high" alongside "mildly reduced"; NRBC 0.0 showed
-        # as mild/low though 0.0 is the clinical floor).
-        #
-        # Also refine verification verdicts now that range_source is
-        # available (verifier ran before interpretation set this field).
-        _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
-        _CAUTION_RANGE_SOURCES = {"range-text", "lab-provided-suspicious"}
+        # Suppress direction for OCR-flag-only rows (see
+        # `enforce_direction_consistency` for rationale). Then refine
+        # verification verdicts now that range_source is available
+        # (verifier ran before interpretation set this field).
+        enforce_direction_consistency(interpreted.values)
         for idx, v in enumerate(interpreted.values):
-            # Lab-flagged direction with no curated range:
-            #   keep direction, mark low_confidence, reset severity.
-            if (
-                v.range_source in _WEAK_DIRECTION_SOURCES
-                and v.reference_range_low is None
-                and v.reference_range_high is None
-                and v.direction in ("high", "low")
-            ):
-                v.source_flag = v.direction[0].upper()
-                v.confidence = "low"
-                v.classification_state = "low_confidence"
-                v.severity = "normal"
-                v.actionability = "routine"
-                v.is_panic = False
-
             # Post-interpretation verdict refinement: upgrade accepted
             # to accepted_with_warning for caution-tier range sources
             # or standalone low confidence

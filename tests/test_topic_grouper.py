@@ -218,3 +218,29 @@ class TestCounts:
         assert g.abnormal_count == 2
         assert g.indeterminate_count == 1
         assert g.total_count == 4
+
+    def test_low_confidence_counts_as_indeterminate(self):
+        """Round-2 fix: low_confidence rows roll up into the unclear bucket,
+        matching the hero-summary count and the CSV classification_state."""
+        low_conf_with_dir = _mk(
+            "Basophils %", "blood_count",
+            direction="high", severity="normal",
+        )
+        low_conf_with_dir.classification_state = "low_confidence"
+        low_conf_null = _mk(
+            "eGFR", "kidney",
+            direction="indeterminate", severity="normal",
+        )
+        low_conf_null.classification_state = "low_confidence"
+        cnf = _mk("Calcium", "kidney", direction="indeterminate")
+        cnf.classification_state = "could_not_classify"
+        mild = _mk("LDL", "kidney", direction="high", severity="mild")
+        values = [low_conf_with_dir, low_conf_null, cnf, mild]
+        groups = build_topic_groups(values)
+        by_topic = {g.topic: g for g in groups}
+        # low_conf_with_dir rolls into "blood_count" as indeterminate, not abnormal
+        assert by_topic["blood_count"].abnormal_count == 0
+        assert by_topic["blood_count"].indeterminate_count == 1
+        # kidney group: eGFR (low_conf) + Calcium (could_not_classify) = 2 unclear
+        assert by_topic["kidney"].indeterminate_count == 2
+        assert by_topic["kidney"].abnormal_count == 1  # LDL only

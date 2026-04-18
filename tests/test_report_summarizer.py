@@ -159,6 +159,30 @@ class TestBuildSummarySync:
         assert s.indeterminate_count == 0
         assert s.uncertainty_note_key is None
 
+    def test_low_confidence_counted_as_unclear(self):
+        """Round-2: low_confidence rows (suppressed severity, provenance-only)
+        roll up into the unclear bucket so the hero summary count matches the
+        per-topic UI tallies. eGFR with OCR-flag-only evidence is the canonical
+        example — direction arrow suppressed but state still uncertain."""
+        low_conf = make_value(
+            name="eGFR", severity="normal", direction="indeterminate",
+        )
+        low_conf.classification_state = "low_confidence"
+        # Also test a low_confidence row that still carries direction (engine
+        # uncertainty gate path — range present but no curated bands).
+        low_conf_with_dir = make_value(
+            name="Basophils %", severity="normal", direction="high",
+        )
+        low_conf_with_dir.classification_state = "low_confidence"
+        values = [
+            low_conf,
+            low_conf_with_dir,
+            make_value(severity="moderate", direction="high"),
+        ]
+        s = build_summary_sync(values)
+        assert s.indeterminate_count == 2
+        assert s.uncertainty_note_key == "summary.indeterminate.note"
+
     def test_status_drives_next_steps_key(self):
         s = build_summary_sync([make_value(severity="critical")])
         assert s.next_steps_key == "red"

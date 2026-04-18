@@ -47,6 +47,21 @@ def _needs_attention(v: InterpretedResult) -> bool:
     return v.is_panic or v.severity in {"moderate", "critical"}
 
 
+def _count_unclear(values: Iterable[InterpretedResult]) -> int:
+    """Count rows that belong to the 'unclear' bucket.
+
+    Round-2: low_confidence rows (flag-only, suppressed severity) must
+    roll up alongside could_not_classify and direction=indeterminate
+    so the hero-summary count matches the topic_grouper/UI tallies.
+    """
+    unclear_states = {"could_not_classify", "low_confidence"}
+    return sum(
+        1 for v in values
+        if getattr(v, "classification_state", "classified") in unclear_states
+        or v.direction == "indeterminate"
+    )
+
+
 def derive_status(values: Iterable[InterpretedResult]) -> Status:
     """Map worst-severity in the report to a 4-step traffic light.
 
@@ -478,7 +493,7 @@ async def build_summary(
     abnormal_sorted = sorted(abnormal, key=_top_finding_sort_key)
     top = [_to_top_finding(v) for v in abnormal_sorted[:3]]
 
-    indeterminate_count = sum(1 for v in values if v.direction == "indeterminate")
+    indeterminate_count = _count_unclear(values)
 
     # Headline: try LLM (constrained); fallback deterministic
     headline = None
@@ -512,7 +527,7 @@ def build_summary_sync(values: list[InterpretedResult]) -> ReportSummary:
         abnormal = filtered
     abnormal_sorted = sorted(abnormal, key=_top_finding_sort_key)
     top = [_to_top_finding(v) for v in abnormal_sorted[:3]]
-    indeterminate_count = sum(1 for v in values if v.direction == "indeterminate")
+    indeterminate_count = _count_unclear(values)
     return ReportSummary(
         overall_status=status,
         headline=_fallback_headline(status, top),

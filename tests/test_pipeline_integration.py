@@ -1339,7 +1339,9 @@ class TestDirectionConsistencyEnforcement:
         return InterpretationEngine()
 
     def test_ocr_flag_high_downgraded_to_indeterminate(self, engine):
-        """Non-HDL Cholesterol flag=H, no range → direction=indeterminate."""
+        """Non-HDL Cholesterol flag=H, no range → direction=indeterminate
+        after the real pipeline stage 3.5 enforcement runs."""
+        from lablens.orchestration.pipeline import enforce_direction_consistency
         values = [{
             "test_name": "Non HDL Cholesterol",
             "value": 3.55,
@@ -1349,23 +1351,20 @@ class TestDirectionConsistencyEnforcement:
         }]
         report = engine.interpret_report(values)
         v = report.values[0]
-        # Before consistency enforcement: direction would be "high"
+        # Engine layer: direction=high from OCR flag
         assert v.range_source == "ocr-flag-fallback"
+        assert v.direction == "high"
 
-        # Simulate Stage 3.5 consistency enforcement
-        _WEAK_DIRECTION_SOURCES = {"ocr-flag-fallback"}
-        if (
-            v.range_source in _WEAK_DIRECTION_SOURCES
-            and v.reference_range_low is None
-            and v.reference_range_high is None
-            and v.direction not in ("in-range", "indeterminate")
-        ):
-            v.direction = "indeterminate"
-            v.severity = "normal"
+        # Real stage 3.5 enforcement (exported helper)
+        enforce_direction_consistency(report.values)
         assert v.direction == "indeterminate"
+        assert v.classification_state == "low_confidence"
+        assert v.severity == "normal"
+        assert v.source_flag == "H"
 
     def test_ocr_flag_low_downgraded_to_indeterminate(self, engine):
         """NRBC flag=L, no range → direction=indeterminate."""
+        from lablens.orchestration.pipeline import enforce_direction_consistency
         values = [{
             "test_name": "NRBC",
             "value": 0.0,
@@ -1376,16 +1375,36 @@ class TestDirectionConsistencyEnforcement:
         report = engine.interpret_report(values)
         v = report.values[0]
         assert v.range_source == "ocr-flag-fallback"
+        assert v.direction == "low"
 
-        # Simulate consistency enforcement
-        if (
-            v.range_source == "ocr-flag-fallback"
-            and v.reference_range_low is None
-            and v.reference_range_high is None
-            and v.direction not in ("in-range", "indeterminate")
-        ):
-            v.direction = "indeterminate"
+        enforce_direction_consistency(report.values)
         assert v.direction == "indeterminate"
+        assert v.source_flag == "L"
+
+    def test_egfr_misstamped_flag_suppressed(self, engine):
+        """DiaG CSV regression: eGFR 75 mL/min/1.73m² stamped flag=H but the
+        value is below the normal >90 threshold. Without a numeric range to
+        cross-check, the flag alone is unreliable — suppress the arrow."""
+        from lablens.orchestration.pipeline import enforce_direction_consistency
+        values = [{
+            "test_name": "Estimated Glomerular Filtration Rate (eGFR)",
+            "value": 75.11,
+            "unit": "mL/min/1.73m²",
+            "loinc_code": "33914-3",
+            "flag": "H",
+        }]
+        report = engine.interpret_report(values)
+        v = report.values[0]
+        assert v.range_source == "ocr-flag-fallback"
+
+        enforce_direction_consistency(report.values)
+        # UI must not render an up-arrow on a value that's actually below
+        # the normal threshold. source_flag keeps audit trail.
+        assert v.direction == "indeterminate"
+        assert v.classification_state == "low_confidence"
+        assert v.severity == "normal"
+        assert v.actionability == "routine"
+        assert v.source_flag == "H"
 
     def test_range_text_direction_preserved(self, engine):
         """Range-text direction is NOT downgraded for non-qualitative analytes.
@@ -1495,8 +1514,9 @@ class TestCountGuardsLowConfidence:
         assert v.severity == "normal"
         assert _is_abnormal(v) is False
         assert _is_minor(v) is False
-        # Unclear bucket owns the row via classification_state fallback.
-        assert _is_indeterminate(v) is False  # direction is high, not indet
+        # Round-2: low_confidence rows (even with direction=high) roll
+        # up into the unclear bucket so the UI count matches the CSV.
+        assert _is_indeterminate(v) is True
         # The `_is_classified` gate keeps it out of abnormal even if some
         # future bug leaks a non-normal severity back in:
         v.severity = "mild"
