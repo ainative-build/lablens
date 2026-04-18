@@ -27,16 +27,73 @@ def _normalize_decimal_comma(s: str) -> str:
     return re.sub(r'(\d),(\d{1,2})(?!\d)', r'\1.\2', s)
 
 
+# Pure numeric with European comma decimal: '0,7', '0,1697', '13,0'.
+# Lab values never use comma as a thousands separator in practice
+# (small enough to not need one), so any isolated comma in a
+# whole-number-only string is a decimal separator.
+_PURE_COMMA_NUMERIC = re.compile(r"^\s*(\d+),(\d+)\s*$")
+
+
+def _coerce_lab_numeric(raw) -> float | None:
+    """Parse a lab numeric string/number, tolerating European decimal commas.
+
+    Returns a float on success, None otherwise. Handles:
+    - already-numeric ints/floats (passthrough)
+    - plain '0.7' → 0.7
+    - European '0,7' / '0,1697' / '13,0' → 0.7 / 0.1697 / 13.0
+    - Anything with other chars (units, text, ranges) → None
+    """
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    m = _PURE_COMMA_NUMERIC.match(s)
+    if m:
+        try:
+            return float(f"{m.group(1)}.{m.group(2)}")
+        except ValueError:
+            return None
+    return None
+
+
 def fix_range_fields(v: dict) -> dict:
     """Pre-process reference range fields from LLM output before Pydantic validation.
 
-    Handles cases where the LLM returns range strings instead of separate numbers.
+    Handles cases where the LLM returns range strings instead of separate numbers,
+    and normalizes European decimal-comma notation on both the value and each
+    range bound so downstream float parsing / noise filtering doesn't reject
+    legitimate French-lab rows (e.g. TSH '0,1697' mUI/L).
     """
+    # Normalize value field: European comma-decimal → float.
+    # Without this, '0,1697' fails downstream float() and the noise filter
+    # treats it as an unparseable value → row dropped before interpretation.
+    raw_value = v.get("value")
+    if isinstance(raw_value, str):
+        coerced = _coerce_lab_numeric(raw_value)
+        if coerced is not None:
+            v["value"] = coerced
+
     for field in ("reference_range_low", "reference_range_high"):
         val = v.get(field)
         if val is None or isinstance(val, (int, float)):
             continue
         val = str(val).strip()
+
+        # Pure-numeric (with optional European comma): coerce directly.
+        # LLM often emits the two bounds as separate numeric fields rather
+        # than a combined range string (e.g. French TSH range_low='0,3500').
+        coerced = _coerce_lab_numeric(val)
+        if coerced is not None:
+            v[field] = coerced
+            continue
+
         val = _normalize_decimal_comma(val)
 
         # Try simple "low - high" range pattern
@@ -144,9 +201,15 @@ def validate_range_plausibility(v: dict) -> dict:
             range_span = high - low
             if range_span > 0 and range_mid > 0:
                 ratio = numeric_val / range_mid
-                if ratio > 10 or ratio < 0.1:
+                # Row-swap heuristic: asymmetric thresholds. The upper bound
+                # (10×) still catches gross mismatches (e.g. value 163 grabbed
+                # a platelet/RDW range [9-13] → ratio 15). The lower bound is
+                # relaxed to 0.02 so clinically-legitimate critical-low values
+                # (e.g. French TSH 0.17 vs range 0.35-4.94 → ratio 0.064, a
+                # real hyperthyroid signal) aren't mis-cleared as row-swaps.
+                if ratio > 10 or ratio < 0.02:
                     logger.info(
-                        "Suspicious range for %s: val=%s range=[%s-%s] ratio=%.1f — clearing",
+                        "Suspicious range for %s: val=%s range=[%s-%s] ratio=%.3f — clearing",
                         v.get("test_name", "?"), val, low, high, ratio,
                     )
                     v["reference_range_low"] = None
